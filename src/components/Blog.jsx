@@ -19,6 +19,11 @@ const Blog = ({ onBack, t }) => {
     reviews: { label: t.blog_reviews || 'Hospital Reviews', items: [
       { title: 'Yaoundé Central Hospital Review', excerpt: 'Patient experiences and wait times analyzed.', date: 'Mar 01, 2026', readTime: '5 min' },
       { title: 'Top 5 Pharmacies in Douala', excerpt: 'Where to find the most reliable drug availability.', date: 'Jan 22, 2026', readTime: '7 min' }
+    ]},
+    classifieds: { label: t.blog_classifieds || 'Classifieds', items: [
+      { title: 'Hiring: General Practitioner in Bamenda', excerpt: 'New clinic seeking full-time staff. Competitive salary.', date: 'Mar 13, 2026', readTime: '1 min' },
+      { title: 'For Sale: Portable Ultrasound Machine', excerpt: 'Gently used Sonosite Edge II. Contact Dr. Ndi.', date: 'Mar 11, 2026', readTime: '2 min' },
+      { title: 'New Service: Mobile Lab Testing', excerpt: 'Rapid diagnostics now available at your doorstep in Buea.', date: 'Mar 08, 2026', readTime: '3 min' }
     ]}
   };
 

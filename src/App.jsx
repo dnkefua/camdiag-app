@@ -105,6 +105,7 @@ const App = () => {
       blog_developments: 'Developments',
       blog_innovations: 'Innovations',
       blog_reviews: 'Reviews',
+      blog_classifieds: 'Classifieds',
       coming_up_title: 'Coming Up'
     },
     fr: {
@@ -195,6 +196,7 @@ const App = () => {
       blog_developments: 'Développements',
       blog_innovations: 'Innovations',
       blog_reviews: 'Avis',
+      blog_classifieds: 'Petites Annonces',
       coming_up_title: 'À Venir'
     }
   };
