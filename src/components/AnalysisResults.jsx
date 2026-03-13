@@ -212,15 +212,33 @@ const AnalysisResults = ({ onNext, onBack, onNavigate, t }) => {
 
         {/* Footer Actions */}
         <div className="pt-2 pb-8 space-y-3">
-          <button className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
-            {t.download_pdf}
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button className="w-full bg-slate-900 justify-center text-white text-xs font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path></svg>
+              {t.download_pdf}
+            </button>
+            <button 
+              onClick={() => onNavigate('patients')}
+              className="w-full bg-medical-blue justify-center text-white text-xs font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+              Save to Records
+            </button>
+          </div>
+          
           <button 
             onClick={onNext}
-            className="w-full bg-white text-medical-green border-2 border-medical-green font-bold py-4 rounded-2xl active:bg-medical-green/5 transition-all"
+            className="w-full bg-white text-medical-green border-2 border-medical-green font-bold py-3 rounded-xl active:bg-medical-green/5 transition-all"
           >
             {t.find_clinic}
+          </button>
+          
+          <button 
+            onClick={() => onNavigate('hub')}
+            className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl active:bg-slate-200 transition-all flex justify-center items-center gap-2"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+            Return to Dashboard
           </button>
         </div>
       </main>

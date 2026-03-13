@@ -2,10 +2,10 @@ import React from 'react';
 
 const PatientRecords = ({ onBack, onNavigate, t }) => {
   const history = [
-    { date: 'March 10, 2026', diagnosis: 'Dermatitis (Likely)', id: '8829', status: 'Analyzed', result: '92% Match' },
-    { date: 'February 24, 2026', diagnosis: 'Cataract Check', id: '8814', status: 'Analyzed', result: 'Negative' },
-    { date: 'January 15, 2026', diagnosis: 'Malaria RDT Scan', id: '8792', status: 'Positive', result: 'Stage 1' },
-    { date: 'December 12, 2025', diagnosis: 'Respiratory Syncytial Virus', id: '8645', status: 'Analyzed', result: 'Needs follow-up' },
+    { date: 'March 10, 2026', diagnosis: 'Dermatitis (Likely)', id: '8829', status: 'Analyzed', result: '92% Match', category: 'Camera Scan', bodyPart: 'Arm/Skin Surface' },
+    { date: 'February 24, 2026', diagnosis: 'Cataract Check', id: '8814', status: 'Analyzed', result: 'Negative', category: 'Camera Scan', bodyPart: 'Left Eye' },
+    { date: 'January 15, 2026', diagnosis: 'Malaria RDT Scan', id: '8792', status: 'Positive', result: 'Stage 1', category: 'Lab Document', bodyPart: 'In-Vitro Sample' },
+    { date: 'December 12, 2025', diagnosis: 'Respiratory Syncytial Virus', id: '8645', status: 'Analyzed', result: 'Needs follow-up', category: 'X-Ray Scan', bodyPart: 'Chest / Lungs' },
   ];
 
   return (
@@ -41,8 +41,15 @@ const PatientRecords = ({ onBack, onNavigate, t }) => {
             {history.map((item, idx) => (
               <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group active:bg-slate-50 transition-colors">
                 <div>
-                  <h4 className="font-bold text-slate-800">{item.diagnosis}</h4>
-                  <p className="text-xs text-slate-400">{item.date} • ID: {item.id}</p>
+                  <h4 className="font-bold text-slate-800 leading-tight">{item.diagnosis}</h4>
+                  <div className="flex flex-wrap gap-1 mt-1.5 mb-2">
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.category}</span>
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 px-2 py-0.5 rounded flex items-center gap-1">
+                      <svg className="w-3 h-3 text-medical-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                      {item.bodyPart}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium">{item.date} • ID: {item.id}</p>
                 </div>
                 <div className="text-right">
                   <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${item.status === 'Positive' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
