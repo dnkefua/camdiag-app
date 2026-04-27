@@ -40,7 +40,10 @@ const DiagnosticHub = () => {
               onClick={() => setLanguage('fr')}
               className={`${language === 'fr' ? 'bg-white text-cameroon-green' : 'text-slate-500'} px-3 py-1 rounded-full shadow-sm transition-all`}
             >FR</button>
-            <button className="px-3 py-1 text-slate-500">Local</button>
+            <button
+              onClick={() => setLanguage('fr')}
+              className={`${language === 'fr' ? 'bg-white text-cameroon-green' : 'text-slate-500'} px-3 py-1 rounded-full shadow-sm transition-all`}
+            >Local</button>
           </div>
         </header>
 

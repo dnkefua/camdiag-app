@@ -213,6 +213,7 @@ const Landing = () => {
           <div className="flex bg-white/5 border border-white/10 rounded-full p-1 text-xs font-semibold">
             <button onClick={() => setLanguage('en')} className={`${language === 'en' ? 'bg-white text-black shadow-sm' : 'text-white/40 hover:text-white/60'} px-3 py-1 rounded-full transition-all`}>EN</button>
             <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-white text-black shadow-sm' : 'text-white/40 hover:text-white/60'} px-3 py-1 rounded-full transition-all`}>FR</button>
+            <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-white text-black shadow-sm' : 'text-white/40 hover:text-white/60'} px-3 py-1 rounded-full transition-all`}>Local</button>
           </div>
           <motion.button
             onClick={() => setShowLogin(true)}
