@@ -1,22 +1,18 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
+import { onAuthStateChanged, type User, type ConfirmationResult } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  type User,
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+  loginWithEmail,
+  registerWithEmail,
+  logout as authLogout,
+  getUserProfile,
+  loginWithPhone,
+  confirmPhoneCode as confirmCode,
+  type AppUser,
+} from '../services/auth';
 
-export interface AppUser {
-  uid: string;
-  email: string;
-  name: string;
-  initials: string;
-  role: 'doctor' | 'nurse' | 'admin';
-}
+export type { AppUser };
 
 interface AuthContextValue {
   user: AppUser | null;
@@ -25,6 +21,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
+  loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
+  confirmPhoneCode: (confirmationResult: ConfirmationResult, code: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -35,31 +33,12 @@ export const AuthContext = createContext<AuthContextValue>({
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  loginWithPhone: async () => ({} as ConfirmationResult),
+  confirmPhoneCode: async () => {},
   isLoading: true,
 });
 
 export const useAuth = () => useContext(AuthContext);
-
-const mapFirebaseUser = async (fbUser: User): Promise<AppUser> => {
-  const docRef = doc(db, 'users', fbUser.uid);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    return docSnap.data() as AppUser;
-  }
-
-  const name = fbUser.email?.split('@')[0]?.replace(/[._]/g, ' ') || 'User';
-  const initials = name.substring(0, 2).toUpperCase();
-  const appUser: AppUser = {
-    uid: fbUser.uid,
-    email: fbUser.email || '',
-    name,
-    initials,
-    role: 'doctor',
-  };
-  await setDoc(docRef, { ...appUser, createdAt: serverTimestamp() });
-  return appUser;
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -71,13 +50,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
         try {
-          const appUser = await mapFirebaseUser(fbUser);
+          const appUser = await getUserProfile(fbUser);
           setUser(appUser);
           localStorage.setItem('camdiag_user', JSON.stringify(appUser));
         } catch {
           const name = fbUser.email?.split('@')[0]?.replace(/[._]/g, ' ') || 'User';
           const initials = name.substring(0, 2).toUpperCase();
-          setUser({ uid: fbUser.uid, email: fbUser.email || '', name, initials, role: 'doctor' });
+          setUser({ uid: fbUser.uid, email: fbUser.email || '', name, initials, role: 'doctor', createdAt: null });
         }
       } else {
         setUser(null);
@@ -90,27 +69,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-    const appUser = await mapFirebaseUser(credential.user);
+    const appUser = await loginWithEmail(email, password);
     setUser(appUser);
   };
 
   const register = async (email: string, password: string, name: string) => {
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
-    const initials = name.substring(0, 2).toUpperCase();
-    const appUser: AppUser = { uid: credential.user.uid, email, name, initials, role: 'doctor' };
-    await setDoc(doc(db, 'users', credential.user.uid), { ...appUser, createdAt: serverTimestamp() });
+    const appUser = await registerWithEmail(email, password, name);
     setUser(appUser);
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await authLogout();
     setUser(null);
     localStorage.removeItem('camdiag_user');
   };
 
+  const handleLoginWithPhone = async (phoneNumber: string): Promise<ConfirmationResult> => {
+    return loginWithPhone(phoneNumber);
+  };
+
+  const handleConfirmPhoneCode = async (confirmationResult: ConfirmationResult, code: string) => {
+    const appUser = await confirmCode(confirmationResult, code);
+    setUser(appUser);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, isAuthenticated: !!user, login, register, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        firebaseUser,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+        loginWithPhone: handleLoginWithPhone,
+        confirmPhoneCode: handleConfirmPhoneCode,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

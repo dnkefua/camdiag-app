@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import type { Language } from '../types';
 import en from '../i18n/en.json';
 import fr from '../i18n/fr.json';
+import pcm from '../i18n/pcm.json';
 
 type TranslationKeys = keyof typeof en;
 type Translations = Record<TranslationKeys, string>;
 
-const translations: Record<Language, Translations> = { en, fr };
+const translations: Record<Language, Translations> = { en, fr, pcm };
 
 interface LanguageContextValue {
   language: Language;

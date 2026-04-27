@@ -88,13 +88,15 @@ const Scanner = () => {
         </div>
         <button
           onClick={() => setFlashOn(!flashOn)}
+          aria-label="Toggle flash"
           className={`p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10 ${flashOn ? 'opacity-100' : 'opacity-60'}`}
         >
           <FlashIcon className={flashOn ? 'h-6 w-6 text-yellow-400' : 'h-6 w-6'} />
         </button>
       </header>
 
-      <main className="flex-grow relative overflow-hidden viewfinder-bg flex items-center justify-center">
+      <main aria-labelledby="scanner-heading" className="flex-grow relative overflow-hidden viewfinder-bg flex items-center justify-center">
+        <h2 id="scanner-heading" className="sr-only">{t.scan}</h2>
         {showError && (
           <div className="absolute top-1/4 left-0 right-0 z-50 flex justify-center px-6 animate-pulse">
             <div className="bg-red-500/90 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md border border-red-400 text-center">
@@ -135,7 +137,7 @@ const Scanner = () => {
       </main>
 
       <footer className="bg-black/90 pb-10 pt-6 px-8 flex items-center justify-between">
-        <button className="flex flex-col items-center space-y-1 group">
+        <button aria-label="Open gallery" className="flex flex-col items-center space-y-1 group">
           <div className="p-3 rounded-full bg-white/10 group-active:bg-white/20 transition-colors">
             <ImageIcon />
           </div>

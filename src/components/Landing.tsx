@@ -66,9 +66,10 @@ const Landing = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [isRegister, setIsRegister] = useState(false);
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [error, setError] = useState('');
   const [showLogin, setShowLogin] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
@@ -84,7 +85,7 @@ const Landing = () => {
     e.preventDefault();
     setError('');
     try {
-      if (isRegister) {
+      if (authTab === 'register') {
         await register(email, password, name || email.split('@')[0] || 'User');
       } else {
         await login(email, password);
@@ -100,6 +101,7 @@ const Landing = () => {
     setEmail('');
     setPassword('');
     setName('');
+    setAuthTab('login');
     setIsRegister(false);
   };
 
@@ -201,6 +203,7 @@ const Landing = () => {
 
       {/* Nav */}
       <motion.nav
+        aria-label="Main navigation"
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -462,13 +465,12 @@ const Landing = () => {
       </section>
 
       {/* Features */}
-      <section id="features" className="relative z-10 px-6 md:px-12 py-24 max-w-6xl mx-auto">
+      <section id="features" aria-labelledby="features-heading" className="relative z-10 px-6 md:px-12 py-24 max-w-6xl mx-auto">
         <motion.div {...useAppearOnScroll()} className="text-center mb-20">
           <p className="text-sm font-bold text-medical-green uppercase tracking-[0.2em] mb-5">
             {language === 'fr' ? 'Fonctionnalités' : 'Features'}
           </p>
-          <h2 className="text-5xl md:text-6xl font-black tracking-tight">
-            {language === 'fr' ? 'Tout ce dont vous avez besoin' : 'Everything you need'}
+          <h2 id="features-heading" className="text-5xl md:text-6xl font-black tracking-tight">
           </h2>
           <p className="text-white/30 text-lg mt-6 max-w-xl mx-auto leading-relaxed">
             {language === 'fr'
@@ -503,7 +505,7 @@ const Landing = () => {
       </section>
 
       {/* AI Section with parallax reveal */}
-      <section id="ai" className="relative z-10 px-6 md:px-12 py-28">
+      <section id="ai" aria-labelledby="ai-heading" className="relative z-10 px-6 md:px-12 py-28">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, x: -60, filter: 'blur(10px)' }}
@@ -520,7 +522,7 @@ const Landing = () => {
             >
               Google MedGemma
             </motion.p>
-            <h2 className="text-5xl md:text-6xl font-black tracking-tight mb-6">
+            <h2 id="ai-heading" className="text-5xl md:text-6xl font-black tracking-tight mb-6">
               {language === 'fr' ? 'IA Médicale de' : 'Medical-Grade'}{' '}
               <span className="bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
                 {language === 'fr' ? 'Qualité Médicale' : 'AI Power'}
@@ -631,14 +633,13 @@ const Landing = () => {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="relative z-10 px-6 md:px-12 py-28 border-t border-white/[0.04]">
+      <section id="testimonials" aria-labelledby="testimonials-heading" className="relative z-10 px-6 md:px-12 py-28 border-t border-white/[0.04]">
         <div className="max-w-6xl mx-auto">
           <motion.div {...useAppearOnScroll()} className="text-center mb-20">
             <p className="text-sm font-bold text-medical-green uppercase tracking-[0.2em] mb-5">
               {language === 'fr' ? 'Témoignages' : 'Testimonials'}
             </p>
-            <h2 className="text-5xl md:text-6xl font-black tracking-tight">
-              {language === 'fr' ? 'Approuvé par les médecins' : 'Trusted by doctors'}
+            <h2 id="testimonials-heading" className="text-5xl md:text-6xl font-black tracking-tight">
             </h2>
           </motion.div>
 
@@ -774,6 +775,7 @@ const Landing = () => {
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                   <input
                     type="text"
+                    aria-label="Name"
                     placeholder={language === 'fr' ? 'Votre nom' : 'Your name'}
                     className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
                     value={name}
@@ -785,6 +787,7 @@ const Landing = () => {
               <div>
                 <input
                   type="email"
+                  aria-label="Email"
                   placeholder={t.email_placeholder}
                   className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
                   value={email}
@@ -795,6 +798,7 @@ const Landing = () => {
               <div>
                 <input
                   type="password"
+                  aria-label="Password"
                   placeholder={t.password_placeholder}
                   className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
                   value={password}

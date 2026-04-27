@@ -3,6 +3,9 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  type ConfirmationResult,
   type User,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -72,4 +75,33 @@ export const onAuthChange = (callback: (user: AppUser | null) => void) => {
       callback(null);
     }
   });
+};
+
+let recaptchaVerifier: RecaptchaVerifier | null = null;
+
+export const getRecaptchaVerifier = (): RecaptchaVerifier => {
+  if (!recaptchaVerifier) {
+    recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => {},
+    });
+  }
+  return recaptchaVerifier;
+};
+
+export const loginWithPhone = async (phoneNumber: string): Promise<ConfirmationResult> => {
+  const verifier = getRecaptchaVerifier();
+  return signInWithPhoneNumber(auth, phoneNumber, verifier);
+};
+
+export const confirmPhoneCode = async (confirmationResult: ConfirmationResult, code: string): Promise<AppUser> => {
+  const credential = await confirmationResult.confirm(code);
+  return getUserProfile(credential.user);
+};
+
+export const clearRecaptcha = () => {
+  if (recaptchaVerifier) {
+    recaptchaVerifier.clear();
+    recaptchaVerifier = null;
+  }
 };

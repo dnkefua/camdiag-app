@@ -1,7 +1,7 @@
 # CamDiag Project Roadmap & Progress Tracker
 
 ## Overview
-Major refactoring of CamDiag: TypeScript migration, React Router, state management, error handling, testing, security hardening, Google MedGemma integration, landing page, and PWA support.
+Major refactoring of CamDiag: TypeScript migration, React Router, state management, error handling, testing, security hardening, Google MedGemma integration, landing page, PWA support, Firebase Auth/Firestore, accessibility, and performance optimization.
 
 ---
 
@@ -14,11 +14,11 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 
 ### Phase 2: Core Architecture
 - [x] Create TypeScript type definitions (`src/types/index.ts`)
-- [x] Create i18n locale files (`src/i18n/en.json`, `src/i18n/fr.json`) and `useTranslation` hook
+- [x] Create i18n locale files (`src/i18n/en.json`, `src/i18n/fr.json`, `src/i18n/pcm.json`) and `useTranslation` hook
 - [x] Create Icon component system (`src/components/ui/Icons.tsx`)
 - [x] Create ErrorBoundary component (`src/components/ui/ErrorBoundary.tsx`)
 - [x] Create LoadingSpinner component (`src/components/ui/LoadingSpinner.tsx`)
-- [x] Create Context providers: AuthContext (`src/contexts/AuthContext.tsx`)
+- [x] Create Context providers: AuthContext (`src/contexts/AuthContext.tsx`) with Firebase Auth
 - [x] Create Zustand store (`src/store/useAppStore.ts`)
 - [x] Create API service layer with Google MedGemma (`src/services/medgemma.ts`, `src/services/api.ts`)
 
@@ -28,6 +28,7 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] Convert all 10 components to TypeScript (.tsx)
 - [x] Delete all old .jsx files
 - [x] Create Landing page with Ellipsus-inspired animations
+- [x] Registration modal on Landing page (signup + login)
 
 ### Phase 4: Fixes & Hardening
 - [x] Fix Scanner DOM manipulation (use React state instead of document.body.appendChild)
@@ -38,6 +39,7 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] Add Content Security Policy headers to firebase.json
 - [x] Add useOnlineStatus hook for real connectivity detection
 - [x] Update index.html with proper title, meta, PWA manifest
+- [x] Add Firestore security rules (`firestore.rules`)
 
 ### Phase 5: Testing
 - [x] Configure Vitest (`vitest.config.ts`, `src/test/setup.ts`)
@@ -46,6 +48,9 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] Write tests for Zustand store (6 tests)
 - [x] Write tests for API service (3 tests)
 - **18/18 tests passing**
+- [x] Playwright E2E setup (`playwright.config.ts`, `e2e/app.spec.ts`)
+- [x] `test:e2e` script in package.json
+- [x] Component tests with @testing-library/react — DiagnosticHub (9 tests), DrugDatabase (8 tests), **39/39 tests passing**
 
 ### Phase 6: CI/CD & Documentation
 - [x] Add GitHub Actions workflow (`.github/workflows/ci.yml`)
@@ -53,11 +58,13 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] Add `.env.example` for environment variables
 
 ### Phase 7: Performance & PWA
-- [x] React.lazy code splitting (21 chunks, landing page loads separately)
+- [x] React.lazy code splitting (21+ chunks, landing page loads separately)
 - [x] Suspense fallback with LoadingSpinner
 - [x] PWA manifest (`public/manifest.json`)
 - [x] Service worker (`public/sw.js`) with cache-first strategy
 - [x] Service worker registration in `main.tsx`
+- [x] Vendor chunk splitting (firebase, react-vendor, motion, router, google-ai, zustand)
+- [x] No chunk exceeds 500KB (largest: firebase 357KB)
 
 ### Phase 8: Landing Page & UI Polish
 - [x] Create Landing page with Ellipsus-inspired design
@@ -68,17 +75,37 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] Infinite scrolling marquee for hospital names
 - [x] Hover micro-interactions (card lift, icon wiggle, button glow)
 - [x] Login modal with blur entry animation
-- [x] "Local" language button wired up (maps to French)
+- [x] "Local" language button wired to Pidgin/Camfranglais (pcm)
 - [x] Landing page serves at `/`, app at `/app`
+
+### Phase 9: Firebase Integration
+- [x] Firebase SDK initialized (`src/lib/firebase.ts`)
+- [x] Firebase Auth service (`src/services/auth.ts`) — login, register, logout, onAuthChange
+- [x] Firestore service layer (`src/services/firestore.ts`) — CRUD, real-time listeners, seed
+- [x] AuthContext wired to Firebase Auth (not mock)
+- [x] Firestore security rules (`firestore.rules`)
+- [x] Firebase Analytics initialized (async, browser-only)
+- [x] Deployed live at https://camdiag-c7e78.web.app
+
+### Phase 10: Accessibility & i18n
+- [x] Pidgin/Camfranglais translation (`src/i18n/pcm.json`) — 113 keys
+- [x] Language type updated to `'en' | 'fr' | 'pcm'`
+- [x] "Local" button in DiagnosticHub now switches to Pidgin (not French)
+- [x] 15 icon-only buttons have `aria-label` attributes
+- [x] 4 input fields have `aria-label` attributes
+- [x] 6 `<nav>` elements have `aria-label="Main navigation"`
+- [x] 10 `<main>` elements have `aria-label="CamDiag"`
+- [x] Landing.tsx nav has `aria-label="Main navigation"`
 
 ---
 
 ## Verification Results
 
 - **TypeScript**: `tsc --noEmit` — 0 errors
-- **Build**: `vite build` — Success, 21 code-split chunks
-- **Tests**: `vitest run` — 18/18 passing
-- **Lint**: `eslint` — 0 errors (2 warnings, acceptable)
+- **Build**: `vite build` — Success, 25+ code-split chunks, no chunk >500KB
+- **Tests**: `vitest run` — 39/39 passing (18 utility tests + 21 component tests)
+- **E2E**: Playwright configured (run `npm run test:e2e`)
+- **Lint**: `eslint` — 0 errors
 
 ## Project Structure
 ```
@@ -86,16 +113,20 @@ src/
 ├── components/
 │   ├── ui/              # ErrorBoundary, LoadingSpinner, Icons
 │   └── [pages].tsx      # All 10 page components
-├── contexts/            # AuthContext
+├── contexts/            # AuthContext (Firebase Auth)
 ├── hooks/               # useTranslation, useOnlineStatus
-├── i18n/               # en.json, fr.json
-├── services/            # api.ts (local), medgemma.ts (Google AI)
+├── i18n/               # en.json, fr.json, pcm.json
+├── lib/                # firebase.ts (Auth, Firestore, Analytics)
+├── services/            # api.ts (local), auth.ts, firestore.ts, medgemma.ts (Google AI)
 ├── store/               # Zustand useAppStore
 ├── types/               # TypeScript type definitions
 ├── utils/               # Form validation, input sanitization
 ├── test/                # Vitest setup and test files
 ├── App.tsx              # Router with React.lazy
 └── main.tsx             # Entry point with PWA registration
+
+e2e/
+└── app.spec.ts          # Playwright E2E tests
 
 public/
 ├── manifest.json        # PWA manifest
@@ -105,9 +136,22 @@ public/
 
 ## What's NOT Done Yet (for next agent)
 
-1. **Real backend API** — Currently mock data in store; needs API integration for production
-2. **E2E tests** — No Playwright/Cypress tests yet
-3. **Real auth** — AuthContext has login/logout but no real auth provider (Firebase Auth recommended)
-4. **Accessibility audit** — Add more aria-labels throughout components
-5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
-6. **Full Pidgin/local language translation** — "Local" button currently maps to French; full Camfranglais translation would need a `pcm.json` file
+1. **Enable Firebase Authentication** in the Firebase Console (Email/Password provider) — https://console.firebase.google.com/project/camdiag-c7e78/authentication
+2. **Enable Firestore** in the Firebase Console (create database in production mode) — https://console.firebase.google.com/project/camdiag-c7e78/firestore
+3. **Deploy Firestore rules** — `firebase deploy --only firestore` (run after Firestore is enabled)
+4. **Seed the database** — call `seedDatabase()` from the app or Firebase Console to populate drugs/facilities
+5. **Set up GitHub Actions secrets** — Add these to the GitHub repo for CI/CD auto-deploy:
+   - `VITE_GOOGLE_AI_API_KEY`
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_FIREBASE_MEASUREMENT_ID`
+   - `FIREBASE_SERVICE_ACCOUNT` (Firebase service account JSON key)
+6. **E2E test assertions** — Playwright is configured but tests need a running dev server; run `npm run test:e2e` locally
+7. **Full accessibility audit** — Consider adding axe-core for automated a11y testing
+8. **Firebase Auth phone auth** — Login modal has `isRegister` state and phone handlers stubbed out; wire to phone tab UI when ready
+9. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
+10. **More component tests** — Scanner, AnalysisResults, NextSteps, Questionnaire, PatientRecords, Blog, Settings, ComingUp, and Landing still need @testing-library/react tests

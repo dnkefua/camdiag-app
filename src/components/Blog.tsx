@@ -35,7 +35,7 @@ const Blog = () => {
   return (
     <div className="bg-slate-50 min-h-screen pb-20 font-sans text-slate-900 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button onClick={() => navigate('/app')} className="text-slate-600 p-1 active:scale-95 transition-transform">
+        <button onClick={() => navigate('/app')} aria-label="Back" className="text-slate-600 p-1 active:scale-95 transition-transform">
           <BackIcon />
         </button>
         <h1 className="text-xl font-bold text-cameroon-green">{t.blog_title}</h1>
@@ -57,7 +57,8 @@ const Blog = () => {
         </div>
       </section>
 
-      <main className="flex-grow p-4 space-y-4 max-w-lg mx-auto w-full">
+      <main aria-labelledby="blog-heading" className="flex-grow p-4 space-y-4 max-w-lg mx-auto w-full">
+        <h2 id="blog-heading" className="sr-only">Blog</h2>
         <div className="space-y-4">
           {categories[activeTab]?.items.map((item, idx) => (
             <article key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-2">

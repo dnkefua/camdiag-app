@@ -47,14 +47,14 @@ const ComingUp = () => {
       </div>
 
       <header className="relative z-20 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate('/app')} className="bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/20 active:scale-95 transition-transform">
+        <button onClick={() => navigate('/app')} aria-label="Back" className="bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/20 active:scale-95 transition-transform">
           <BackIcon />
         </button>
         <h1 className="text-sm font-bold tracking-widest uppercase opacity-80">{t.coming_up_title}</h1>
         <div className="w-10"></div>
       </header>
 
-      <main className="flex-grow flex items-center justify-center p-6 relative z-10">
+      <main aria-labelledby="comingup-heading" className="flex-grow flex items-center justify-center p-6 relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -69,7 +69,7 @@ const ComingUp = () => {
                 {slides[currentSlide]?.icon}
               </div>
               <div>
-                <h2 className="text-3xl font-black leading-tight mb-2 tracking-tight">{slides[currentSlide]?.title}</h2>
+                <h2 id="comingup-heading" className="text-3xl font-black leading-tight mb-2 tracking-tight">{slides[currentSlide]?.title}</h2>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-white/70">{slides[currentSlide]?.subtitle}</h3>
               </div>
             </div>
@@ -82,13 +82,13 @@ const ComingUp = () => {
       </main>
 
       <footer className="relative z-20 pb-10 px-6 flex items-center justify-between">
-        <button onClick={prevSlide} className="p-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
+        <button onClick={prevSlide} aria-label="Previous slide" className="p-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
           <BackIcon />
         </button>
         <div className="flex gap-3 text-sm font-bold tracking-widest uppercase text-white/50">
           Slide {currentSlide + 1} / {slides.length}
         </div>
-        <button onClick={nextSlide} className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20">
+        <button onClick={nextSlide} aria-label="Next slide" className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
         </button>
       </footer>

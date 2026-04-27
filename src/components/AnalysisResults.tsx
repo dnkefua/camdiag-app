@@ -20,7 +20,7 @@ const AnalysisResults = () => {
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/scanner')} className="text-slate-600 p-1 active:scale-90 transition-transform">
+          <button onClick={() => navigate('/scanner')} aria-label="Back" className="text-slate-600 p-1 active:scale-90 transition-transform">
             <BackIcon />
           </button>
           <h1 className="text-xl font-bold text-cameroon-green">{t.analysis_title}</h1>
@@ -54,7 +54,8 @@ const AnalysisResults = () => {
         </div>
       )}
 
-      <main className="p-5 space-y-6 max-w-lg mx-auto w-full">
+      <main aria-labelledby="analysis-heading" className="p-5 space-y-6 max-w-lg mx-auto w-full">
+        <h2 id="analysis-heading" className="sr-only">{t.analysis_title}</h2>
         <section
           onClick={() => navigate('/questionnaire')}
           className="bg-gradient-to-r from-cameroon-green to-medical-green p-4 rounded-3xl text-white shadow-lg cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between group"

@@ -33,7 +33,7 @@ const NextSteps = () => {
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/app')} className="text-slate-600 p-1 active:scale-95 transition-transform">
+          <button onClick={() => navigate('/app')} aria-label="Back" className="text-slate-600 p-1 active:scale-95 transition-transform">
             <BackIcon />
           </button>
           <h1 className="text-xl font-bold text-blue-900">{t.next_steps}</h1>
@@ -46,7 +46,7 @@ const NextSteps = () => {
         </button>
       </header>
 
-      <main className="flex-grow p-4 space-y-6 max-w-lg mx-auto w-full">
+      <main aria-labelledby="nextsteps-heading" className="flex-grow p-4 space-y-6 max-w-lg mx-auto w-full">
         {showMap ? (
           <section className="space-y-4">
             <div className="bg-white p-2 rounded-[3.5rem] shadow-2xl border-4 border-white overflow-hidden relative aspect-[9/12]">
@@ -74,7 +74,7 @@ const NextSteps = () => {
             <section className="bg-gradient-to-br from-blue-700 to-indigo-900 text-white p-6 rounded-3xl shadow-xl">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h2 className="text-lg font-bold opacity-90">{t.scan_summary}</h2>
+                  <h2 id="nextsteps-heading" className="text-lg font-bold opacity-90">{t.scan_summary}</h2>
                   <p className="text-xs opacity-70">{t.scanned_time}</p>
                 </div>
                 <span className="bg-white/20 px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase">ID: 8829</span>
@@ -141,12 +141,12 @@ const NextSteps = () => {
         </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 px-8 py-4 flex justify-between items-center z-30">
-        <button onClick={() => navigate('/app')} className="text-slate-400 active:scale-90 transition-transform"><HomeIcon /></button>
-        <button onClick={() => navigate('/scanner')} className="bg-medical-green w-14 h-14 rounded-[1.5rem] shadow-xl shadow-medical-green/40 flex items-center justify-center text-white active:scale-95 transition-all -mt-12 border-4 border-slate-50">
+      <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 px-8 py-4 flex justify-between items-center z-30">
+        <button onClick={() => navigate('/app')} aria-label="Home" className="text-slate-400 active:scale-90 transition-transform"><HomeIcon /></button>
+        <button onClick={() => navigate('/scanner')} aria-label="New scan" className="bg-medical-green w-14 h-14 rounded-[1.5rem] shadow-xl shadow-medical-green/40 flex items-center justify-center text-white active:scale-95 transition-all -mt-12 border-4 border-slate-50">
           <PlusIcon />
         </button>
-        <button onClick={() => navigate('/patients')} className="text-slate-400 active:scale-90 transition-transform"><UsersIcon /></button>
+        <button onClick={() => navigate('/patients')} aria-label="Patients" className="text-slate-400 active:scale-90 transition-transform"><UsersIcon /></button>
       </nav>
     </div>
   );

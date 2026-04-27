@@ -10,9 +10,9 @@ const DiagnosticHub = () => {
   const isOnline = useOnlineStatus();
 
   const recentScans = [
-    { id: 8829, title: language === 'en' ? 'Dermatitis (Likely)' : 'Dermatite (Probable)', date: 'Today, 10:45 AM', match: language === 'en' ? '92% Match' : '92% Concordance' },
-    { id: 8814, title: language === 'en' ? 'Cataract Check' : 'Contrôle de Cataracte', date: 'Yesterday, 4:20 PM', match: language === 'en' ? 'Analyzed' : 'Analysé' },
-    { id: 8792, title: language === 'en' ? 'Malaria RDT Scan' : 'Test Rapide Paludisme', date: 'Oct 24, 2023', match: language === 'en' ? 'Positive' : 'Positif' },
+    { id: 8829, title: language === 'en' ? 'Dermatitis (Likely)' : language === 'fr' ? 'Dermatite (Probable)' : 'Dermatitis (E sure)', date: 'Today, 10:45 AM', match: language === 'en' ? '92% Match' : language === 'fr' ? '92% Concordance' : '92% Sure' },
+    { id: 8814, title: language === 'en' ? 'Cataract Check' : language === 'fr' ? 'Contrôle de Cataracte' : 'Cataract Check', date: 'Yesterday, 4:20 PM', match: language === 'en' ? 'Analyzed' : language === 'fr' ? 'Analysé' : 'We check am' },
+    { id: 8792, title: language === 'en' ? 'Malaria RDT Scan' : language === 'fr' ? 'Test Rapide Paludisme' : 'Malaria RDT Scan', date: 'Oct 24, 2023', match: language === 'en' ? 'Positive' : language === 'fr' ? 'Positif' : 'E positive' },
   ];
 
   const pageVariants = {
@@ -41,8 +41,8 @@ const DiagnosticHub = () => {
               className={`${language === 'fr' ? 'bg-white text-cameroon-green' : 'text-slate-500'} px-3 py-1 rounded-full shadow-sm transition-all`}
             >FR</button>
             <button
-              onClick={() => setLanguage('fr')}
-              className={`${language === 'fr' ? 'bg-white text-cameroon-green' : 'text-slate-500'} px-3 py-1 rounded-full shadow-sm transition-all`}
+              onClick={() => setLanguage('pcm')}
+              className={`${language === 'pcm' ? 'bg-white text-cameroon-green' : 'text-slate-500'} px-3 py-1 rounded-full shadow-sm transition-all`}
             >Local</button>
           </div>
         </header>
@@ -54,10 +54,10 @@ const DiagnosticHub = () => {
           </div>
         )}
 
-        <main className="flex-grow p-5 space-y-8 overflow-y-auto">
+        <main aria-labelledby="hub-heading" className="flex-grow p-5 space-y-8 overflow-y-auto">
           <section className="space-y-1">
             <p className="text-slate-500 font-medium">{t.hub_greeting}</p>
-            <h2 className="text-2xl font-bold text-slate-800">{t.hub_title}</h2>
+            <h2 id="hub-heading" className="text-2xl font-bold text-slate-800">{t.hub_title}</h2>
           </section>
 
           <section className="space-y-4">
@@ -132,7 +132,7 @@ const DiagnosticHub = () => {
           </section>
         </main>
 
-        <nav className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom">
+        <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom">
           <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-cameroon-green">
             <HomeIcon />
             <span className="text-[10px] font-bold">{t.home}</span>

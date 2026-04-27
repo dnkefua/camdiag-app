@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { MedGemmaAnalysisRequest, MedGemmaAnalysisResponse, Language } from '../types';
+import { getActiveModel } from './model-config';
 
 const API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY;
+const MODEL_ID = getActiveModel();
 
 const SYSTEM_PROMPT = `You are MedGemma, a medical AI assistant integrated into CamDiag, a diagnostic support app for Cameroon healthcare workers. 
 
@@ -43,7 +45,7 @@ const getClient = (): GoogleGenerativeAI => {
 
 export const analyzeMedicalImage = async (request: MedGemmaAnalysisRequest): Promise<MedGemmaAnalysisResponse> => {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = client.getGenerativeModel({ model: MODEL_ID });
 
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
     { text: SYSTEM_PROMPT },
@@ -83,7 +85,7 @@ export const analyzeMedicalImage = async (request: MedGemmaAnalysisRequest): Pro
 
 export const checkDrugInteractions = async (drugs: string[], language: Language): Promise<string> => {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = client.getGenerativeModel({ model: MODEL_ID });
 
   const result = await model.generateContent([
     { text: SYSTEM_PROMPT },
@@ -97,7 +99,7 @@ export const checkDrugInteractions = async (drugs: string[], language: Language)
 
 export const searchMedicationInfo = async (medicationName: string, language: Language): Promise<string> => {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = client.getGenerativeModel({ model: MODEL_ID });
 
   const result = await model.generateContent([
     { text: SYSTEM_PROMPT },
