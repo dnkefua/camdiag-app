@@ -62,9 +62,12 @@ const Marquee = ({ children, speed = 30 }: { children: ReactNode; speed?: number
 const Landing = () => {
   const navigate = useNavigate();
   const { t, language, setLanguage } = useTranslation();
-  const { isAuthenticated, login, isLoading } = useAuth();
+  const { isAuthenticated, login, register, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
+  const [error, setError] = useState('');
   const [showLogin, setShowLogin] = useState(false);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
@@ -79,7 +82,25 @@ const Landing = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
+    setError('');
+    try {
+      if (isRegister) {
+        await register(email, password, name || email.split('@')[0] || 'User');
+      } else {
+        await login(email, password);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
+    }
+  };
+
+  const closeModal = () => {
+    setShowLogin(false);
+    setError('');
+    setEmail('');
+    setPassword('');
+    setName('');
+    setIsRegister(false);
   };
 
   const features = [
@@ -724,26 +745,44 @@ const Landing = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6"
-          onClick={() => setShowLogin(false)}
+          onClick={closeModal}
         >
           <motion.div
             initial={{ scale: 0.9, y: 30, opacity: 0, filter: 'blur(10px)' }}
             animate={{ scale: 1, y: 0, opacity: 1, filter: 'blur(0px)' }}
             exit={{ scale: 0.9, y: 30, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.4, ease: CUSTOM_EASE }}
             className="bg-slate-900/95 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black">{t.welcome_back}</h2>
-              <motion.button onClick={() => setShowLogin(false)} className="text-white/30 hover:text-white transition-colors" whileHover={{ rotate: 90 }} transition={{ duration: 0.2 }}>
+              <h2 className="text-2xl font-black">{isRegister ? (language === 'fr' ? 'Créer un compte' : 'Create Account') : t.welcome_back}</h2>
+              <motion.button onClick={closeModal} className="text-white/30 hover:text-white transition-colors" whileHover={{ rotate: 90 }} transition={{ duration: 0.2 }}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </motion.button>
             </div>
-            <p className="text-white/30 text-sm mb-8">{t.login_subtitle}</p>
+            <p className="text-white/30 text-sm mb-6">{isRegister ? (language === 'fr' ? 'Rejoignez CamDiag pour accéder au diagnostic IA' : 'Join CamDiag to access AI diagnostics') : t.login_subtitle}</p>
+
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-2 mb-4">
+                {error}
+              </motion.div>
+            )}
 
             <form onSubmit={handleLogin} className="space-y-4">
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+              {isRegister && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                  <input
+                    type="text"
+                    placeholder={language === 'fr' ? 'Votre nom' : 'Your name'}
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required={isRegister}
+                  />
+                </motion.div>
+              )}
+              <div>
                 <input
                   type="email"
                   placeholder={t.email_placeholder}
@@ -752,8 +791,8 @@ const Landing = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-              </motion.div>
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}>
+              </div>
+              <div>
                 <input
                   type="password"
                   placeholder={t.password_placeholder}
@@ -762,7 +801,7 @@ const Landing = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </motion.div>
+              </div>
               <motion.button
                 type="submit"
                 disabled={isLoading}
@@ -770,18 +809,27 @@ const Landing = () => {
                 whileHover={{ boxShadow: '0 0 40px rgba(16,185,129,0.3)' }}
                 whileTap={{ scale: 0.98 }}
               >
-                {isLoading ? '...' : t.login}
+                {isLoading ? '...' : (isRegister ? (language === 'fr' ? 'Créer le compte' : 'Create Account') : t.login)}
               </motion.button>
             </form>
 
-            <div className="mt-8 text-center">
-              <motion.button
-                onClick={() => { setShowLogin(false); navigate('/app'); }}
+            <div className="mt-6 text-center space-y-3">
+              <button
+                onClick={() => { setIsRegister(!isRegister); setError(''); }}
+                className="text-white/30 text-sm hover:text-white/50 transition-colors"
+              >
+                {isRegister
+                  ? (language === 'fr' ? 'Déjà un compte ? Se connecter' : 'Already have an account? Log in')
+                  : (language === 'fr' ? 'Pas de compte ? Créer un compte' : "Don't have an account? Sign up")
+                }
+              </button>
+              <br />
+              <button
+                onClick={() => { closeModal(); navigate('/app'); }}
                 className="text-white/25 text-sm hover:text-white/50 transition-colors"
-                whileHover={{ x: 3 }}
               >
                 {language === 'fr' ? 'Continuer sans compte →' : 'Continue without account →'}
-              </motion.button>
+              </button>
             </div>
           </motion.div>
         </motion.div>
