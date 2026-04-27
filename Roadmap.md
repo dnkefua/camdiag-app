@@ -136,22 +136,20 @@ public/
 
 ## What's NOT Done Yet (for next agent)
 
-1. **Enable Firebase Authentication** in the Firebase Console (Email/Password provider) — https://console.firebase.google.com/project/camdiag-c7e78/authentication
-2. **Enable Firestore** in the Firebase Console (create database in production mode) — https://console.firebase.google.com/project/camdiag-c7e78/firestore
-3. **Deploy Firestore rules** — `firebase deploy --only firestore` (run after Firestore is enabled)
-4. **Seed the database** — call `seedDatabase()` from the app or Firebase Console to populate drugs/facilities
-5. **Set up GitHub Actions secrets** — Add these to the GitHub repo for CI/CD auto-deploy:
-   - `VITE_GOOGLE_AI_API_KEY`
-   - `VITE_FIREBASE_API_KEY`
-   - `VITE_FIREBASE_AUTH_DOMAIN`
-   - `VITE_FIREBASE_PROJECT_ID`
-   - `VITE_FIREBASE_STORAGE_BUCKET`
-   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
-   - `VITE_FIREBASE_APP_ID`
-   - `VITE_FIREBASE_MEASUREMENT_ID`
-   - `FIREBASE_SERVICE_ACCOUNT` (Firebase service account JSON key)
-6. **E2E test assertions** — Playwright is configured but tests need a running dev server; run `npm run test:e2e` locally
-7. **Full accessibility audit** — Consider adding axe-core for automated a11y testing
-8. **Firebase Auth phone auth** — Login modal has `isRegister` state and phone handlers stubbed out; wire to phone tab UI when ready
-9. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
-10. **More component tests** — Scanner, AnalysisResults, NextSteps, Questionnaire, PatientRecords, Blog, Settings, ComingUp, and Landing still need @testing-library/react tests
+> **Deployment:** App Hosting is configured (`apphosting.yaml`) and auto-deploys on push. Firebase Console environment variables are set.
+> **CI:** GitHub Actions runs lint → typecheck → tests → build. Still needs VITE_* secrets for a fully-green CI.
+
+1. **Add GitHub Actions secrets** (optional — CI will show warnings but still passes):
+   - `VITE_GOOGLE_AI_API_KEY` — Google AI Studio API key
+   - `VITE_FIREBASE_API_KEY` — Firebase Web app config
+   - `VITE_FIREBASE_AUTH_DOMAIN` — `camdiag-c7e78.firebaseapp.com`
+   - `VITE_FIREBASE_PROJECT_ID` — `camdiag-c7e78`
+   - `VITE_FIREBASE_STORAGE_BUCKET` — `camdiag-c7e78.appspot.com`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID` — Firebase Web app config
+   - `VITE_FIREBASE_APP_ID` — Firebase Web app config
+   - `VITE_FIREBASE_MEASUREMENT_ID` — Optional
+2. **Deploy Firestore rules** — `firebase deploy --only firestore` (run locally with logged-in Firebase CLI)
+3. **Seed the database** — call `seedDatabase()` from the app or Firebase Console to populate drugs/facilities
+4. **Firebase Auth phone auth** — Login modal has `isRegister` state and phone handlers stubbed out; wire to phone tab UI when ready
+5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
+6. **More component tests** — Scanner, AnalysisResults, NextSteps, Questionnaire, PatientRecords, Blog, Settings, ComingUp, and Landing still need @testing-library/react tests
