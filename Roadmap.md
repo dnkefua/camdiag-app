@@ -148,8 +148,33 @@ public/
    - `VITE_FIREBASE_MESSAGING_SENDER_ID` — Firebase Web app config
    - `VITE_FIREBASE_APP_ID` — Firebase Web app config
    - `VITE_FIREBASE_MEASUREMENT_ID` — Optional
-2. **Deploy Firestore rules** — `firebase deploy --only firestore` (run locally with logged-in Firebase CLI)
-3. **Seed the database** — call `seedDatabase()` from the app or Firebase Console to populate drugs/facilities
+2. **Deploy Firestore rules** — ✅ Done. Deployed via `firebase deploy --only firestore`.
+3. **Seed the database** — ❌ Cannot do via CLI (service account key creation restricted by organisation policy). **Workaround:** Add drugs and facilities manually in Firebase Console → Firestore → Add data. See seed data below.
 4. **Firebase Auth phone auth** — Login modal has `isRegister` state and phone handlers stubbed out; wire to phone tab UI when ready
 5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
 6. **More component tests** — Scanner, AnalysisResults, NextSteps, Questionnaire, PatientRecords, Blog, Settings, ComingUp, and Landing still need @testing-library/react tests
+
+### Seed Data (for Firebase Console manual entry)
+
+**Collection: `drugs`**
+| field | value |
+|---|---|
+| name | Coartem (Artemether/Lumefantrine) | Antimalarial | 20mg/120mg | High | First-line treatment for uncomplicated malaria in Cameroon. |
+| name | Paracetamol (Efferalgan) | Analgesic | 500mg/1g | High | Used for fever and pain relief. |
+| name | Fansidar (Sulfadoxine/Pyrimethamine) | Antimalarial | 500mg/25mg | Medium | Used for intermittent preventive treatment in pregnancy. |
+| name | Amoxicillin | Antibiotic | 250mg/500mg | High | Broad-spectrum antibiotic for bacterial infections. |
+| name | Quinine Sulfate | Antimalarial | 300mg | Medium | Used for severe malaria cases. |
+| name | Ciprofloxacine | Antibiotic | 500mg | High | Used for various bacterial infections. |
+| name | Artemisia Annua (Herbal) | Natural | Tea/Leaves | High | Traditional medicinal plant used locally for malaria support. |
+
+**Collection: `facilities`**
+| name | type | distance | rating |
+|---|---|---|---|
+| City General Dermatology | clinic | 1.2 km | 4.8 |
+| Hope Skin & Laser Center | clinic | 2.5 km | 4.5 |
+| Yaoundé Central Hospital | hospital | 4.5 km | 4.2 |
+| General Hospital Annex | hospital | 5.8 km | 4.0 |
+| MedPlus Pharmacy | pharmacy | 0.8 km | 4.7 |
+| Green Cross Pharma | pharmacy | 1.5 km | 4.6 |
+| Waspito Virtual Care | telehealth | Online | 4.9 |
+| TeleMed Direct | telehealth | Online | 4.4 |
