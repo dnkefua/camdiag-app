@@ -1,9 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '../../hooks/useTranslation';
 import { WarningIcon, CheckIcon } from './Icons';
 
 const STORAGE_KEY = 'camdiag_disclaimer_accepted_v1';
+
+const shouldOpenInitially = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return !localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return true;
+  }
+};
 
 /**
  * Required medical-context modal shown once per device.
@@ -14,15 +23,14 @@ const STORAGE_KEY = 'camdiag_disclaimer_accepted_v1';
  */
 export const MedicalDisclaimer = () => {
   const { language } = useTranslation();
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!localStorage.getItem(STORAGE_KEY)) setOpen(true);
-  }, []);
+  const [open, setOpen] = useState<boolean>(shouldOpenInitially);
 
   const accept = () => {
-    try { localStorage.setItem(STORAGE_KEY, new Date().toISOString()); } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+    } catch {
+      // localStorage may be unavailable (private mode, quota exceeded)
+    }
     setOpen(false);
   };
 

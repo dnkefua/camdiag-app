@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { createElement } from 'react';
 import { vi } from 'vitest';
 import type { ReactNode, PropsWithChildren } from 'react';

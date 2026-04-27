@@ -30,7 +30,6 @@ export const reportEnvWarnings = (): void => {
   if (!envFlags.maps) missing.push('VITE_GOOGLE_MAPS_API_KEY (live facility map disabled)');
   if (!envFlags.firebaseAuth) missing.push('VITE_FIREBASE_API_KEY (auth disabled)');
   if (missing.length) {
-    // eslint-disable-next-line no-console
     console.warn('[CamDiag] Missing env keys:\n  - ' + missing.join('\n  - '));
   }
 };

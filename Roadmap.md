@@ -96,63 +96,126 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] 6 `<nav>` elements have `aria-label="Main navigation"`
 - [x] 10 `<main>` elements have `aria-label="CamDiag"`
 - [x] Landing.tsx nav has `aria-label="Main navigation"`
+- [x] Trilingual EN/FR/PCM copy across Landing hero, features, AI section, testimonials, CTA, footer (commit `4881f4c`)
+- [x] `prefers-reduced-motion` honoured globally in `src/index.css`
+- [x] Visible focus ring (gold) for keyboard nav
+
+### Phase 11: Cameroon Brand Identity (2026-04-27)
+- [x] Cameroon flag palette in `tailwind.config.js`: `cameroon-{green, red, yellow, earth, ivory, night}` + deep/light variants
+- [x] Custom gradients: `cameroon-gradient`, `cameroon-flag`, `jungle`, `savanna`, `sunset`, `aurora`
+- [x] Premium shadow tokens: `cameroon`, `cameroon-glow`, `sunset-glow`, `red-glow`, `premium`
+- [x] Typography: Plus Jakarta Sans (display) + Inter (body) + JetBrains Mono — preconnected, swap-loaded
+- [x] Animated text gradient utility (`text-gradient-cameroon`, `text-gradient-gold`)
+- [x] 3D logo component (`src/components/ui/CamDiagLogo.tsx`): gold-bevelled shield, gradient body, red ribbon, medical cross, twinkling Cameroon star — animated via framer-motion + CSS perspective
+- [x] Static SVG favicon updated to match brand mark
+- [x] PWA manifest theme color updated (`#007A5E`), background `#FFF7E6`
+- [x] Logo wired into Landing (hero/footer/modal/CTA), DiagnosticHub header, Login modal
+
+### Phase 12: Real Camera + MedGemma Image Pipeline (2026-04-27)
+- [x] `useCamera` hook (`src/hooks/useCamera.ts`) — `getUserMedia` + canvas capture
+- [x] Returns Blob + base64 dataURL; supports facing toggle, flash via `MediaTrackCapabilities.torch`
+- [x] Permission error UX with retry / fallback to gallery upload
+- [x] Scanner refactored: live `<video>` stream, real shutter, captured frames sent to MedGemma `analyzeMedicalImage` with image base64
+- [x] Analytics events fired on `scanner_open`, `scanner_capture`, `scanner_analysis_success`, `scanner_analysis_error`, `scanner_gallery_upload`
+- [x] CSP `Permissions-Policy` updated to allow `camera`, `microphone`, `geolocation`
+
+### Phase 13: Google Maps Integration (2026-04-28)
+- [x] Dedicated, referrer-restricted Maps API key created via `gcloud services api-keys create`
+  - API targets: Maps JavaScript API, Places API (legacy + new), Geocoding API
+  - HTTP referrers: `localhost:*`, `*.camdiag-c7e78.web.app`, `*.firebaseapp.com`
+- [x] `useGoogleMaps` hook (`src/hooks/useGoogleMaps.ts`) — async script tag loader with race-safe `__camdiagMapsLoading` promise
+- [x] `FacilityMap` component (`src/components/ui/FacilityMap.tsx`) — Cameroon-styled basemap, color-coded markers (red=hospital, green=clinic, yellow=pharmacy, blue=telehealth), info windows, geolocation user pin, fitBounds, "Directions" deep link
+- [x] `NextSteps.tsx` rewritten to use `FacilityMap` and emit Google Maps directions URLs from facility cards
+- [x] Real Yaoundé/Douala lat/lng coords on facility records
+- [x] CSP `connect-src` and `script-src` updated for `maps.googleapis.com` + `maps.gstatic.com`
+- [x] Maps key wired in `apphosting.yaml` for production builds
+- [x] `@types/google.maps` installed; `vite-env.d.ts` references it
+
+### Phase 14: Production Hardening (2026-04-28)
+- [x] `MedicalDisclaimer` modal (`src/components/ui/MedicalDisclaimer.tsx`) — one-time, localStorage-gated, mounted in `App.tsx`; required regulatory gate before clinical use
+- [x] Centralized env validation (`src/utils/env.ts`) — `envFlags.{ai, maps, firebaseAuth, analytics, sentry}`; dev-mode `reportEnvWarnings()` lists missing keys
+- [x] `services/analytics.ts` wraps Firebase Analytics in browser-only/SSR-safe wrapper; dev console echo
+- [x] Route-level `page_view` events via `<RouteAnalytics />` in `App.tsx`
+- [x] `src/services/api.ts::isApiConfigured` now reads `envFlags.ai` (single source of truth)
+- [x] `firebase.ts` exports `getAnalyticsInstance()` — async, idempotent, cached
+- [x] CSP `connect-src` expanded for Firebase Auth, Firestore, FCM, Analytics, Realtime DB
+
+### Phase 15: Landing Page v2 Polish (2026-04-28)
+- [x] Hero now leads with the animated 3D `CamDiagLogo`
+- [x] Scroll-progress flag bar (Cameroon flag gradient) at top of page
+- [x] Magnetic CTA buttons (`MagneticButton` helper)
+- [x] **Bug fix:** "Local" language button now correctly calls `setLanguage('pcm')` (was incorrectly `'fr'`)
+- [x] **Bug fix:** Empty `<h2>` headers in Features and Testimonials sections now have copy
+- [x] Trilingual EN/FR/PCM copy across all sections
+- [x] Cameroon palette feature cards (replaced generic emerald/blue/purple)
+- [x] Animated CTA gradient background cycles through flag colors
+
+### Phase 16: Test Suite Expansion (2026-04-28)
+- [x] Shared framer-motion mock factory (`src/test/mocks.tsx`) using ES Proxy
+- [x] All component test files updated to handle the refactored components
+- [x] **102/102 tests passing** (16 test files)
+- [x] Component tests: AnalysisResults, Blog, ComingUp, DiagnosticHub, DrugDatabase, Landing, NextSteps, PatientRecords, Questionnaire, Scanner, Settings
+- [x] FacilityMap mocked at boundary in NextSteps tests (avoids loading real Maps script)
+- [x] Scanner test mocks `useCamera` hook directly
 
 ---
 
-## Verification Results
+## Verification Results (2026-04-28)
 
 - **TypeScript**: `tsc --noEmit` — 0 errors
-- **Build**: `vite build` — Success, 25+ code-split chunks, no chunk >500KB
-- **Tests**: `vitest run` — 39/39 passing (18 utility tests + 21 component tests)
+- **Build**: `vite build` — Success, all chunks <500KB (largest: firebase 363KB)
+- **Tests**: `vitest run` — **102/102 passing** across 16 files
 - **E2E**: Playwright configured (run `npm run test:e2e`)
 - **Lint**: `eslint` — 0 errors
+- **Live**: https://camdiag-c7e78.web.app
 
 ## Project Structure
 ```
 src/
 ├── components/
-│   ├── ui/              # ErrorBoundary, LoadingSpinner, Icons
-│   └── [pages].tsx      # All 10 page components
+│   ├── ui/              # ErrorBoundary, LoadingSpinner, Icons,
+│   │                    # CamDiagLogo (3D), FacilityMap, MedicalDisclaimer
+│   └── [pages].tsx      # 11 page components
 ├── contexts/            # AuthContext (Firebase Auth)
-├── hooks/               # useTranslation, useOnlineStatus
-├── i18n/               # en.json, fr.json, pcm.json
-├── lib/                # firebase.ts (Auth, Firestore, Analytics)
-├── services/            # api.ts (local), auth.ts, firestore.ts, medgemma.ts (Google AI)
+├── hooks/               # useTranslation, useOnlineStatus, useCamera, useGoogleMaps
+├── i18n/                # en.json, fr.json, pcm.json
+├── lib/                 # firebase.ts (Auth, Firestore, Analytics — async)
+├── services/            # api.ts, auth.ts, firestore.ts, medgemma.ts,
+│                        # model-config.ts, analytics.ts
 ├── store/               # Zustand useAppStore
 ├── types/               # TypeScript type definitions
-├── utils/               # Form validation, input sanitization
-├── test/                # Vitest setup and test files
-├── App.tsx              # Router with React.lazy
+├── utils/               # validation, sanitize, env (envFlags)
+├── test/                # Vitest setup, mocks.tsx, 16 test files
+├── App.tsx              # Router + RouteAnalytics + MedicalDisclaimer
 └── main.tsx             # Entry point with PWA registration
 
 e2e/
 └── app.spec.ts          # Playwright E2E tests
 
 public/
-├── manifest.json        # PWA manifest
+├── manifest.json        # PWA manifest (Cameroon theme)
 ├── sw.js                # Service worker
-└── favicon.svg
+└── favicon.svg          # Cameroon shield mark
 ```
 
 ## What's NOT Done Yet (for next agent)
 
-> **Deployment:** App Hosting is configured (`apphosting.yaml`) and auto-deploys on push. Firebase Console environment variables are set.
-> **CI:** GitHub Actions runs lint → typecheck → tests → build. Still needs VITE_* secrets for a fully-green CI.
+> **Deployment:** App Hosting auto-deploys on push to `master`. Firebase Hosting also configured for direct deploys via `firebase deploy --only hosting`.
+> **CI:** GitHub Actions runs lint → typecheck → tests → build.
 
 1. **Add GitHub Actions secrets** (optional — CI will show warnings but still passes):
    - `VITE_GOOGLE_AI_API_KEY` — Google AI Studio API key
-   - `VITE_FIREBASE_API_KEY` — Firebase Web app config
-   - `VITE_FIREBASE_AUTH_DOMAIN` — `camdiag-c7e78.firebaseapp.com`
-   - `VITE_FIREBASE_PROJECT_ID` — `camdiag-c7e78`
-   - `VITE_FIREBASE_STORAGE_BUCKET` — `camdiag-c7e78.appspot.com`
-   - `VITE_FIREBASE_MESSAGING_SENDER_ID` — Firebase Web app config
-   - `VITE_FIREBASE_APP_ID` — Firebase Web app config
-   - `VITE_FIREBASE_MEASUREMENT_ID` — Optional
-2. **Deploy Firestore rules** — ✅ Done. Deployed via `firebase deploy --only firestore`.
+   - `VITE_GOOGLE_MAPS_API_KEY` — Already committed in `apphosting.yaml` (HTTP-referrer restricted; safe)
+   - `VITE_FIREBASE_*` — Firebase Web app config (see `.env.example`)
+2. **Deploy Firestore rules** — ✅ Done. Re-deployed 2026-04-28.
 3. **Seed the database** — ❌ Cannot do via CLI (service account key creation restricted by organisation policy). **Workaround:** Add drugs and facilities manually in Firebase Console → Firestore → Add data. See seed data below.
-4. **Firebase Auth phone auth** — Phone tab UI needs to be wired to Firebase `signInWithPhoneNumber` (recaptcha verifier already in auth.ts)
-5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
-6. **More component tests** — Scanner (7), AnalysisResults (9), NextSteps (10), Questionnaire (8), PatientRecords (6), Blog (8), Settings (7), ComingUp (7) — 62 tests written, 101/106 passing. Landing mock incompatible with Vitest hoisting.
+4. **Firebase Auth phone auth** — Phone tab UI is wired in `AuthContext.tsx` and `Landing.tsx`. Verify reCAPTCHA verifier renders correctly in production.
+5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` via `VITE_USE_MEDGEMMA=true` + `VITE_GOOGLE_AI_MODEL=<id>` when Google releases the dedicated model.
+6. **Sentry error reporting** — `VITE_SENTRY_DSN` env hook in place; install `@sentry/react` and wire `Sentry.init()` in `main.tsx` when ready.
+7. **Firestore facility coordinates** — Static lat/lng currently embedded in `NextSteps.tsx`. Migrate `facilities` collection to include `position: GeoPoint` and read live from Firestore.
+8. **Service Worker cache busting** — `public/sw.js` uses cache-first; bump cache version on each release or switch to Workbox.
+9. **Restrict Firebase auto-key further** — Currently allows broad Firebase service set; review and tighten in Cloud Console → Credentials.
+10. **Production smoke test checklist** — Camera permission flow on iOS Safari, Maps load on slow 3G, MedGemma analysis under flaky network, offline mode behaviour.
 
 ### Seed Data (for Firebase Console manual entry)
 
