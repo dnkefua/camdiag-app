@@ -1,8 +1,11 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { MedicalDisclaimer } from './components/ui/MedicalDisclaimer';
+import { reportEnvWarnings } from './utils/env';
+import { trackEvent } from './services/analytics';
 import './App.css';
 
 const Landing = lazy(() => import('./components/Landing'));
@@ -17,10 +20,24 @@ const Questionnaire = lazy(() => import('./components/Questionnaire'));
 const Blog = lazy(() => import('./components/Blog'));
 const ComingUp = lazy(() => import('./components/ComingUp'));
 
+const RouteAnalytics = () => {
+  const location = useLocation();
+  useEffect(() => {
+    trackEvent('page_view', { path: location.pathname });
+  }, [location.pathname]);
+  return null;
+};
+
 const App = () => {
+  useEffect(() => {
+    reportEnvWarnings();
+  }, []);
+
   return (
     <div className="min-h-screen">
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><LoadingSpinner size="lg" message="Loading..." /></div>}>
+      <RouteAnalytics />
+      <MedicalDisclaimer />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-cameroon-ivory"><LoadingSpinner size="lg" message="Loading..." /></div>}>
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<ErrorBoundary><Landing /></ErrorBoundary>} />

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
+import { motion, useScroll, useTransform, useSpring, useInView, useMotionValue } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../contexts/AuthContext';
-import { ShieldIcon, CameraIcon, ClipBoardIcon, BoltIcon, UsersIcon, SearchIcon } from '../components/ui/Icons';
+import { CamDiagLogo } from '../components/ui/CamDiagLogo';
+import { ShieldIcon, CameraIcon, ClipBoardIcon, BoltIcon, UsersIcon, MapPinIcon } from '../components/ui/Icons';
 
 const CUSTOM_EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
@@ -17,7 +18,6 @@ const useAppearOnScroll = (delay = 0) => ({
 const StaggerContainer = ({ children, className = '' }: { children: ReactNode; className?: string }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
-
   return (
     <div ref={ref} className={className}>
       {Array.isArray(children) ? children.map((child, i) => (
@@ -25,7 +25,7 @@ const StaggerContainer = ({ children, className = '' }: { children: ReactNode; c
           key={i}
           initial={{ opacity: 0, y: 50, filter: 'blur(6px)' }}
           animate={isInView ? { opacity: 1, y: 0, filter: 'blur(0px)' } : {}}
-          transition={{ duration: 0.8, delay: i * 0.12, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.8, delay: i * 0.12, ease: CUSTOM_EASE }}
         >
           {child}
         </motion.div>
@@ -38,11 +38,7 @@ const FloatingOrb = ({ color, size, top, left, delay = 0 }: { color: string; siz
   <motion.div
     className={`absolute rounded-full ${size} ${color} blur-[100px] pointer-events-none`}
     style={{ top, left }}
-    animate={{
-      y: [0, -30, 10, -20, 0],
-      x: [0, 15, -10, 20, 0],
-      scale: [1, 1.1, 0.95, 1.05, 1],
-    }}
+    animate={{ y: [0, -30, 10, -20, 0], x: [0, 15, -10, 20, 0], scale: [1, 1.1, 0.95, 1.05, 1] }}
     transition={{ duration: 12, repeat: Infinity, delay, ease: 'easeInOut' }}
   />
 );
@@ -59,17 +55,44 @@ const Marquee = ({ children, speed = 30 }: { children: ReactNode; speed?: number
   </div>
 );
 
+const MagneticButton = ({ children, ...rest }: React.ComponentProps<typeof motion.button>) => {
+  const ref = useRef<HTMLButtonElement | null>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  return (
+    <motion.button
+      ref={ref}
+      style={{ x, y, ...rest.style }}
+      onMouseMove={(e) => {
+        const r = ref.current?.getBoundingClientRect();
+        if (!r) return;
+        x.set((e.clientX - (r.left + r.width / 2)) * 0.18);
+        y.set((e.clientY - (r.top + r.height / 2)) * 0.18);
+      }}
+      onMouseLeave={() => { x.set(0); y.set(0); }}
+      {...rest}
+    >
+      {children}
+    </motion.button>
+  );
+};
+
 const Landing = () => {
   const navigate = useNavigate();
   const { t, language, setLanguage } = useTranslation();
-  const { isAuthenticated, login, register, isLoading } = useAuth();
+  const { isAuthenticated, login, register, loginWithPhone, confirmPhoneCode, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<import('firebase/auth').ConfirmationResult | null>(null);
   const [error, setError] = useState('');
   const [showLogin, setShowLogin] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
@@ -77,13 +100,24 @@ const Landing = () => {
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.9]);
   const springHeroY = useSpring(heroY, { stiffness: 100, damping: 30 });
 
-  useEffect(() => {
-    if (isAuthenticated) navigate('/app');
-  }, [isAuthenticated, navigate]);
+  const { scrollYProgress: pageScrollProgress } = useScroll();
+  const scaleX = useSpring(pageScrollProgress, { stiffness: 100, damping: 30 });
+
+  useEffect(() => { if (isAuthenticated) navigate('/app'); }, [isAuthenticated, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (authMethod === 'phone' && otpSent && confirmationResult) {
+      try {
+        await confirmPhoneCode(confirmationResult, otp);
+        setShowLogin(false);
+      } catch (err) {
+        setOtpError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
+      }
+      return;
+    }
+    if (authMethod === 'phone') return;
     try {
       if (authTab === 'register') {
         await register(email, password, name || email.split('@')[0] || 'User');
@@ -95,70 +129,92 @@ const Landing = () => {
     }
   };
 
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setOtpError('');
+    if (!phoneNumber.trim()) { setError('Please enter a phone number'); return; }
+    try {
+      const result = await loginWithPhone(phoneNumber);
+      setConfirmationResult(result);
+      setOtpSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send code. Please check your phone number.');
+    }
+  };
+
   const closeModal = () => {
-    setShowLogin(false);
-    setError('');
-    setEmail('');
-    setPassword('');
-    setName('');
-    setAuthTab('login');
-    setIsRegister(false);
+    setShowLogin(false); setError(''); setOtpError('');
+    setEmail(''); setPassword(''); setName('');
+    setPhoneNumber(''); setOtp(''); setOtpSent(false);
+    setConfirmationResult(null); setAuthMethod('email'); setAuthTab('login');
   };
 
   const features = [
     {
       icon: <CameraIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Analyse par Scanner IA' : 'AI Scan Analysis',
+      title: language === 'fr' ? 'Analyse par Scanner IA' : language === 'pcm' ? 'AI Scan Check' : 'AI Scan Analysis',
       desc: language === 'fr'
         ? 'Scannez des résultats de laboratoire, des radiographies et des tests RDT. Recevez une analyse assistée par IA en secondes.'
+        : language === 'pcm'
+        ? 'Scan lab result, X-ray, and RDT test. AI go give you check sharp sharp.'
         : 'Scan lab results, X-rays, and RDT tests. Get AI-assisted analysis in seconds.',
-      gradient: 'from-emerald-500 to-teal-600',
-      glow: 'shadow-emerald-500/20',
+      gradient: 'from-cameroon-green to-cameroon-green-light',
+      glow: 'shadow-cameroon-glow',
     },
     {
       icon: <ClipBoardIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Base de Données Médicamenteuse' : 'Drug Database',
+      title: language === 'fr' ? 'Base de Données Médicamenteuse' : language === 'pcm' ? 'Drug Database' : 'Drug Database',
       desc: language === 'fr'
         ? 'Recherchez des médicaments disponibles au Cameroun. Vérifiez les interactions médicamenteuses avec MedGemma AI.'
+        : language === 'pcm'
+        ? 'Find drugs wey dey for Cameroon. Check drug interaction with MedGemma AI.'
         : 'Search medications available in Cameroon. Check drug interactions with MedGemma AI.',
-      gradient: 'from-blue-500 to-indigo-600',
-      glow: 'shadow-blue-500/20',
+      gradient: 'from-cameroon-red to-cameroon-red-light',
+      glow: 'shadow-red-glow',
     },
     {
       icon: <ShieldIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Contri-Médecine Locale' : 'Local Contri-Medicine',
+      title: language === 'fr' ? 'Médecine Traditionnelle' : language === 'pcm' ? 'Local Contri-Medicine' : 'Local Contri-Medicine',
       desc: language === 'fr'
         ? 'Intègre les remèdes traditionnels du Cameroun avec la médecine moderne pour des soins holistiques.'
+        : language === 'pcm'
+        ? 'Join Cameroon local medicine with modern medicine for full body care.'
         : 'Integrates Cameroon traditional remedies with modern medicine for holistic care.',
-      gradient: 'from-cameroon-green to-emerald-600',
-      glow: 'shadow-cameroon-green/20',
+      gradient: 'from-cameroon-yellow to-cameroon-yellow-deep',
+      glow: 'shadow-sunset-glow',
     },
     {
       icon: <BoltIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Fonctionne Hors Ligne' : 'Works Offline',
+      title: language === 'fr' ? 'Fonctionne Hors Ligne' : language === 'pcm' ? 'E Work Without Net' : 'Works Offline',
       desc: language === 'fr'
         ? 'Conçu pour les zones à faible bande passante. Les analyses locales fonctionnent sans internet.'
+        : language === 'pcm'
+        ? 'Build am for area where net no plenty. Local check dey work without internet.'
         : 'Built for low-bandwidth areas. Local analysis works without internet.',
-      gradient: 'from-amber-500 to-orange-600',
-      glow: 'shadow-amber-500/20',
+      gradient: 'from-cameroon-green-deep to-cameroon-green',
+      glow: 'shadow-cameroon-glow',
     },
     {
       icon: <UsersIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Bilingue EN/FR' : 'Bilingual EN/FR',
+      title: language === 'fr' ? 'Trilingue EN/FR/Pidgin' : language === 'pcm' ? 'EN / FR / Pidgin' : 'Trilingual EN/FR/Pidgin',
       desc: language === 'fr'
-        ? 'Interface complète en anglais et français, conçu pour les professionnels de santé du Cameroun.'
-        : 'Full English and French interface, designed for Cameroon healthcare professionals.',
-      gradient: 'from-purple-500 to-fuchsia-600',
-      glow: 'shadow-purple-500/20',
+        ? 'Interface complète en anglais, français et pidgin camerounais.'
+        : language === 'pcm'
+        ? 'Full interface for English, French and Cameroon Pidgin.'
+        : 'Full English, French and Cameroon Pidgin interface — built for local healthcare.',
+      gradient: 'from-cameroon-yellow to-cameroon-red',
+      glow: 'shadow-sunset-glow',
     },
     {
-      icon: <SearchIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Recherche IA de Médicaments' : 'AI Drug Search',
+      icon: <MapPinIcon className="h-8 w-8" />,
+      title: language === 'fr' ? 'Cartographie en Direct' : language === 'pcm' ? 'Live Map' : 'Live Facility Map',
       desc: language === 'fr'
-        ? 'Recherchez n\'importe quel médicament et obtenez des informations sur les dosages, effets secondaires et disponibilité au Cameroun.'
-        : 'Search any medication and get info on dosages, side effects, and Cameroon availability.',
-      gradient: 'from-rose-500 to-pink-600',
-      glow: 'shadow-rose-500/20',
+        ? 'Trouvez cliniques, hôpitaux et pharmacies à proximité grâce à Google Maps en temps réel.'
+        : language === 'pcm'
+        ? 'Find hospital, clinic and pharmacy wey dey near you with Google Maps.'
+        : 'Find nearby clinics, hospitals, and pharmacies in real-time with Google Maps.',
+      gradient: 'from-cameroon-red to-cameroon-yellow',
+      glow: 'shadow-red-glow',
     },
   ];
 
@@ -172,7 +228,7 @@ const Landing = () => {
   const testimonials = [
     {
       name: 'Dr. Kamga',
-      role: language === 'fr' ? 'Médecin Généraliste, Yaoundé' : 'General Practitioner, Yaound\u00e9',
+      role: language === 'fr' ? 'Médecin Généraliste, Yaoundé' : 'General Practitioner, Yaoundé',
       text: language === 'fr'
         ? 'CamDiag a transformé ma pratique. Je peux vérifier les interactions médicamenteuses en temps réel pendant les consultations.'
         : 'CamDiag has transformed my practice. I can verify drug interactions in real-time during consultations.',
@@ -181,239 +237,228 @@ const Landing = () => {
       name: 'Dr. Ndi',
       role: language === 'fr' ? 'Pharmacien, Douala' : 'Pharmacist, Douala',
       text: language === 'fr'
-        ? 'La base de données médicamenteuse qui inclut les remèdes traditionnels est exactement ce dont nous avions besoin au Cameroun.'
+        ? 'La base de données qui inclut les remèdes traditionnels est exactement ce dont nous avions besoin au Cameroun.'
         : 'The drug database that includes traditional remedies is exactly what we needed in Cameroon.',
     },
     {
       name: 'Marie T.',
       role: language === 'fr' ? 'Infirmière, Bamenda' : 'Nurse, Bamenda',
       text: language === 'fr'
-        ? "Même dans les zones rurales sans internet, l'analyse locale fonctionne parfaitement. C'est un game-changer."
+        ? "Même dans les zones rurales sans internet, l'analyse locale fonctionne parfaitement."
         : 'Even in rural areas without internet, the local analysis works perfectly. It\'s a game-changer.',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      {/* Floating ambient orbs */}
-      <FloatingOrb color="bg-cameroon-green/25" size="w-[600px] h-[600px]" top="-20%" left="-10%" delay={0} />
-      <FloatingOrb color="bg-medical-blue/20" size="w-[500px] h-[500px]" top="20%" left="60%" delay={3} />
-      <FloatingOrb color="bg-purple-500/15" size="w-[400px] h-[400px]" top="60%" left="20%" delay={6} />
-      <FloatingOrb color="bg-emerald-500/15" size="w-[350px] h-[350px]" top="80%" left="70%" delay={9} />
+    <div className="min-h-screen bg-cameroon-night text-white overflow-x-hidden">
+      {/* Scroll progress bar */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-[3px] z-[60] origin-left bg-cameroon-flag"
+        style={{ scaleX }}
+      />
+
+      {/* Floating ambient orbs — Cameroon palette */}
+      <FloatingOrb color="bg-cameroon-green/30" size="w-[600px] h-[600px]" top="-20%" left="-10%" delay={0} />
+      <FloatingOrb color="bg-cameroon-red/22" size="w-[500px] h-[500px]" top="20%" left="60%" delay={3} />
+      <FloatingOrb color="bg-cameroon-yellow/18" size="w-[400px] h-[400px]" top="60%" left="20%" delay={6} />
+      <FloatingOrb color="bg-cameroon-green-light/20" size="w-[350px] h-[350px]" top="80%" left="70%" delay={9} />
 
       {/* Nav */}
       <motion.nav
         aria-label="Main navigation"
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 bg-black/50 backdrop-blur-xl border-b border-white/[0.04]"
+        transition={{ duration: 0.8, ease: CUSTOM_EASE }}
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 glass-dark"
       >
-        <motion.div className="flex items-center gap-2" whileHover={{ scale: 1.02 }} transition={{ type: 'spring', stiffness: 400 }}>
-          <div className="bg-medical-green p-1.5 rounded-lg">
-            <ShieldIcon className="h-7 w-7 text-white" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight">CamDiag</span>
+        <motion.div whileHover={{ scale: 1.02 }} transition={{ type: 'spring', stiffness: 400 }}>
+          <CamDiagLogo size={40} animated showWordmark />
         </motion.div>
 
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/50">
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
           {[
             { label: language === 'fr' ? 'Fonctionnalités' : 'Features', href: '#features' },
             { label: language === 'fr' ? 'Témoignages' : 'Testimonials', href: '#testimonials' },
             { label: 'MedGemma AI', href: '#ai' },
           ].map((link) => (
-            <motion.a
-              key={link.href}
-              href={link.href}
-              className="hover:text-white transition-colors relative"
-              whileHover={{ y: -1 }}
-            >
+            <motion.a key={link.href} href={link.href} className="hover:text-cameroon-yellow transition-colors" whileHover={{ y: -1 }}>
               {link.label}
             </motion.a>
           ))}
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex bg-white/5 border border-white/10 rounded-full p-1 text-xs font-semibold">
-            <button onClick={() => setLanguage('en')} className={`${language === 'en' ? 'bg-white text-black shadow-sm' : 'text-white/40 hover:text-white/60'} px-3 py-1 rounded-full transition-all`}>EN</button>
-            <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-white text-black shadow-sm' : 'text-white/40 hover:text-white/60'} px-3 py-1 rounded-full transition-all`}>FR</button>
-            <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-white text-black shadow-sm' : 'text-white/40 hover:text-white/60'} px-3 py-1 rounded-full transition-all`}>Local</button>
+          <div className="flex bg-white/5 border border-white/10 rounded-full p-1 text-xs font-bold">
+            <button onClick={() => setLanguage('en')} className={`${language === 'en' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} px-3 py-1 rounded-full transition-all`}>EN</button>
+            <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} px-3 py-1 rounded-full transition-all`}>FR</button>
+            <button onClick={() => setLanguage('pcm')} className={`${language === 'pcm' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} px-3 py-1 rounded-full transition-all`}>Local</button>
           </div>
-          <motion.button
+          <MagneticButton
             onClick={() => setShowLogin(true)}
-            className="bg-white text-black font-bold text-sm px-5 py-2 rounded-full"
-            whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(16,185,129,0.3)' }}
+            className="bg-cameroon-yellow text-cameroon-night font-black text-sm px-5 py-2 rounded-full shadow-sunset-glow"
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
             {t.login}
-          </motion.button>
+          </MagneticButton>
         </div>
       </motion.nav>
 
       {/* Hero */}
       <section ref={heroRef} className="relative z-10 px-6 md:px-12 pt-36 pb-24 max-w-6xl mx-auto text-center">
         <motion.div style={{ y: springHeroY, opacity: heroOpacity, scale: heroScale }}>
+          {/* Hero 3D Logo */}
+          <motion.div
+            initial={{ scale: 0, rotate: -45, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ duration: 1.1, delay: 0.1, ease: CUSTOM_EASE }}
+            className="flex justify-center mb-8"
+          >
+            <CamDiagLogo size={120} animated />
+          </motion.div>
+
           <motion.div
             initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="inline-flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-full px-5 py-2.5 mb-10 text-sm backdrop-blur-sm"
+            transition={{ duration: 0.8, delay: 0.3, ease: CUSTOM_EASE }}
+            className="inline-flex items-center gap-2 bg-white/[0.04] border border-cameroon-yellow/20 rounded-full px-5 py-2.5 mb-10 text-sm backdrop-blur-sm"
           >
             <motion.div
-              className="w-2 h-2 rounded-full bg-medical-green"
-              animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
+              className="w-2 h-2 rounded-full bg-cameroon-yellow"
+              animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            <span className="text-white/60">{language === 'fr' ? 'Propulsé par Google MedGemma' : 'Powered by Google MedGemma'}</span>
+            <span className="text-white/70">{language === 'fr' ? 'Propulsé par Google MedGemma' : language === 'pcm' ? 'Powered by Google MedGemma' : 'Powered by Google MedGemma'}</span>
           </motion.div>
 
           <motion.h1
             initial={{ opacity: 0, y: 50, filter: 'blur(12px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 1, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.95] mb-8"
+            transition={{ duration: 1, delay: 0.4, ease: CUSTOM_EASE }}
+            className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.95] mb-8 font-display"
           >
-            <motion.span
-              className="bg-gradient-to-r from-white via-emerald-100 to-medical-green bg-clip-text text-transparent inline-block"
-              animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-              style={{ backgroundSize: '200% 200%' }}
-            >
-              {language === 'fr' ? 'Diagnostic IA' : 'AI Diagnostics'}
-            </motion.span>
+            <span className="text-gradient-cameroon inline-block">
+              {language === 'fr' ? 'Diagnostic IA' : language === 'pcm' ? 'AI Diagnosis' : 'AI Diagnostics'}
+            </span>
             <br />
-            <span className="text-white/90">
-              {language === 'fr' ? 'pour le Cameroun' : 'for Cameroon'}
+            <span className="text-white/95">
+              {language === 'fr' ? 'pour le Cameroun' : language === 'pcm' ? 'for Cameroon' : 'for Cameroon'}
             </span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 40, filter: 'blur(8px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.9, delay: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-14 leading-relaxed"
+            transition={{ duration: 0.9, delay: 0.55, ease: CUSTOM_EASE }}
+            className="text-lg md:text-xl text-white/55 max-w-2xl mx-auto mb-14 leading-relaxed"
           >
             {language === 'fr'
               ? 'Assistance diagnostique par IA pour les professionnels de santé du Cameroun. Scannez, analysez et traitez — avec ou sans internet.'
+              : language === 'pcm'
+              ? 'AI diagnosis support for health workers for Cameroon. Scan, check, treat — with or without internet.'
               : 'AI-powered diagnostic support for Cameroon healthcare professionals. Scan, analyze, and treat — with or without internet.'}
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 40, filter: 'blur(8px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.9, delay: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.9, delay: 0.7, ease: CUSTOM_EASE }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
-            <motion.button
+            <MagneticButton
               onClick={() => setShowLogin(true)}
-              className="bg-medical-green text-white font-bold text-lg px-10 py-4 rounded-full shadow-2xl shadow-medical-green/30 flex items-center gap-2"
-              whileHover={{ scale: 1.05, boxShadow: '0 0 60px rgba(16,185,129,0.4)' }}
+              className="bg-cameroon-yellow text-cameroon-night font-black text-lg px-10 py-4 rounded-full shadow-sunset-glow flex items-center gap-2"
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.97 }}
             >
-              {language === 'fr' ? 'Commencer Gratuitement' : 'Get Started Free'}
-              <motion.svg
-                className="w-5 h-5"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 1 }}
-              >
+              {language === 'fr' ? 'Commencer Gratuitement' : language === 'pcm' ? 'Start For Free' : 'Get Started Free'}
+              <motion.svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 1 }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </motion.svg>
-            </motion.button>
-            <motion.button
+            </MagneticButton>
+            <MagneticButton
               onClick={() => navigate('/app')}
-              className="bg-white/[0.04] border border-white/[0.08] text-white font-bold text-lg px-10 py-4 rounded-full backdrop-blur-sm"
-              whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.08)' }}
+              className="bg-white/[0.06] border border-cameroon-green/30 text-white font-bold text-lg px-10 py-4 rounded-full backdrop-blur-sm"
+              whileHover={{ scale: 1.05, backgroundColor: 'rgba(0, 122, 94, 0.15)' }}
               whileTap={{ scale: 0.97 }}
             >
-              {language === 'fr' ? 'Voir la Démo' : 'View Demo'}
-            </motion.button>
+              {language === 'fr' ? 'Voir la Démo' : language === 'pcm' ? 'See Demo' : 'View Demo'}
+            </MagneticButton>
           </motion.div>
         </motion.div>
 
-        {/* Hero Mockup with parallax float */}
+        {/* Hero Mockup */}
         <motion.div
           initial={{ opacity: 0, y: 80, scale: 0.92 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 1.2, delay: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 1.2, delay: 0.9, ease: CUSTOM_EASE }}
           className="mt-24 relative"
         >
-          <motion.div
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <div className="bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/[0.08] rounded-3xl p-4 md:p-8 backdrop-blur-md shadow-2xl shadow-medical-green/5">
-              <div className="bg-slate-900/90 rounded-2xl p-5 md:p-8 border border-white/[0.04]">
+          <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}>
+            <div className="bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-cameroon-yellow/15 rounded-3xl p-4 md:p-8 backdrop-blur-md shadow-premium">
+              <div className="bg-cameroon-night/95 rounded-2xl p-5 md:p-8 border border-white/[0.06]">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-500/40" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/40" />
-                    <div className="w-3 h-3 rounded-full bg-green-500/40" />
+                    <div className="w-3 h-3 rounded-full bg-cameroon-red/60" />
+                    <div className="w-3 h-3 rounded-full bg-cameroon-yellow/60" />
+                    <div className="w-3 h-3 rounded-full bg-cameroon-green/70" />
                   </div>
-                  <span className="text-xs text-white/20 font-mono">camdiag.app</span>
-                  <span className="ml-auto text-[9px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-bold uppercase">MedGemma</span>
+                  <span className="text-xs text-white/30 font-mono">camdiag.app</span>
+                  <span className="ml-auto text-[9px] bg-cameroon-yellow/20 text-cameroon-yellow px-2 py-0.5 rounded-full font-black uppercase tracking-wider">MedGemma</span>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-2 space-y-4">
                     <motion.div
-                      className="bg-medical-green/15 border border-medical-green/20 rounded-xl p-4"
+                      className="bg-cameroon-green/15 border border-cameroon-green/25 rounded-xl p-4"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 1.5, duration: 0.6 }}
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <motion.div
-                          className="w-2 h-2 rounded-full bg-medical-green"
-                          animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        />
-                        <span className="text-xs font-bold text-medical-green uppercase tracking-wider">AI Active</span>
+                        <motion.div className="w-2 h-2 rounded-full bg-cameroon-yellow" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                        <span className="text-xs font-black text-cameroon-yellow uppercase tracking-wider">AI Active</span>
                       </div>
-                      <p className="text-white font-bold text-lg">Malaria (P. Falciparum)</p>
+                      <p className="text-white font-black text-lg">Malaria (P. Falciparum)</p>
                       <div className="flex gap-2 mt-2">
-                        <span className="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded">94% Match</span>
-                        <span className="bg-orange-500/20 text-orange-400 text-[10px] font-bold px-2 py-0.5 rounded">Low Hematocrit</span>
+                        <span className="bg-cameroon-red/20 text-cameroon-red-light text-[10px] font-black px-2 py-0.5 rounded">94% Match</span>
+                        <span className="bg-cameroon-yellow/20 text-cameroon-yellow text-[10px] font-black px-2 py-0.5 rounded">Low Hematocrit</span>
                       </div>
                     </motion.div>
                     <div className="grid grid-cols-2 gap-3">
-                      <motion.div
-                        className="bg-white/5 rounded-xl p-3 border border-white/5"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.8, duration: 0.5 }}
-                      >
-                        <p className="text-[10px] text-white/25 uppercase font-bold">Hematocrit</p>
-                        <p className="text-xl font-black text-white">32%</p>
-                        <p className="text-[10px] text-orange-400 font-bold">Low</p>
-                      </motion.div>
-                      <motion.div
-                        className="bg-white/5 rounded-xl p-3 border border-white/5"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 2.0, duration: 0.5 }}
-                      >
-                        <p className="text-[10px] text-white/25 uppercase font-bold">Parasites</p>
-                        <p className="text-xl font-black text-white">2500/µL</p>
-                        <p className="text-[10px] text-red-400 font-bold">High</p>
-                      </motion.div>
+                      {[
+                        { label: 'Hematocrit', value: '32%', tag: 'Low', color: 'text-cameroon-yellow' },
+                        { label: 'Parasites', value: '2500/µL', tag: 'High', color: 'text-cameroon-red-light' },
+                      ].map((m, i) => (
+                        <motion.div
+                          key={m.label}
+                          className="bg-white/5 rounded-xl p-3 border border-white/5"
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.8 + i * 0.2, duration: 0.5 }}
+                        >
+                          <p className="text-[10px] text-white/30 uppercase font-black tracking-wider">{m.label}</p>
+                          <p className="text-xl font-black text-white">{m.value}</p>
+                          <p className={`text-[10px] font-black ${m.color}`}>{m.tag}</p>
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
                   <div className="space-y-3">
                     {[
-                      { label: 'Prescribed', name: 'Coartem', tag: 'Antimalarial', color: 'blue', delay: 1.7 },
-                      { label: 'Contri-medicine', name: 'Artemisia Tea', tag: 'Traditional', color: 'emerald', delay: 1.9 },
-                      { label: 'Safety Alert', name: 'Coartem + Quinine conflict', tag: '', color: 'red', delay: 2.1 },
+                      { label: 'Prescribed', name: 'Coartem', tag: 'Antimalarial', accent: 'bg-cameroon-green/10 border-cameroon-green/30 text-cameroon-green-light', delay: 1.7 },
+                      { label: 'Contri-medicine', name: 'Artemisia Tea', tag: 'Traditional', accent: 'bg-cameroon-yellow/10 border-cameroon-yellow/30 text-cameroon-yellow', delay: 1.9 },
+                      { label: 'Safety Alert', name: 'Coartem + Quinine conflict', tag: '', accent: 'bg-cameroon-red/15 border-cameroon-red/40 text-cameroon-red-light', delay: 2.1 },
                     ].map((item) => (
                       <motion.div
                         key={item.label}
-                        className={`bg-${item.color}-500/10 border border-${item.color}-500/20 rounded-xl p-3`}
+                        className={`${item.accent} border rounded-xl p-3`}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: item.delay, duration: 0.5 }}
                       >
-                        <p className={`text-[10px] text-${item.color}-400 font-bold uppercase mb-1`}>{item.label}</p>
-                        <p className="text-sm font-bold text-white">{item.name}</p>
-                        {item.tag && <p className="text-[10px] text-white/30">{item.tag}</p>}
+                        <p className="text-[10px] font-black uppercase mb-1 tracking-wider">{item.label}</p>
+                        <p className="text-sm font-black text-white">{item.name}</p>
+                        {item.tag && <p className="text-[10px] text-white/40">{item.tag}</p>}
                       </motion.div>
                     ))}
                   </div>
@@ -422,26 +467,29 @@ const Landing = () => {
             </div>
           </motion.div>
           <motion.div
-            className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-medical-green/15 blur-3xl rounded-full"
+            className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-cameroon-green/20 blur-3xl rounded-full"
             animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.1, 1] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           />
         </motion.div>
       </section>
 
-      {/* Scrolling logos marquee */}
+      {/* Cameroon flag accent strip */}
+      <div className="h-[3px] bg-cameroon-flag opacity-50 my-4 max-w-6xl mx-auto rounded-full" />
+
+      {/* Hospitals marquee */}
       <section className="relative z-10 py-12 border-y border-white/[0.04] overflow-hidden">
-        <p className="text-center text-xs text-white/20 uppercase tracking-widest font-bold mb-8">
-          {language === 'fr' ? 'Utilisé dans les établissements de santé du Cameroun' : 'Trusted across Cameroon healthcare facilities'}
+        <p className="text-center text-xs text-cameroon-yellow/60 uppercase tracking-[0.25em] font-black mb-8">
+          {language === 'fr' ? 'Utilisé dans les établissements de santé du Cameroun' : language === 'pcm' ? 'Cameroon hospital dem dey use am' : 'Trusted across Cameroon healthcare facilities'}
         </p>
         <Marquee speed={35}>
           {[
-            'Yaound\u00e9 Central Hospital', 'H\u00f4pital G\u00e9n\u00e9ral de Douala',
+            'Yaoundé Central Hospital', 'Hôpital Général de Douala',
             'Bamenda Regional Hospital', 'Centre Hospitalier Universitaire',
             'Waspito Telehealth', 'MedPlus Pharmacy',
-            'Green Cross Pharma', 'H\u00f4tel Dieu de Bonat\u00e9li',
+            'Green Cross Pharma', 'Hôpital Laquintinie',
           ].map((name) => (
-            <span key={name} className="text-white/15 text-sm font-semibold px-6">{name}</span>
+            <span key={name} className="text-white/25 text-sm font-bold px-6">{name}</span>
           ))}
         </Marquee>
       </section>
@@ -452,13 +500,13 @@ const Landing = () => {
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <motion.p
-                className="text-5xl md:text-6xl font-black bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent"
+                className="text-5xl md:text-6xl font-black text-gradient-cameroon font-display"
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
                 {stat.value}
               </motion.p>
-              <p className="text-sm text-white/25 font-medium mt-3">{stat.label}</p>
+              <p className="text-sm text-white/40 font-bold mt-3 uppercase tracking-wider">{stat.label}</p>
             </div>
           ))}
         </StaggerContainer>
@@ -467,14 +515,17 @@ const Landing = () => {
       {/* Features */}
       <section id="features" aria-labelledby="features-heading" className="relative z-10 px-6 md:px-12 py-24 max-w-6xl mx-auto">
         <motion.div {...useAppearOnScroll()} className="text-center mb-20">
-          <p className="text-sm font-bold text-medical-green uppercase tracking-[0.2em] mb-5">
-            {language === 'fr' ? 'Fonctionnalités' : 'Features'}
+          <p className="text-sm font-black text-cameroon-yellow uppercase tracking-[0.25em] mb-5">
+            {language === 'fr' ? 'Fonctionnalités' : language === 'pcm' ? 'Wetin E Dey Do' : 'Features'}
           </p>
-          <h2 id="features-heading" className="text-5xl md:text-6xl font-black tracking-tight">
+          <h2 id="features-heading" className="text-5xl md:text-6xl font-black tracking-tight font-display">
+            {language === 'fr' ? 'Conçu pour le terrain' : language === 'pcm' ? 'Build For Ground' : 'Built for the field'}
           </h2>
-          <p className="text-white/30 text-lg mt-6 max-w-xl mx-auto leading-relaxed">
+          <p className="text-white/40 text-lg mt-6 max-w-xl mx-auto leading-relaxed">
             {language === 'fr'
               ? 'Des outils de diagnostic conçus pour les réalités du terrain au Cameroun.'
+              : language === 'pcm'
+              ? 'Diagnosis tools wey we build for Cameroon real-life work.'
               : 'Diagnostic tools designed for the realities of healthcare in Cameroon.'}
           </p>
         </motion.div>
@@ -486,35 +537,35 @@ const Landing = () => {
               initial={{ opacity: 0, y: 60, filter: 'blur(8px)' }}
               whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               viewport={{ once: true, margin: '-60px' }}
-              transition={{ duration: 0.8, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+              transition={{ duration: 0.8, delay: i * 0.08, ease: CUSTOM_EASE }}
               whileHover={{ y: -8, transition: { duration: 0.3 } }}
-              className={`group bg-white/[0.02] border border-white/[0.05] rounded-2xl p-7 hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-500 hover:shadow-2xl ${feature.glow}`}
+              className={`group bg-white/[0.02] border border-white/[0.06] rounded-2xl p-7 hover:bg-white/[0.05] hover:border-cameroon-yellow/20 transition-all duration-500 hover:${feature.glow}`}
             >
               <motion.div
-                className={`bg-gradient-to-br ${feature.gradient} w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-5`}
+                className={`bg-gradient-to-br ${feature.gradient} w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-5 shadow-lg`}
                 whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
                 transition={{ duration: 0.4 }}
               >
                 {feature.icon}
               </motion.div>
-              <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-              <p className="text-sm text-white/35 leading-relaxed">{feature.desc}</p>
+              <h3 className="text-xl font-black text-white mb-3">{feature.title}</h3>
+              <p className="text-sm text-white/45 leading-relaxed">{feature.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* AI Section with parallax reveal */}
+      {/* AI Section */}
       <section id="ai" aria-labelledby="ai-heading" className="relative z-10 px-6 md:px-12 py-28">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, x: -60, filter: 'blur(10px)' }}
             whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 1, ease: CUSTOM_EASE }}
           >
             <motion.p
-              className="text-sm font-bold text-purple-400 uppercase tracking-[0.2em] mb-5"
+              className="text-sm font-black text-cameroon-red-light uppercase tracking-[0.25em] mb-5"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
@@ -522,33 +573,35 @@ const Landing = () => {
             >
               Google MedGemma
             </motion.p>
-            <h2 id="ai-heading" className="text-5xl md:text-6xl font-black tracking-tight mb-6">
-              {language === 'fr' ? 'IA Médicale de' : 'Medical-Grade'}{' '}
-              <span className="bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent">
-                {language === 'fr' ? 'Qualité Médicale' : 'AI Power'}
+            <h2 id="ai-heading" className="text-5xl md:text-6xl font-black tracking-tight mb-6 font-display">
+              {language === 'fr' ? 'IA de' : language === 'pcm' ? 'Medical' : 'Medical-Grade'}{' '}
+              <span className="text-gradient-cameroon">
+                {language === 'fr' ? 'Qualité Médicale' : language === 'pcm' ? 'AI Power' : 'AI Power'}
               </span>
             </h2>
-            <p className="text-white/35 text-lg leading-relaxed mb-10">
+            <p className="text-white/45 text-lg leading-relaxed mb-10">
               {language === 'fr'
                 ? "Intégré avec MedGemma de Google, CamDiag fournit une analyse d'image médicale, une vérification des interactions médicamenteuses et des informations sur les médicaments — le tout par IA."
+                : language === 'pcm'
+                ? "We use Google MedGemma. CamDiag fit check medical picture, drug interaction, and drug info — all with AI."
                 : "Integrated with Google's MedGemma, CamDiag delivers medical image analysis, drug interaction checking, and medication info — all AI-powered."}
             </p>
             <StaggerContainer className="space-y-5">
               {[
                 language === 'fr' ? "Analyse d'image médicale en temps réel" : 'Real-time medical image analysis',
-                language === 'fr' ? 'Détection d\'interactions médicamenteuses' : 'Drug interaction detection',
+                language === 'fr' ? "Détection d'interactions médicamenteuses" : 'Drug interaction detection',
                 language === 'fr' ? 'Recherche de médicaments adaptée au Cameroun' : 'Cameroon-specific medication search',
                 language === 'fr' ? 'Moteur local de secours hors ligne' : 'Offline fallback local engine',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-4">
                   <motion.div
-                    className="w-7 h-7 rounded-full bg-purple-500/15 flex items-center justify-center shrink-0 border border-purple-500/20"
+                    className="w-7 h-7 rounded-full bg-cameroon-yellow/15 flex items-center justify-center shrink-0 border border-cameroon-yellow/30"
                     whileInView={{ scale: [0.8, 1] }}
                     viewport={{ once: true }}
                   >
-                    <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-3.5 h-3.5 text-cameroon-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                   </motion.div>
-                  <span className="text-sm text-white/50 font-medium">{item}</span>
+                  <span className="text-sm text-white/65 font-medium">{item}</span>
                 </div>
               ))}
             </StaggerContainer>
@@ -558,53 +611,42 @@ const Landing = () => {
             initial={{ opacity: 0, x: 60, filter: 'blur(10px)' }}
             whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 1, ease: CUSTOM_EASE }}
             className="relative"
           >
-            <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <div className="bg-gradient-to-br from-purple-500/[0.08] to-fuchsia-500/[0.05] border border-purple-500/15 rounded-3xl p-8 backdrop-blur-md shadow-2xl shadow-purple-500/5">
+            <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}>
+              <div className="bg-gradient-to-br from-cameroon-red/[0.10] to-cameroon-yellow/[0.06] border border-cameroon-yellow/20 rounded-3xl p-8 backdrop-blur-md shadow-premium">
                 <div className="flex items-center gap-3 mb-8">
-                  <motion.div
-                    className="w-3 h-3 rounded-full bg-purple-400"
-                    animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  <span className="text-xs font-bold text-purple-400 uppercase tracking-[0.15em]">MedGemma AI</span>
+                  <motion.div className="w-3 h-3 rounded-full bg-cameroon-yellow" animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                  <span className="text-xs font-black text-cameroon-yellow uppercase tracking-[0.2em]">MedGemma AI</span>
                 </div>
                 <div className="space-y-5">
                   <motion.div
-                    className="bg-black/40 rounded-xl p-5 border border-white/[0.04]"
+                    className="bg-cameroon-night/60 rounded-xl p-5 border border-white/[0.06]"
                     initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.5 }}
                   >
-                    <p className="text-[10px] text-white/20 mb-2 uppercase tracking-widest">Prompt</p>
-                    <p className="text-sm text-white/50 font-mono">"Analyze this malaria RDT scan..."</p>
+                    <p className="text-[10px] text-white/25 mb-2 uppercase tracking-widest">Prompt</p>
+                    <p className="text-sm text-white/55 font-mono">"Analyze this malaria RDT scan..."</p>
+                  </motion.div>
+                  <motion.div className="flex justify-center" animate={{ y: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                    <svg className="w-7 h-7 text-cameroon-yellow/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
                   </motion.div>
                   <motion.div
-                    className="flex justify-center"
-                    animate={{ y: [0, 4, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    <svg className="w-7 h-7 text-purple-400/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
-                  </motion.div>
-                  <motion.div
-                    className="bg-black/40 rounded-xl p-5 border border-purple-500/10"
+                    className="bg-cameroon-night/60 rounded-xl p-5 border border-cameroon-yellow/15"
                     initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.8 }}
                   >
-                    <p className="text-[10px] text-purple-400 mb-3 font-bold uppercase tracking-widest">Response</p>
+                    <p className="text-[10px] text-cameroon-yellow mb-3 font-black uppercase tracking-widest">Response</p>
                     <div className="space-y-3">
                       {[
-                        { badge: '94%', badgeColor: 'emerald', text: 'Malaria (P. Falciparum)' },
-                        { badge: 'RX', badgeColor: 'blue', text: 'Coartem recommended' },
-                        { badge: '!', badgeColor: 'red', text: 'Coartem + Quinine conflict' },
+                        { badge: '94%', tone: 'bg-cameroon-green/20 text-cameroon-green-light', text: 'Malaria (P. Falciparum)' },
+                        { badge: 'RX', tone: 'bg-cameroon-yellow/20 text-cameroon-yellow', text: 'Coartem recommended' },
+                        { badge: '!', tone: 'bg-cameroon-red/25 text-cameroon-red-light', text: 'Coartem + Quinine conflict' },
                       ].map((item, i) => (
                         <motion.div
                           key={item.text}
@@ -614,8 +656,8 @@ const Landing = () => {
                           viewport={{ once: true }}
                           transition={{ delay: 1.0 + i * 0.15 }}
                         >
-                          <span className={`bg-${item.badgeColor}-500/20 text-${item.badgeColor}-400 text-[10px] font-bold px-2 py-0.5 rounded shrink-0`}>{item.badge}</span>
-                          <span className="text-sm text-white/70">{item.text}</span>
+                          <span className={`${item.tone} text-[10px] font-black px-2 py-0.5 rounded shrink-0`}>{item.badge}</span>
+                          <span className="text-sm text-white/75">{item.text}</span>
                         </motion.div>
                       ))}
                     </div>
@@ -624,7 +666,7 @@ const Landing = () => {
               </div>
             </motion.div>
             <motion.div
-              className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-1/2 h-20 bg-purple-500/15 blur-3xl rounded-full"
+              className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-1/2 h-20 bg-cameroon-yellow/20 blur-3xl rounded-full"
               animate={{ opacity: [0.2, 0.5, 0.2] }}
               transition={{ duration: 4, repeat: Infinity }}
             />
@@ -636,10 +678,11 @@ const Landing = () => {
       <section id="testimonials" aria-labelledby="testimonials-heading" className="relative z-10 px-6 md:px-12 py-28 border-t border-white/[0.04]">
         <div className="max-w-6xl mx-auto">
           <motion.div {...useAppearOnScroll()} className="text-center mb-20">
-            <p className="text-sm font-bold text-medical-green uppercase tracking-[0.2em] mb-5">
-              {language === 'fr' ? 'Témoignages' : 'Testimonials'}
+            <p className="text-sm font-black text-cameroon-yellow uppercase tracking-[0.25em] mb-5">
+              {language === 'fr' ? 'Témoignages' : language === 'pcm' ? 'Wetin Doctor Dem Talk' : 'Testimonials'}
             </p>
-            <h2 id="testimonials-heading" className="text-5xl md:text-6xl font-black tracking-tight">
+            <h2 id="testimonials-heading" className="text-5xl md:text-6xl font-black tracking-tight font-display">
+              {language === 'fr' ? 'Approuvé par les soignants' : language === 'pcm' ? 'Doctor Dem Trust Am' : 'Trusted by clinicians'}
             </h2>
           </motion.div>
 
@@ -650,23 +693,23 @@ const Landing = () => {
                 initial={{ opacity: 0, y: 60, filter: 'blur(8px)' }}
                 whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                 viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.8, delay: i * 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+                transition={{ duration: 0.8, delay: i * 0.1, ease: CUSTOM_EASE }}
                 whileHover={{ y: -6, transition: { duration: 0.3 } }}
-                className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-7 hover:bg-white/[0.04] transition-all duration-500"
+                className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-7 hover:bg-white/[0.05] hover:border-cameroon-yellow/20 transition-all duration-500"
               >
                 <div className="flex items-center gap-4 mb-6">
                   <motion.div
-                    className="w-12 h-12 rounded-full bg-gradient-to-br from-medical-green to-cameroon-green flex items-center justify-center text-white text-sm font-black shadow-lg shadow-medical-green/10"
+                    className="w-12 h-12 rounded-full bg-gradient-to-br from-cameroon-green to-cameroon-yellow flex items-center justify-center text-cameroon-night text-sm font-black shadow-cameroon-glow"
                     whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
                   >
-                    {item.name.charAt(0)}{item.name.split('.')[1]?.trim()?.charAt(0) || ''}
+                    {item.name.split(' ').map((p) => p[0]).join('').slice(0, 2)}
                   </motion.div>
                   <div>
-                    <p className="text-sm font-bold text-white">{item.name}</p>
-                    <p className="text-xs text-white/25">{item.role}</p>
+                    <p className="text-sm font-black text-white">{item.name}</p>
+                    <p className="text-xs text-white/35">{item.role}</p>
                   </div>
                 </div>
-                <p className="text-sm text-white/40 leading-relaxed italic">"{item.text}"</p>
+                <p className="text-sm text-white/55 leading-relaxed italic">"{item.text}"</p>
               </motion.div>
             ))}
           </div>
@@ -679,40 +722,46 @@ const Landing = () => {
           initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
           whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
           viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 1, ease: CUSTOM_EASE }}
           className="max-w-4xl mx-auto text-center"
         >
-          <div className="bg-gradient-to-b from-white/[0.06] to-white/[0.01] border border-white/[0.06] rounded-[2rem] p-12 md:p-20 relative overflow-hidden">
+          <div className="bg-gradient-to-b from-cameroon-green/[0.08] to-cameroon-yellow/[0.04] border border-cameroon-yellow/20 rounded-[2rem] p-12 md:p-20 relative overflow-hidden">
             <motion.div
               className="absolute inset-0 pointer-events-none"
               animate={{ background: [
-                'linear-gradient(135deg, rgba(16,185,129,0.08), transparent, rgba(168,85,247,0.08))',
-                'linear-gradient(135deg, rgba(168,85,247,0.08), transparent, rgba(16,185,129,0.08))',
-                'linear-gradient(135deg, rgba(16,185,129,0.08), transparent, rgba(168,85,247,0.08))',
+                'linear-gradient(135deg, rgba(0,122,94,0.10), transparent, rgba(252,209,22,0.10))',
+                'linear-gradient(135deg, rgba(206,17,38,0.10), transparent, rgba(0,122,94,0.10))',
+                'linear-gradient(135deg, rgba(252,209,22,0.10), transparent, rgba(206,17,38,0.10))',
+                'linear-gradient(135deg, rgba(0,122,94,0.10), transparent, rgba(252,209,22,0.10))',
               ] }}
-              transition={{ duration: 8, repeat: Infinity }}
+              transition={{ duration: 12, repeat: Infinity }}
             />
             <div className="relative z-10">
+              <div className="flex justify-center mb-8">
+                <CamDiagLogo size={80} animated />
+              </div>
               <motion.h2
-                className="text-5xl md:text-6xl font-black tracking-tight mb-5"
+                className="text-5xl md:text-6xl font-black tracking-tight mb-5 font-display"
                 whileInView={{ opacity: [0, 1], y: [30, 0] }}
                 viewport={{ once: true }}
               >
-                {language === 'fr' ? 'Prêt à commencer ?' : 'Ready to start?'}
+                {language === 'fr' ? 'Prêt à commencer ?' : language === 'pcm' ? 'You Ready?' : 'Ready to start?'}
               </motion.h2>
-              <p className="text-white/30 text-lg mb-10">
+              <p className="text-white/45 text-lg mb-10">
                 {language === 'fr'
                   ? 'Rejoignez des milliers de professionnels de santé qui utilisent CamDiag au Cameroun.'
+                  : language === 'pcm'
+                  ? 'Join plenty health workers wey dey use CamDiag for Cameroon.'
                   : 'Join thousands of healthcare professionals using CamDiag in Cameroon.'}
               </p>
-              <motion.button
+              <MagneticButton
                 onClick={() => setShowLogin(true)}
-                className="bg-medical-green text-white font-bold text-lg px-12 py-5 rounded-full shadow-2xl shadow-medical-green/30"
-                whileHover={{ scale: 1.05, boxShadow: '0 0 80px rgba(16,185,129,0.4)' }}
+                className="bg-cameroon-yellow text-cameroon-night font-black text-lg px-12 py-5 rounded-full shadow-sunset-glow"
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.97 }}
               >
-                {language === 'fr' ? 'Commencer Gratuitement' : 'Get Started Free'}
-              </motion.button>
+                {language === 'fr' ? 'Commencer Gratuitement' : language === 'pcm' ? 'Start For Free' : 'Get Started Free'}
+              </MagneticButton>
             </div>
           </div>
         </motion.div>
@@ -721,20 +770,17 @@ const Landing = () => {
       {/* Footer */}
       <footer className="relative z-10 px-6 md:px-12 py-12 border-t border-white/[0.04]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <motion.div className="flex items-center gap-2" whileHover={{ scale: 1.02 }}>
-            <div className="bg-medical-green p-1 rounded-md">
-              <ShieldIcon className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-bold">CamDiag</span>
-          </motion.div>
-          <p className="text-xs text-white/15 text-center">
+          <CamDiagLogo size={32} showWordmark />
+          <p className="text-xs text-white/30 text-center max-w-md">
             {language === 'fr'
               ? "© 2026 CamDiag par NDN Analytics. Ceci n'est PAS un vrai diagnostic. Consultez toujours un médecin."
+              : language === 'pcm'
+              ? '© 2026 CamDiag by NDN Analytics. Dis no be real diagnosis. Always meet doctor.'
               : '© 2026 CamDiag by NDN Analytics. This is NOT a real diagnosis. Always consult a doctor.'}
           </p>
-          <div className="flex items-center gap-6 text-sm text-white/25">
-            <a href="#" className="hover:text-white/50 transition-colors">{language === 'fr' ? 'Confidentialité' : 'Privacy'}</a>
-            <a href="#" className="hover:text-white/50 transition-colors">{language === 'fr' ? 'Conditions' : 'Terms'}</a>
+          <div className="flex items-center gap-6 text-sm text-white/35">
+            <a href="#" className="hover:text-cameroon-yellow transition-colors">{language === 'fr' ? 'Confidentialité' : 'Privacy'}</a>
+            <a href="#" className="hover:text-cameroon-yellow transition-colors">{language === 'fr' ? 'Conditions' : 'Terms'}</a>
           </div>
         </div>
       </footer>
@@ -745,7 +791,7 @@ const Landing = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6"
+          className="fixed inset-0 z-[1000] glass-dark flex items-center justify-center p-6"
           onClick={closeModal}
         >
           <motion.div
@@ -753,86 +799,184 @@ const Landing = () => {
             animate={{ scale: 1, y: 0, opacity: 1, filter: 'blur(0px)' }}
             exit={{ scale: 0.9, y: 30, opacity: 0 }}
             transition={{ duration: 0.4, ease: CUSTOM_EASE }}
-            className="bg-slate-900/95 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl"
+            className="bg-cameroon-night/95 border border-cameroon-yellow/20 rounded-3xl p-8 w-full max-w-md shadow-premium"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black">{isRegister ? (language === 'fr' ? 'Créer un compte' : 'Create Account') : t.welcome_back}</h2>
-              <motion.button onClick={closeModal} className="text-white/30 hover:text-white transition-colors" whileHover={{ rotate: 90 }} transition={{ duration: 0.2 }}>
+            <div className="flex items-center justify-between mb-2">
+              <CamDiagLogo size={42} animated />
+              <motion.button onClick={closeModal} className="text-white/40 hover:text-white transition-colors" whileHover={{ rotate: 90 }} transition={{ duration: 0.2 }}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </motion.button>
             </div>
-            <p className="text-white/30 text-sm mb-6">{isRegister ? (language === 'fr' ? 'Rejoignez CamDiag pour accéder au diagnostic IA' : 'Join CamDiag to access AI diagnostics') : t.login_subtitle}</p>
+            <h2 className="text-2xl font-black mt-3">{authTab === 'register' ? (language === 'fr' ? 'Créer un compte' : 'Create Account') : t.welcome_back}</h2>
+            <p className="text-white/40 text-sm mb-6">{authTab === 'register' ? (language === 'fr' ? 'Rejoignez CamDiag pour accéder au diagnostic IA' : 'Join CamDiag to access AI diagnostics') : t.login_subtitle}</p>
 
             {error && (
-              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-2 mb-4">
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-cameroon-red/10 border border-cameroon-red/30 text-cameroon-red-light text-sm rounded-xl px-4 py-2 mb-4">
                 {error}
               </motion.div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              {isRegister && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+            <div className="flex bg-white/[0.04] rounded-xl p-1 mb-4">
+              <button
+                type="button"
+                onClick={() => { setAuthMethod('email'); setError(''); setOtpError(''); setOtpSent(false); setConfirmationResult(null); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-black transition-all ${authMethod === 'email' ? 'bg-cameroon-green text-white' : 'text-white/40 hover:text-white'}`}
+              >
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMethod('phone'); setError(''); setOtpError(''); setOtpSent(false); setConfirmationResult(null); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-black transition-all ${authMethod === 'phone' ? 'bg-cameroon-green text-white' : 'text-white/40 hover:text-white'}`}
+              >
+                {language === 'fr' ? 'Téléphone' : 'Phone'}
+              </button>
+            </div>
+
+            {authMethod === 'phone' ? (
+              otpSent ? (
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="text-center mb-4">
+                    <p className="text-white/60 text-sm">{t.otp_sent}</p>
+                    <p className="text-white font-bold text-sm mt-1">{phoneNumber}</p>
+                  </div>
                   <input
                     type="text"
-                    aria-label="Name"
-                    placeholder={language === 'fr' ? 'Votre nom' : 'Your name'}
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required={isRegister}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    aria-label={t.enter_otp}
+                    placeholder={t.otp_placeholder}
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white text-center text-2xl tracking-widest placeholder:text-white/20 focus:border-cameroon-yellow/50 outline-none transition-all"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    required
                   />
-                </motion.div>
-              )}
-              <div>
+                  {otpError && <p className="text-cameroon-red-light text-sm text-center">{otpError}</p>}
+                  <motion.button
+                    type="submit"
+                    disabled={otp.length !== 6}
+                    className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all disabled:opacity-50"
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {t.verify_otp}
+                  </motion.button>
+                  <button
+                    type="button"
+                    onClick={() => { setOtpSent(false); setOtp(''); setOtpError(''); setConfirmationResult(null); }}
+                    className="w-full text-white/40 text-sm hover:text-white/60 transition-colors py-1"
+                  >
+                    {t.use_phone_instead}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <input
+                    type="tel"
+                    aria-label={t.phone_number}
+                    placeholder={t.phone_placeholder}
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-cameroon-yellow/50 outline-none transition-all"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    required
+                  />
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all disabled:opacity-50"
+                    whileHover={{ boxShadow: '0 0 40px rgba(252,209,22,0.4)' }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {isLoading ? '...' : t.send_otp}
+                  </motion.button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('email')}
+                    className="w-full text-white/40 text-sm hover:text-white/60 transition-colors"
+                  >
+                    {t.use_email_instead}
+                  </button>
+                </form>
+              )
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                {authTab === 'register' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                    <input
+                      type="text"
+                      aria-label="Name"
+                      placeholder={language === 'fr' ? 'Votre nom' : 'Your name'}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-cameroon-yellow/50 outline-none transition-all"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required={authTab === 'register'}
+                    />
+                  </motion.div>
+                )}
                 <input
                   type="email"
                   aria-label="Email"
                   placeholder={t.email_placeholder}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-cameroon-yellow/50 outline-none transition-all"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-              </div>
-              <div>
                 <input
                   type="password"
                   aria-label="Password"
                   placeholder={t.password_placeholder}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-medical-green/50 outline-none transition-all focus:shadow-lg focus:shadow-medical-green/5"
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-cameroon-yellow/50 outline-none transition-all"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </div>
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-medical-green text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50"
-                whileHover={{ boxShadow: '0 0 40px rgba(16,185,129,0.3)' }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {isLoading ? '...' : (isRegister ? (language === 'fr' ? 'Créer le compte' : 'Create Account') : t.login)}
-              </motion.button>
-            </form>
+                <motion.button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all disabled:opacity-50"
+                  whileHover={{ boxShadow: '0 0 40px rgba(252,209,22,0.4)' }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isLoading ? '...' : (authTab === 'register' ? (language === 'fr' ? 'Créer le compte' : 'Create Account') : t.login)}
+                </motion.button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMethod('phone')}
+                  className="w-full text-white/40 text-sm hover:text-white/60 transition-colors"
+                >
+                  {t.or_continue_with_phone}
+                </button>
+              </form>
+            )}
 
-            <div className="mt-6 text-center space-y-3">
-              <button
-                onClick={() => { setIsRegister(!isRegister); setError(''); }}
-                className="text-white/30 text-sm hover:text-white/50 transition-colors"
-              >
-                {isRegister
-                  ? (language === 'fr' ? 'Déjà un compte ? Se connecter' : 'Already have an account? Log in')
-                  : (language === 'fr' ? 'Pas de compte ? Créer un compte' : "Don't have an account? Sign up")
-                }
-              </button>
+            {/* Disclaimer in modal — required medical context before sign-up */}
+            <p className="mt-4 text-[10px] text-cameroon-yellow/70 text-center leading-relaxed bg-cameroon-yellow/5 border border-cameroon-yellow/15 rounded-xl px-3 py-2">
+              {language === 'fr'
+                ? '⚠️ CamDiag est un outil d\'aide à la décision. Ce n\'est pas un substitut au jugement clinique d\'un médecin agréé.'
+                : language === 'pcm'
+                ? '⚠️ CamDiag na helper for decision. E no fit replace doctor wey get license.'
+                : '⚠️ CamDiag is decision-support only. Not a substitute for the judgment of a licensed clinician.'}
+            </p>
+
+            <div className="mt-4 text-center space-y-3">
+              {authMethod === 'email' && (
+                <button
+                  onClick={() => { setAuthTab(authTab === 'register' ? 'login' : 'register'); setError(''); }}
+                  className="text-white/40 text-sm hover:text-white/60 transition-colors"
+                >
+                  {authTab === 'register'
+                    ? (language === 'fr' ? 'Déjà un compte ? Se connecter' : 'Already have an account? Log in')
+                    : (language === 'fr' ? 'Pas de compte ? Créer un compte' : "Don't have an account? Sign up")}
+                </button>
+              )}
               <br />
               <button
                 onClick={() => { closeModal(); navigate('/app'); }}
-                className="text-white/25 text-sm hover:text-white/50 transition-colors"
+                className="text-white/30 text-sm hover:text-cameroon-yellow transition-colors"
               >
-                {language === 'fr' ? 'Continuer sans compte →' : 'Continue without account →'}
+                {language === 'fr' ? 'Continuer sans compte →' : language === 'pcm' ? 'Enter without account →' : 'Continue without account →'}
               </button>
             </div>
           </motion.div>

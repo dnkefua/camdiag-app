@@ -1,10 +1,10 @@
 {
-  "name": "CamDiag",
+  "name": "CamDiag — Medical AI for Cameroon",
   "short_name": "CamDiag",
   "description": "AI-powered medical diagnostic assistant for Cameroon healthcare",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
+  "background_color": "#FFF7E6",
   "theme_color": "#007A5E",
   "orientation": "portrait-primary",
   "icons": [

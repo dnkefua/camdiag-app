@@ -109,5 +109,18 @@
   "email_placeholder": "Entrez votre email",
   "password_placeholder": "Entrez votre mot de passe",
   "welcome_back": "Bienvenue",
-  "login_subtitle": "Connectez-vous pour accéder à votre centre de diagnostic"
+  "login_subtitle": "Connectez-vous pour accéder à votre centre de diagnostic",
+  "phone_number": "Numéro de téléphone",
+  "phone_placeholder": "+237 6XX XXX XXX",
+  "send_otp": "Envoyer le code",
+  "enter_otp": "Entrez le code de vérification",
+  "otp_placeholder": "Code à 6 chiffres",
+  "verify_otp": "Vérifier",
+  "resend_otp": "Renvoyer le code",
+  "otp_sent": "Code envoyé à votre téléphone",
+  "invalid_otp": "Code invalide. Veuillez réessayer.",
+  "use_email_instead": "Utiliser l'email à la place",
+  "use_phone_instead": "Utiliser le téléphone à la place",
+  "or_continue_with_phone": "Ou continuer avec le téléphone",
+  "or_continue_with_email": "Ou continuer avec l'email"
 }

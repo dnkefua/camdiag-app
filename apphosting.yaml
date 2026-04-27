@@ -41,6 +41,15 @@ env:
       - BUILD
       - RUNTIME
 
+  # Browser-restricted Maps key (HTTP referrer locked to *.camdiag-c7e78.web.app
+  # and *.firebaseapp.com via Google Cloud → APIs → Credentials). Safe to commit
+  # because the security boundary is the referrer check, not key secrecy.
+  - variable: VITE_GOOGLE_MAPS_API_KEY
+    value: AIzaSyCbdxxdZUo8CvWbo2ssR5wA_dtjokuXQ9Q
+    availability:
+      - BUILD
+      - RUNTIME
+
   # ─── Sensitive keys — set in Firebase Console App Hosting backend settings ───
   # Firebase Console → App Hosting → your backend → Environment Variables
   # VITE_FIREBASE_API_KEY

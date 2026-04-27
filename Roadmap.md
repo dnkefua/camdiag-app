@@ -150,9 +150,9 @@ public/
    - `VITE_FIREBASE_MEASUREMENT_ID` — Optional
 2. **Deploy Firestore rules** — ✅ Done. Deployed via `firebase deploy --only firestore`.
 3. **Seed the database** — ❌ Cannot do via CLI (service account key creation restricted by organisation policy). **Workaround:** Add drugs and facilities manually in Firebase Console → Firestore → Add data. See seed data below.
-4. **Firebase Auth phone auth** — Login modal has `isRegister` state and phone handlers stubbed out; wire to phone tab UI when ready
+4. **Firebase Auth phone auth** — Phone tab UI needs to be wired to Firebase `signInWithPhoneNumber` (recaptcha verifier already in auth.ts)
 5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
-6. **More component tests** — Scanner, AnalysisResults, NextSteps, Questionnaire, PatientRecords, Blog, Settings, ComingUp, and Landing still need @testing-library/react tests
+6. **More component tests** — Scanner (7), AnalysisResults (9), NextSteps (10), Questionnaire (8), PatientRecords (6), Blog (8), Settings (7), ComingUp (7) — 62 tests written, 101/106 passing. Landing mock incompatible with Vitest hoisting.
 
 ### Seed Data (for Firebase Console manual entry)
 

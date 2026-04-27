@@ -7,7 +7,28 @@
       "Bash(git clone:*)",
       "Bash(mv camdiag-temp/* camdiag-temp/.* .)",
       "Bash(rm -rf camdiag-temp)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npx vitest *)",
+      "Bash(npx playwright *)",
+      "Bash(npm test *)",
+      "Bash(grep -A60 \"Found multiple elements with the role \\\\\"button\\\\\" and name \\\\`/EN/i\\\\`\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh run *)",
+      "WebSearch",
+      "WebFetch(domain:firebase.google.com)",
+      "Bash(git commit -m 'Fix apphosting.yaml: remove vars without values, add comments *)",
+      "Bash(git commit -m 'Remove redundant GitHub Actions deploy job *)",
+      "Bash(npx firebase *)",
+      "Bash(ls ~/.config/firebase/)",
+      "Bash(ls ~/AppData/Roaming/firebase/)",
+      "Bash(gcloud auth *)",
+      "Bash(curl -s -X POST 'https://firestore.googleapis.com/v1/projects/camdiag-c7e78/databases/\\(default\\)/documents/drugs?access_token=__TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"fields\": {\"name\": {\"stringValue\": \"Coartem \\(Artemether/Lumefantrine\\)\"}, \"type\": {\"stringValue\": \"Antimalarial\"}, \"dosage\": {\"stringValue\": \"20mg/120mg\"}, \"availability\": {\"stringValue\": \"High\"}, \"description\": {\"stringValue\": \"First-line treatment for uncomplicated malaria in Cameroon.\"}}')",
+      "Bash(node -e ' *)",
+      "Bash(gcloud services *)",
+      "Bash(git check-ignore *)",
+      "Bash(firebase hosting:channel:list --project camdiag-c7e78)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getAnalytics, isSupported } from 'firebase/analytics';
+import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDeMKB-ePfx5ojM3489WzsVTo8v1rh8muQ',
@@ -17,10 +17,23 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-isSupported().then((supported) => {
-  if (supported) {
-    getAnalytics(app);
-  }
-});
+let analyticsInstance: Analytics | null = null;
+let analyticsPromise: Promise<Analytics | null> | null = null;
+
+export const getAnalyticsInstance = (): Promise<Analytics | null> => {
+  if (analyticsInstance) return Promise.resolve(analyticsInstance);
+  if (analyticsPromise) return analyticsPromise;
+  analyticsPromise = isSupported().then((supported) => {
+    if (!supported) return null;
+    analyticsInstance = getAnalytics(app);
+    return analyticsInstance;
+  }).catch(() => null);
+  return analyticsPromise;
+};
+
+// Eagerly warm analytics for production (browser-only)
+if (typeof window !== 'undefined') {
+  getAnalyticsInstance();
+}
 
 export default app;

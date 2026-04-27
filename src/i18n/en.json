@@ -109,5 +109,18 @@
   "email_placeholder": "Enter your email",
   "password_placeholder": "Enter your password",
   "welcome_back": "Welcome Back",
-  "login_subtitle": "Sign in to access your diagnostic hub"
+  "login_subtitle": "Sign in to access your diagnostic hub",
+  "phone_number": "Phone number",
+  "phone_placeholder": "+237 6XX XXX XXX",
+  "send_otp": "Send Code",
+  "enter_otp": "Enter verification code",
+  "otp_placeholder": "6-digit code",
+  "verify_otp": "Verify",
+  "resend_otp": "Resend code",
+  "otp_sent": "Code sent to your phone",
+  "invalid_otp": "Invalid code. Please try again.",
+  "use_email_instead": "Use email instead",
+  "use_phone_instead": "Use phone instead",
+  "or_continue_with_phone": "Or continue with phone",
+  "or_continue_with_email": "Or continue with email"
 }
