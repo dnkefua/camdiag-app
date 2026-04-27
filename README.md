@@ -1,16 +1,149 @@
-# React + Vite
+# CamDiag - AI-Powered Medical Diagnostic Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+CamDiag is an AI-powered diagnostic assistance application designed for Cameroon's healthcare system. It leverages Google's MedGemma (via the Gemini API) to provide medical image analysis, drug interaction checking, and clinical decision support.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **AI Medical Scan Analysis** - Scan lab results, X-rays, and RDT tests using the device camera
+- **Drug Database** - Browse medications available in Cameroon, including traditional remedies (contri-medicine)
+- **Drug Interaction Checking** - Automatic contraindication detection across recommended medications
+- **Bilingual Support** - Full English/French interface
+- **Nearby Facilities** - Find clinics, hospitals, pharmacies, and telehealth providers
+- **Patient Records** - Track diagnostic history
+- **Medical Feedback** - Gamified questionnaire for community health data
+- **Blog & News** - Health-related content for Cameroon
+- **Offline Awareness** - Detects and displays connection status
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** + **TypeScript**
+- **React Router v7** - URL-based navigation
+- **Zustand** - Global state management
+- **Tailwind CSS 3** - Styling
+- **Framer Motion** - Animations
+- **Google Generative AI SDK** - MedGemma / Gemini integration
+- **Vitest** + **React Testing Library** - Testing
+- **Firebase Hosting** - Deployment
 
-## Expanding the ESLint configuration
+## Project Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```
+src/
+├── components/
+│   ├── ui/          # ErrorBoundary, LoadingSpinner, Icons
+│   ├── DiagnosticHub.tsx
+│   ├── Scanner.tsx
+│   ├── AnalysisResults.tsx
+│   ├── NextSteps.tsx
+│   ├── DrugDatabase.tsx
+│   ├── PatientRecords.tsx
+│   ├── Questionnaire.tsx
+│   ├── Blog.tsx
+│   ├── ComingUp.tsx
+│   └── Settings.tsx
+├── contexts/        # AuthContext
+├── hooks/           # useTranslation, useOnlineStatus
+├── i18n/            # en.json, fr.json
+├── services/        # api.ts (local), medgemma.ts (Google AI)
+├── store/           # Zustand useAppStore
+├── types/           # TypeScript type definitions
+├── utils/           # Form validation, input sanitization
+├── test/            # Vitest setup and test files
+├── App.tsx          # Router setup
+└── main.tsx         # Entry point with providers
+```
+
+## Getting Started
+
+### Prerequisites
+- Node.js 20+
+- npm 9+
+
+### Installation
+
+```bash
+npm install
+```
+
+### Environment Setup
+
+Copy `.env.example` to `.env` and add your Google AI API key:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```
+VITE_GOOGLE_AI_API_KEY=your_actual_api_key_here
+```
+
+Get an API key from [Google AI Studio](https://aistudio.google.com/).
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Testing
+
+```bash
+npm test           # Run tests once
+npm run test:watch # Watch mode
+npm run test:coverage # With coverage
+```
+
+### Linting & Type Check
+
+```bash
+npm run lint       # ESLint
+npm run typecheck  # TypeScript check
+```
+
+## MedGemma Integration
+
+CamDiag integrates with Google's MedGemma model through the Gemini API for:
+
+1. **Medical Image Analysis** - Upload scan images and receive AI-assisted diagnostic suggestions
+2. **Drug Interaction Checking** - Query medication combinations for potential contraindications
+3. **Medication Information** - Search for detailed medication data including Cameroon availability
+
+The integration uses the `@google/generative-ai` SDK with the `gemini-2.0-flash` model. Responses are parsed and validated on the client side.
+
+**Important:** Always include medical disclaimers. CamDiag is a decision support tool, not a replacement for professional medical diagnosis.
+
+## Internationalization
+
+Translation files are in `src/i18n/`:
+- `en.json` - English
+- `fr.json` - French
+
+To add a new language, create a new JSON file and update the `Language` type in `src/types/index.ts`.
+
+## Deployment
+
+```bash
+npm run build
+firebase deploy
+```
+
+Make sure `.firebaserc` is configured with your Firebase project ID.
+
+## Security
+
+- Content Security Policy headers are configured in `firebase.json`
+- Input sanitization is applied to all user-submitted text
+- Drug interaction checking runs both locally (instant) and via MedGemma (comprehensive)
+- No patient data is stored remotely - all data remains local unless explicitly shared
+- Medical disclaimers are prominently displayed throughout the application
+
+## License
+
+Private - NDN Analytics

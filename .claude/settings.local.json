@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gcloud projects:*)",
+      "Bash(gcloud config:*)",
+      "Bash(gcloud source:*)",
+      "Bash(git clone:*)",
+      "Bash(mv camdiag-temp/* camdiag-temp/.* .)",
+      "Bash(rm -rf camdiag-temp)",
+      "Bash(git checkout:*)"
+    ]
+  }
+}

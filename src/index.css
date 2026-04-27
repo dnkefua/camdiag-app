@@ -7,9 +7,9 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: #1e293b;
+  background-color: #f8fafc;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -37,9 +37,8 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Scanner specific styles from screen 2 */
 .viewfinder-bg {
-  background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://placehold.co/600x800/1a1a1a/333333?text=Camera+Feed');
+  background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), #1a1a1a;
   background-size: cover;
   background-position: center;
 }
@@ -89,4 +88,12 @@ body {
 }
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
