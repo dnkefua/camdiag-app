@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "camdiag-c7e78"
+  },
   "targets": {},
   "etags": {}
 }
