@@ -1,7 +1,7 @@
 # CamDiag Project Roadmap & Progress Tracker
 
 ## Overview
-Major refactoring of CamDiag: TypeScript migration, React Router, state management, error handling, testing, security hardening, and Google MedGemma integration.
+Major refactoring of CamDiag: TypeScript migration, React Router, state management, error handling, testing, security hardening, Google MedGemma integration, landing page, and PWA support.
 
 ---
 
@@ -23,106 +23,91 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] Create API service layer with Google MedGemma (`src/services/medgemma.ts`, `src/services/api.ts`)
 
 ### Phase 3: Component Migration to TypeScript
-- [x] Convert App to App.tsx (with React Router, providers)
-- [x] Convert main to main.tsx
-- [x] Convert DiagnosticHub.jsx → DiagnosticHub.tsx
-- [x] Convert Scanner.jsx → Scanner.tsx (fixed DOM manipulation)
-- [x] Convert AnalysisResults.jsx → AnalysisResults.tsx
-- [x] Convert NextSteps.jsx → NextSteps.tsx (removed external image URLs)
-- [x] Convert DrugDatabase.jsx → DrugDatabase.tsx
-- [x] Convert PatientRecords.jsx → PatientRecords.tsx
-- [x] Convert Questionnaire.jsx → Questionnaire.tsx (fixed handleSumbit typo, added validation)
-- [x] Convert Blog.jsx → Blog.tsx
-- [x] Convert ComingUp.jsx → ComingUp.tsx
-- [x] Convert Settings.jsx → Settings.tsx (wired up Auth logout)
+- [x] Convert App to App.tsx (with React Router, providers, React.lazy code splitting)
+- [x] Convert main to main.tsx (with PWA service worker registration)
+- [x] Convert all 10 components to TypeScript (.tsx)
 - [x] Delete all old .jsx files
+- [x] Create Landing page with Ellipsus-inspired animations
 
 ### Phase 4: Fixes & Hardening
 - [x] Fix Scanner DOM manipulation (use React state instead of document.body.appendChild)
-- [x] Fix Questionnaire typo (handleSumbit → handleSubmit)
-- [x] Remove unused `step` state in Questionnaire
+- [x] Fix Questionnaire typo (handleSumbit → handleSubmit) and add form validation
+- [x] Remove unused state in Questionnaire
 - [x] Replace external image URLs with local placeholder icons
 - [x] Remove lucide-react dead dependency
-- [x] Add form validation to Questionnaire (with sanitizeInput)
 - [x] Add Content Security Policy headers to firebase.json
-- [x] Add proper loading/online states (useOnlineStatus hook)
-- [x] Update index.html with proper title and meta
-- [x] Add .env.example for environment variables
+- [x] Add useOnlineStatus hook for real connectivity detection
+- [x] Update index.html with proper title, meta, PWA manifest
 
 ### Phase 5: Testing
 - [x] Configure Vitest (`vitest.config.ts`, `src/test/setup.ts`)
-- [x] Write tests for validation utilities
-- [x] Write tests for i18n locales (key parity, no empty values)
-- [x] Write tests for Zustand store
-- [x] Write tests for API service (contraindication logic)
+- [x] Write tests for validation utilities (4 tests)
+- [x] Write tests for i18n locales (5 tests)
+- [x] Write tests for Zustand store (6 tests)
+- [x] Write tests for API service (3 tests)
+- **18/18 tests passing**
 
 ### Phase 6: CI/CD & Documentation
 - [x] Add GitHub Actions workflow (`.github/workflows/ci.yml`)
 - [x] Update README.md with full project documentation
 - [x] Add `.env.example` for environment variables
-- [x] Final lint, typecheck, build verification - ALL PASSING
+
+### Phase 7: Performance & PWA
+- [x] React.lazy code splitting (21 chunks, landing page loads separately)
+- [x] Suspense fallback with LoadingSpinner
+- [x] PWA manifest (`public/manifest.json`)
+- [x] Service worker (`public/sw.js`) with cache-first strategy
+- [x] Service worker registration in `main.tsx`
+
+### Phase 8: Landing Page & UI Polish
+- [x] Create Landing page with Ellipsus-inspired design
+- [x] Scroll-triggered appear animations (blur-to-sharp)
+- [x] Parallax hero with spring physics
+- [x] Floating ambient orbs with continuous animation
+- [x] Stagger reveal animations for feature cards
+- [x] Infinite scrolling marquee for hospital names
+- [x] Hover micro-interactions (card lift, icon wiggle, button glow)
+- [x] Login modal with blur entry animation
+- [x] "Local" language button wired up (maps to French)
+- [x] Landing page serves at `/`, app at `/app`
 
 ---
 
 ## Verification Results
 
-- **TypeScript**: `tsc --noEmit` - 0 errors
-- **Build**: `vite build` - Success (430KB JS, 32KB CSS)
-- **Tests**: `vitest run` - 18/18 passing
-- **Lint**: `eslint` - 0 errors (2 warnings for context exports, acceptable)
+- **TypeScript**: `tsc --noEmit` — 0 errors
+- **Build**: `vite build` — Success, 21 code-split chunks
+- **Tests**: `vitest run` — 18/18 passing
+- **Lint**: `eslint` — 0 errors (2 warnings, acceptable)
 
-## Architecture Decisions
-
-### Google MedGemma Integration
-- Using `@google/generative-ai` SDK
-- Model: `gemini-2.0-flash` (can be swapped for `medgemma` when available)
-- API key via `VITE_GOOGLE_AI_API_KEY` environment variable
-- Service layer: `src/services/medgemma.ts` wraps API calls
-- Local fallback: `src/services/api.ts` provides instant contraindication checking
-- All calls include medical disclaimers
-
-### State Management
-- Zustand for global state (diagnoses, markers, patient records, drug database, scan count)
-- React Context for Auth and Language (infrequent changes)
-- React Router v7 for URL-based navigation
-
-### Project Structure
+## Project Structure
 ```
 src/
 ├── components/
-│   ├── ui/          # ErrorBoundary, LoadingSpinner, Icons
-│   └── [pages].tsx
-├── contexts/        # AuthContext
-├── hooks/           # useTranslation, useOnlineStatus
-├── i18n/           # en.json, fr.json
-├── services/       # api.ts, medgemma.ts
-├── store/          # Zustand stores
-├── types/          # TypeScript type definitions
-├── utils/          # Form validation, helpers
-├── test/           # Test setup and utilities
-├── App.tsx         # Router
-└── main.tsx        # Entry point with providers
+│   ├── ui/              # ErrorBoundary, LoadingSpinner, Icons
+│   └── [pages].tsx      # All 10 page components
+├── contexts/            # AuthContext
+├── hooks/               # useTranslation, useOnlineStatus
+├── i18n/               # en.json, fr.json
+├── services/            # api.ts (local), medgemma.ts (Google AI)
+├── store/               # Zustand useAppStore
+├── types/               # TypeScript type definitions
+├── utils/               # Form validation, input sanitization
+├── test/                # Vitest setup and test files
+├── App.tsx              # Router with React.lazy
+└── main.tsx             # Entry point with PWA registration
+
+public/
+├── manifest.json        # PWA manifest
+├── sw.js                # Service worker
+└── favicon.svg
 ```
 
 ## What's NOT Done Yet (for next agent)
 
-1. **Firebase project linking** - `.firebaserc` needs a real Firebase project ID (`firebase use --add`)
-2. **MedGemma model name** - Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
-3. **Real backend API** - Currently mock data in store; needs API integration for production
-4. **E2E tests** - No Playwright/Cypress tests yet
-5. **PWA/offline support** - UseOnlineStatus hook exists but no service worker
-6. **Local language support** - "Local" button in UI is present but not functional
-7. **Accessibility audit** - Add more aria-labels throughout components
-8. **Performance optimization** - Consider code splitting with React.lazy
-9. **Real auth** - AuthContext has login/logout but no real auth provider (Firebase Auth recommended)
-
-## MedGemma Integration - Full Flow (WIRED UP)
-
-The API is now **fully wired into the UI**:
-
-- **Scanner** → `handleDone()` calls `analyzeMedicalImage()` → populates Zustand store → navigates to `/analysis`
-- **Drug Database** → "AI" button calls `searchMedicationInfo()` → shows AI analysis card
-- **Drug Database** → "Check All Drug Interactions (AI)" button calls `checkDrugInteractions()`
-- **Analysis Results** → Shows loading overlay during AI analysis, error banner if API fails
-- **Local fallback** - `checkLocalContraindications()` runs instantly regardless of API status
-- **MedGemma badge** - Appears in headers when API key is configured
+1. **Real backend API** — Currently mock data in store; needs API integration for production
+2. **E2E tests** — No Playwright/Cypress tests yet
+3. **Real auth** — AuthContext has login/logout but no real auth provider (Firebase Auth recommended)
+4. **Accessibility audit** — Add more aria-labels throughout components
+5. **MedGemma model name** — Currently using `gemini-2.0-flash`; swap to `medgemma` when Google releases it
+6. **Full Pidgin/local language translation** — "Local" button currently maps to French; full Camfranglais translation would need a `pcm.json` file
