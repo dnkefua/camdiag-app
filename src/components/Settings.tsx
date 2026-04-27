@@ -17,13 +17,13 @@ const Settings = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/app');
   };
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button onClick={() => navigate('/')} className="text-slate-600 p-1">
+        <button onClick={() => navigate('/app')} className="text-slate-600 p-1">
           <BackIcon />
         </button>
         <h1 className="text-xl font-bold text-cameroon-green">{t.settings}</h1>
@@ -64,7 +64,7 @@ const Settings = () => {
       </main>
 
       <nav className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom z-20">
-        <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 text-slate-400">
+        <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-slate-400">
           <HomeIcon /><span className="text-[10px] font-medium">{t.home}</span>
         </button>
         <button onClick={() => navigate('/patients')} className="flex flex-col items-center gap-1 text-slate-400">

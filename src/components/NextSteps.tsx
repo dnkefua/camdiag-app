@@ -33,7 +33,7 @@ const NextSteps = () => {
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/')} className="text-slate-600 p-1 active:scale-95 transition-transform">
+          <button onClick={() => navigate('/app')} className="text-slate-600 p-1 active:scale-95 transition-transform">
             <BackIcon />
           </button>
           <h1 className="text-xl font-bold text-blue-900">{t.next_steps}</h1>
@@ -142,7 +142,7 @@ const NextSteps = () => {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 px-8 py-4 flex justify-between items-center z-30">
-        <button onClick={() => navigate('/')} className="text-slate-400 active:scale-90 transition-transform"><HomeIcon /></button>
+        <button onClick={() => navigate('/app')} className="text-slate-400 active:scale-90 transition-transform"><HomeIcon /></button>
         <button onClick={() => navigate('/scanner')} className="bg-medical-green w-14 h-14 rounded-[1.5rem] shadow-xl shadow-medical-green/40 flex items-center justify-center text-white active:scale-95 transition-all -mt-12 border-4 border-slate-50">
           <PlusIcon />
         </button>

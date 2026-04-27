@@ -18,8 +18,6 @@ dist-ssr
 .env.*.local
 
 
-Google_AI_Studio_API_Key=AIzaSyCzhP-1NlURD2DBndg4PSlb-fD9_7DOkQ0
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

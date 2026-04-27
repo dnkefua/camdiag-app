@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import Landing from './components/Landing';
 import DiagnosticHub from './components/DiagnosticHub';
 import Scanner from './components/Scanner';
 import AnalysisResults from './components/AnalysisResults';
@@ -15,10 +16,11 @@ import './App.css';
 
 const App = () => {
   return (
-    <div className="bg-slate-50 min-h-screen">
+    <div className="min-h-screen">
       <AnimatePresence mode="wait">
         <Routes>
-          <Route path="/" element={<ErrorBoundary><DiagnosticHub /></ErrorBoundary>} />
+          <Route path="/" element={<ErrorBoundary><Landing /></ErrorBoundary>} />
+          <Route path="/app" element={<ErrorBoundary><DiagnosticHub /></ErrorBoundary>} />
           <Route path="/scanner" element={<ErrorBoundary><Scanner /></ErrorBoundary>} />
           <Route path="/analysis" element={<ErrorBoundary><AnalysisResults /></ErrorBoundary>} />
           <Route path="/next-steps" element={<ErrorBoundary><NextSteps /></ErrorBoundary>} />

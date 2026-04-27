@@ -130,7 +130,7 @@ const DiagnosticHub = () => {
         </main>
 
         <nav className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom">
-          <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 text-cameroon-green">
+          <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-cameroon-green">
             <HomeIcon />
             <span className="text-[10px] font-bold">{t.home}</span>
           </button>

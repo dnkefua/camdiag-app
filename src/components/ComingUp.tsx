@@ -47,7 +47,7 @@ const ComingUp = () => {
       </div>
 
       <header className="relative z-20 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate('/')} className="bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/20 active:scale-95 transition-transform">
+        <button onClick={() => navigate('/app')} className="bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/20 active:scale-95 transition-transform">
           <BackIcon />
         </button>
         <h1 className="text-sm font-bold tracking-widest uppercase opacity-80">{t.coming_up_title}</h1>

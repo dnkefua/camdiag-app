@@ -35,7 +35,7 @@ const Blog = () => {
   return (
     <div className="bg-slate-50 min-h-screen pb-20 font-sans text-slate-900 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button onClick={() => navigate('/')} className="text-slate-600 p-1 active:scale-95 transition-transform">
+        <button onClick={() => navigate('/app')} className="text-slate-600 p-1 active:scale-95 transition-transform">
           <BackIcon />
         </button>
         <h1 className="text-xl font-bold text-cameroon-green">{t.blog_title}</h1>

@@ -79,7 +79,7 @@ const Scanner = () => {
       )}
 
       <header className="relative z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
-        <button onClick={() => navigate('/')} aria-label={t.close_scanner} className="p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
+        <button onClick={() => navigate('/app')} aria-label={t.close_scanner} className="p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
           <CloseIcon />
         </button>
         <div className="text-center">

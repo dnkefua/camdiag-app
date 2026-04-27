@@ -214,7 +214,7 @@ const AnalysisResults = () => {
           </button>
 
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/app')}
             className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl active:bg-slate-200 transition-all flex justify-center items-center gap-2"
           >
             <HomeIcon className="h-4 w-4" />
