@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { createElement } from 'react';
 import { vi } from 'vitest';
 import type { ReactNode, PropsWithChildren } from 'react';
 
@@ -19,11 +20,10 @@ export const createFramerMotionMock = () => {
   };
 
   const handler: ProxyHandler<Record<string, unknown>> = {
-    get(_target, tag: string) {
-      const Component = ({ children, ...rest }: PropsWithChildren<Record<string, unknown>>) => {
-        const Tag = (tag === 'div' ? 'div' : tag) as keyof JSX.IntrinsicElements;
-        return <Tag {...stripAnimationProps(rest)}>{children as ReactNode}</Tag>;
-      };
+    get(_target, tag: string | symbol) {
+      const tagName = typeof tag === 'string' ? tag : 'div';
+      const Component = ({ children, ...rest }: PropsWithChildren<Record<string, unknown>>) =>
+        createElement(tagName, stripAnimationProps(rest), children as ReactNode);
       return Component;
     },
   };
