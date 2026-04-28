@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch {
           const name = fbUser.email?.split('@')[0]?.replace(/[._]/g, ' ') || 'User';
           const initials = name.substring(0, 2).toUpperCase();
-          setUser({ uid: fbUser.uid, email: fbUser.email || '', name, initials, role: 'doctor', createdAt: null });
+          setUser({ uid: fbUser.uid, email: fbUser.email || '', name, initials, role: 'patient', createdAt: null });
         }
       } else {
         setUser(null);

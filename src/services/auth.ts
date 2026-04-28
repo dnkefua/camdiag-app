@@ -16,7 +16,7 @@ export interface AppUser {
   email: string;
   name: string;
   initials: string;
-  role: 'doctor' | 'nurse' | 'admin';
+  role: 'patient' | 'doctor' | 'nurse' | 'admin';
   createdAt: unknown;
 }
 
@@ -33,7 +33,7 @@ export const registerWithEmail = async (email: string, password: string, name: s
     email,
     name,
     initials,
-    role: 'doctor',
+    role: 'patient',
     createdAt: serverTimestamp(),
   };
   await setDoc(doc(db, 'users', credential.user.uid), appUser);
@@ -59,7 +59,7 @@ export const getUserProfile = async (firebaseUser: User): Promise<AppUser> => {
     email: firebaseUser.email || '',
     name,
     initials,
-    role: 'doctor',
+    role: 'patient',
     createdAt: serverTimestamp(),
   };
   await setDoc(docRef, appUser);

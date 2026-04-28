@@ -122,5 +122,8 @@
   "use_email_instead": "Use email instead",
   "use_phone_instead": "Use phone instead",
   "or_continue_with_phone": "Or continue with phone",
-  "or_continue_with_email": "Or continue with email"
+  "or_continue_with_email": "Or continue with email",
+  "red_flag_warning": "URGENT: Seek immediate medical care",
+  "red_flag_emergency": "This may be a medical emergency. Do not delay. Seek emergency care now.",
+  "ai_confidence_not_clinical": "AI confidence is not clinical certainty."
 }

@@ -122,5 +122,8 @@
   "use_email_instead": "Utiliser l'email à la place",
   "use_phone_instead": "Utiliser le téléphone à la place",
   "or_continue_with_phone": "Ou continuer avec le téléphone",
-  "or_continue_with_email": "Ou continuer avec l'email"
+  "or_continue_with_email": "Ou continuer avec l'email",
+  "red_flag_warning": "URGENT: Consultez immédiatement un médecin",
+  "red_flag_emergency": "Ceci pourrait être une urgence médicale. Ne tardez pas. Consultez les urgences maintenant.",
+  "ai_confidence_not_clinical": "La confiance de l'IA n'est pas une certitude clinique."
 }

@@ -122,5 +122,8 @@
   "use_email_instead": "Use email instead",
   "use_phone_instead": "Use phone instead",
   "or_continue_with_phone": "Or use phone instead",
-  "or_continue_with_email": "Or use email instead"
+  "or_continue_with_email": "Or use email instead",
+  "red_flag_warning": "URGENT: Abeg go hospital now",
+  "red_flag_emergency": "Dis one be medical emergency. No wait. Go emergency room now.",
+  "ai_confidence_not_clinical": "AI confidence no mean e be correct diagnosis."
 }

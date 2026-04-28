@@ -9,16 +9,22 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
-    // Authenticated users can read/write their own patient records
+    // Users can only read/write their own patient records
     match /patients/{docId} {
-      allow read, write: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
     }
 
-    // Authenticated users can read/write their own scans
+    // Users can only read/write their own scans
     match /scans/{docId} {
-      allow read, write: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
     }
 
     // Anyone authenticated can read drugs, only admins can write

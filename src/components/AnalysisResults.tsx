@@ -56,6 +56,17 @@ const AnalysisResults = () => {
 
       <main aria-labelledby="analysis-heading" className="p-5 space-y-6 max-w-lg mx-auto w-full">
         <h2 id="analysis-heading" className="sr-only">{t.analysis_title}</h2>
+
+        <section className="bg-red-50 border-2 border-red-500 rounded-3xl p-4 flex items-start gap-3 shadow-lg">
+          <div className="bg-red-500 text-white p-2 rounded-full shrink-0">
+            <AlertIcon />
+          </div>
+          <div>
+            <h3 className="text-red-700 font-black text-sm">{t.red_flag_warning}</h3>
+            <p className="text-red-600 text-xs mt-1 font-medium">{t.red_flag_emergency}</p>
+          </div>
+        </section>
+
         <section
           onClick={() => navigate('/questionnaire')}
           className="bg-gradient-to-r from-cameroon-green to-medical-green p-4 rounded-3xl text-white shadow-lg cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between group"
@@ -96,6 +107,7 @@ const AnalysisResults = () => {
 
         <section className="space-y-4">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.diagnoses}</h3>
+          <p className="text-[10px] text-slate-400 font-medium italic px-1">{t.ai_confidence_not_clinical}</p>
           <div className="space-y-3">
             {diagnoses.map((diag, idx) => (
               <button
@@ -176,6 +188,9 @@ const AnalysisResults = () => {
             <div className="border border-emerald-100 rounded-3xl overflow-hidden shadow-sm">
               <div className="bg-emerald-50 px-5 py-2 border-b border-emerald-100">
                 <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">{t.contri_medicine}</span>
+              </div>
+              <div className="p-4 bg-amber-50 border-b border-amber-100">
+                <p className="text-[10px] text-amber-700 font-medium">Discuss with a clinician/pharmacist before use. May interact with prescription drugs.</p>
               </div>
               <div className="p-5 space-y-3">
                 {diagnoses[selectedDiag]?.contri.map((herb, i) => (
