@@ -13,7 +13,7 @@ interface EnvFlags {
 }
 
 const present = (v: string | undefined): boolean =>
-  Boolean(v) && v !== 'your_google_ai_api_key_here' && v !== 'your_google_maps_api_key_here';
+  Boolean(v) && v !== 'your_google_ai_api_key_here' && v !== 'your_google_maps_api_key_here' && !v?.startsWith('your_');
 
 export const envFlags: EnvFlags = {
   ai: present(import.meta.env.VITE_GOOGLE_AI_API_KEY),

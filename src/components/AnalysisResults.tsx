@@ -18,6 +18,9 @@ const AnalysisResults = () => {
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
+      <a href="#analysis-main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-white focus:text-medical-green focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-xl focus:font-bold">
+        Skip to main content
+      </a>
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/scanner')} aria-label="Back" className="text-slate-600 p-1 active:scale-90 transition-transform">
@@ -109,6 +112,11 @@ const AnalysisResults = () => {
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.diagnoses}</h3>
           <p className="text-[10px] text-slate-400 font-medium italic px-1">{t.ai_confidence_not_clinical}</p>
           <div className="space-y-3">
+            {diagnoses.length === 0 && !isAnalyzing && (
+              <div className="bg-white p-5 rounded-3xl border border-slate-100 text-center">
+                <p className="text-sm text-slate-500 font-medium">No diagnoses to display. Scan an image to get started.</p>
+              </div>
+            )}
             {diagnoses.map((diag, idx) => (
               <button
                 key={diag.name}
@@ -137,20 +145,27 @@ const AnalysisResults = () => {
         <section className="space-y-4">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.clinical_markers}</h3>
           <div className="grid grid-cols-2 gap-4">
+            {markers.length === 0 && !isAnalyzing && (
+              <div className="col-span-2 bg-white p-5 rounded-3xl border border-slate-100 text-center">
+                <p className="text-sm text-slate-500 font-medium">No clinical markers detected.</p>
+              </div>
+            )}
             {markers.map((marker) => {
               const isActive = diagnoses[selectedDiag]?.markers.includes(marker.id);
               return (
-                <div
-                  key={marker.id}
+                  <div key={marker.id}
                   className={`p-4 rounded-3xl border transition-all duration-500 ${isActive ? 'bg-white border-medical-green shadow-lg scale-105 z-10 ring-4 ring-medical-green/5' : 'bg-slate-50 border-slate-100 opacity-40 grayscale blur-[0.5px]'}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`h-2 w-2 rounded-full ${marker.color === 'red' ? 'bg-red-500' : 'bg-orange-500'}`}></span>
+                    <span className={`h-2 w-2 rounded-full ${marker.color === 'red' ? 'bg-red-500' : 'bg-orange-500'}`} role="img" aria-label={`${marker.status} marker`}></span>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">{marker.label}</span>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-xl font-black text-slate-800">{marker.value}</span>
-                    <span className={`text-[10px] font-bold ${marker.color === 'red' ? 'text-red-500' : 'text-orange-500'}`}>{marker.status}</span>
+                    <span className={`text-[10px] font-bold ${marker.color === 'red' ? 'text-red-500' : 'text-orange-500'}`}>
+                      <span className="sr-only">Status: </span>
+                      {marker.status}
+                    </span>
                   </div>
                 </div>
               );

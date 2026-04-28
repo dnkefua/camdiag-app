@@ -21,5 +21,7 @@ export const trackEvent = (name: string, params: EventParams = {}): void => {
   }
   getInstance().then((analytics) => {
     if (analytics) logEvent(analytics, name, params);
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[CamDiag] Analytics track failed:', err);
+  });
 };

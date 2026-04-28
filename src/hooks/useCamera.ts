@@ -116,15 +116,21 @@ export const useCamera = (): UseCameraResult => {
     const h = video.videoHeight;
     if (!w || !h) return null;
 
+    const MAX_DIM = 800;
+    let scale = 1;
+    if (w > MAX_DIM || h > MAX_DIM) {
+      scale = MAX_DIM / Math.max(w, h);
+    }
+
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92));
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.7));
     if (!blob) return null;
     return { blob, dataUrl };
   }, [isReady]);

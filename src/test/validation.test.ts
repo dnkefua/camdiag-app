@@ -22,8 +22,8 @@ describe('validateQuestionnaireForm', () => {
 });
 
 describe('sanitizeInput', () => {
-  it('removes angle brackets', () => {
-    expect(sanitizeInput('<script>alert("xss")</script>')).toBe('scriptalert("xss")/script');
+  it('removes angle brackets and quotes', () => {
+    expect(sanitizeInput('<script>alert("xss")</script>')).toBe('scriptalert(xss)/script');
   });
 
   it('trims whitespace', () => {

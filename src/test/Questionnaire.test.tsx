@@ -96,8 +96,10 @@ describe('Questionnaire', () => {
       </TranslationProvider>
     );
     const inputs = screen.getAllByRole('textbox');
-    fireEvent.change(inputs[0], { target: { value: 'Coartem' } });
-    expect(inputs[0]).toHaveValue('Coartem');
+    const first = inputs[0];
+    if (!first) return;
+    fireEvent.change(first, { target: { value: 'Coartem' } });
+    expect(first).toHaveValue('Coartem');
   });
 
   it('shows validation error for empty submission', () => {
@@ -118,8 +120,11 @@ describe('Questionnaire', () => {
       </TranslationProvider>
     );
     const inputs = screen.getAllByRole('textbox');
-    fireEvent.change(inputs[0], { target: { value: 'Coartem' } });
-    fireEvent.change(inputs[1], { target: { value: 'City Pharmacy' } });
+    const first = inputs[0];
+    const second = inputs[1];
+    if (!first || !second) return;
+    fireEvent.change(first, { target: { value: 'Coartem' } });
+    fireEvent.change(second, { target: { value: 'City Pharmacy' } });
     fireEvent.click(screen.getByRole('button', { name: 'yes' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
     expect(screen.getAllByText(/thank you/i).length).toBeGreaterThan(0);
@@ -132,8 +137,11 @@ describe('Questionnaire', () => {
       </TranslationProvider>
     );
     const inputs = screen.getAllByRole('textbox');
-    fireEvent.change(inputs[0], { target: { value: 'Coartem' } });
-    fireEvent.change(inputs[1], { target: { value: ' pharmacy' } });
+    const first = inputs[0];
+    const second = inputs[1];
+    if (!first || !second) return;
+    fireEvent.change(first, { target: { value: 'Coartem' } });
+    fireEvent.change(second, { target: { value: ' pharmacy' } });
     fireEvent.click(screen.getByRole('button', { name: 'yes' }));
     fireEvent.click(screen.getByRole('button', { name: /submit/i }));
     fireEvent.click(screen.getByRole('button', { name: /back/i }));

@@ -33,11 +33,11 @@ const Settings = () => {
         <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 flex items-center gap-4 bg-gradient-to-r from-medical-green/5 to-transparent">
             <div className="w-16 h-16 rounded-full bg-medical-green flex items-center justify-center text-white text-2xl font-black shadow-lg">
-              {user?.initials || 'DK'}
+              {user?.initials || '--'}
             </div>
             <div>
-              <h2 id="settings-heading" className="text-lg font-bold text-slate-800 font-sans">{user?.name || 'Dr. Kamga'}</h2>
-              <p className="text-xs text-slate-500">{user?.email || 'kamga.doc@camdiag.cm'}</p>
+              <h2 id="settings-heading" className="text-lg font-bold text-slate-800 font-sans">{user?.name || 'User'}</h2>
+              <p className="text-xs text-slate-500">{user?.email || 'Not signed in'}</p>
             </div>
           </div>
 

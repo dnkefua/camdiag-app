@@ -54,6 +54,7 @@ const Scanner = () => {
   const handleDone = async () => {
     if (captures.length === 0) return;
     const primary = captures[captures.length - 1];
+    if (!primary) return;
 
     if (isApiConfigured()) {
       setAnalyzing(true);
@@ -83,9 +84,10 @@ const Scanner = () => {
   };
 
   const handleGalleryUpload = async (file: File) => {
-    const dataUrl = await new Promise<string>((resolve) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsDataURL(file);
     });
     setCaptures((prev) => [...prev, { dataUrl, blob: file }]);

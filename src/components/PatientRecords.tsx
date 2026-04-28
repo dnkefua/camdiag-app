@@ -10,6 +10,9 @@ const PatientRecords = () => {
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
+      <a href="#patients-main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-white focus:text-medical-green focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-xl focus:font-bold">
+        Skip to main content
+      </a>
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center gap-3 shadow-sm">
         <button onClick={() => navigate('/app')} aria-label="Back" className="text-slate-600 p-1">
           <BackIcon />
@@ -33,6 +36,11 @@ const PatientRecords = () => {
         <section className="space-y-4">
           <h3 className="text-lg font-bold text-slate-800">{t.history}</h3>
           <div className="space-y-3">
+            {patientRecords.length === 0 && (
+              <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
+                <p className="text-sm text-slate-500 font-medium">No patient records yet. Complete a scan to see results here.</p>
+              </div>
+            )}
             {patientRecords.map((item) => (
               <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group active:bg-slate-50 transition-colors">
                 <div>

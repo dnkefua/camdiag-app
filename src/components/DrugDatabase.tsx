@@ -119,6 +119,11 @@ const DrugDatabase = () => {
         )}
 
         <div className="space-y-4">
+          {filteredDrugs.length === 0 && (
+            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
+              <p className="text-sm text-slate-500 font-medium">No medications found. Try a different search term.</p>
+            </div>
+          )}
           {filteredDrugs.map((drug, idx) => (
             <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
               <div className="flex justify-between items-start">

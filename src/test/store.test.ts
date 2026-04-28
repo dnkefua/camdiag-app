@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { useAppStore } from '../store/useAppStore';
 
 describe('useAppStore', () => {
-  it('has correct default diagnoses', () => {
+  it('starts with empty diagnoses', () => {
     const state = useAppStore.getState();
-    expect(state.diagnoses).toHaveLength(2);
-    expect(state.diagnoses[0]?.name).toBe('Malaria (P. Falciparum)');
+    expect(state.diagnoses).toHaveLength(0);
   });
 
   it('sets selected diagnosis', () => {
@@ -26,13 +25,23 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().scanCount).toBe(0);
   });
 
-  it('has drug database', () => {
+  it('starts with empty drug database', () => {
     const state = useAppStore.getState();
-    expect(state.drugDatabase.length).toBeGreaterThan(0);
+    expect(state.drugDatabase).toHaveLength(0);
   });
 
-  it('has patient records', () => {
+  it('starts with empty patient records', () => {
     const state = useAppStore.getState();
-    expect(state.patientRecords.length).toBeGreaterThan(0);
+    expect(state.patientRecords).toHaveLength(0);
+  });
+
+  it('can set diagnoses', () => {
+    const mockDiagnoses = [
+      { name: 'Malaria (P. Falciparum)', probability: '94%', markers: ['parasites'], drugs: ['Coartem'], contri: ['Artemisia Tea'], reasoning: 'Test' },
+    ];
+    useAppStore.getState().setDiagnoses(mockDiagnoses);
+    expect(useAppStore.getState().diagnoses).toHaveLength(1);
+    expect(useAppStore.getState().diagnoses[0]?.name).toBe('Malaria (P. Falciparum)');
+    useAppStore.getState().setDiagnoses([]);
   });
 });

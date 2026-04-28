@@ -133,6 +133,11 @@ const Landing = () => {
     e.preventDefault();
     setError(''); setOtpError('');
     if (!phoneNumber.trim()) { setError('Please enter a phone number'); return; }
+    const phoneRegex = /^\+[1-9]\d{6,14}$/;
+    if (!phoneRegex.test(phoneNumber.trim())) {
+      setError('Please enter a valid phone number with country code (e.g., +237XXXXXXXXX).');
+      return;
+    }
     try {
       const result = await loginWithPhone(phoneNumber);
       setConfirmationResult(result);
@@ -930,6 +935,7 @@ const Landing = () => {
                   className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-cameroon-yellow/50 outline-none transition-all"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  minLength={6}
                   required
                 />
                 <motion.button
@@ -981,6 +987,21 @@ const Landing = () => {
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {/* reCAPTCHA container for phone auth */}
+      <div id="recaptcha-container" />
+
+      {/* Focus trap for login modal */}
+      {showLogin && (
+        <div
+          ref={(el) => el?.focus()}
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') closeModal();
+          }}
+          style={{ outline: 'none' }}
+        />
       )}
     </div>
   );

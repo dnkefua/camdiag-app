@@ -26,15 +26,17 @@ interface AuthContextValue {
   isLoading: boolean;
 }
 
+const throwOutsideProvider = () => { throw new Error('AuthContext used outside AuthProvider'); };
+
 export const AuthContext = createContext<AuthContextValue>({
   user: null,
   firebaseUser: null,
   isAuthenticated: false,
-  login: async () => {},
-  register: async () => {},
-  logout: async () => {},
-  loginWithPhone: async () => ({} as ConfirmationResult),
-  confirmPhoneCode: async () => {},
+  login: async () => throwOutsideProvider(),
+  register: async () => throwOutsideProvider(),
+  logout: async () => throwOutsideProvider(),
+  loginWithPhone: async () => { throwOutsideProvider(); return {} as ConfirmationResult; },
+  confirmPhoneCode: async () => throwOutsideProvider(),
   isLoading: true,
 });
 

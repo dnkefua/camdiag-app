@@ -39,7 +39,9 @@ export const FacilityMap = ({ facilities, height = '420px', className = '' }: Fa
     if (!('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
+      (geoErr) => {
+        console.warn('[CamDiag] Geolocation failed:', geoErr.message);
+      },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
     );
   }, []);
