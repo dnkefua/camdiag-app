@@ -1,21 +1,34 @@
 {
-  "name": "CamDiag — Medical AI for Cameroon",
+  "name": "CamDiag — Medical AI Diagnostics for Cameroon",
   "short_name": "CamDiag",
   "description": "AI-powered medical diagnostic assistant for Cameroon healthcare",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#FFF7E6",
   "theme_color": "#007A5E",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["medical", "health"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["medical", "health"],
-  "lang": "en",
-  "dir": "ltr"
+  "screenshots": [],
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
 }

@@ -3,12 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="description" content="CamDiag — AI-powered medical diagnostic assistant for Cameroon healthcare workers. Scan, analyze, and treat with MedGemma AI." />
-    <meta name="theme-color" content="#007A5E" />
+    <meta name="theme-color" content="#007A5E" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0A1F1A" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="CamDiag" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="HandheldFriendly" content="true" />
+
+    <!-- Apple Touch Icon (PWA) -->
+    <link rel="apple-touch-icon" href="/favicon.svg" sizes="any" />
+    <link rel="apple-touch-startup-image" href="/favicon.svg" />
 
     <!-- Open Graph -->
     <meta property="og:title" content="CamDiag — Medical AI for Cameroon" />
@@ -17,8 +25,20 @@
     <meta property="og:image" content="/favicon.svg" />
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- DNS prefetch for critical origins -->
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+    <link rel="dns-prefetch" href="https://www.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://www.googleapis.com" crossorigin />
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" as="style" />
     <link rel="manifest" href="/manifest.json" />
     <title>CamDiag — Medical AI Diagnostics for Cameroon</title>
   </head>
