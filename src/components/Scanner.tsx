@@ -26,12 +26,12 @@ const Scanner = () => {
   const [flashOverlay, setFlashOverlay] = useState(false);
   const [captures, setCaptures] = useState<Array<{ dataUrl: string; blob: Blob }>>([]);
 
-  useEffect(() => {
-    camera.start();
-    trackEvent('scanner_open');
-    return () => camera.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    useEffect(() => {
+      camera.start().catch(error => console.error('Camera start error:', error));
+      trackEvent('scanner_open');
+      return () => camera.stop();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
   const handleCapture = async () => {
     if (scanMode === 'body') {
@@ -78,9 +78,9 @@ const Scanner = () => {
       }
     }
 
-    setCaptures([]);
-    camera.stop();
-    navigate('/analysis');
+     setCaptures([]);
+     camera.stop();
+     void navigate('/analysis');
   };
 
   const handleGalleryUpload = async (file: File) => {
@@ -176,11 +176,14 @@ const Scanner = () => {
       )}
 
       <header className="relative z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
-        <button
-          onClick={() => { camera.stop(); navigate('/app'); }}
-          aria-label={t.close_scanner}
-          className="p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/15 active:scale-90 transition-transform"
-        >
+         <button
+           onClick={async () => {
+             camera.stop();
+             void navigate('/app');
+           }}
+           aria-label={t.close_scanner}
+           className="p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/15 active:scale-90 transition-transform"
+         >
           <CloseIcon />
         </button>
         <div className="text-center">
@@ -273,16 +276,18 @@ const Scanner = () => {
             <ImageIcon />
           </div>
           <span className="text-[10px] text-white/60 font-bold uppercase tracking-wider">{t.gallery}</span>
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleGalleryUpload(file);
-              e.target.value = '';
-            }}
-          />
+           <input
+             type="file"
+             accept="image/*"
+             className="hidden"
+             onChange={async (e) => {
+               const file = e.target.files?.[0];
+               if (file) {
+                 await handleGalleryUpload(file);
+               }
+               e.target.value = '';
+             }}
+           />
         </label>
 
         <button

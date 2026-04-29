@@ -32,7 +32,7 @@ export const useCamera = (): UseCameraResult => {
   const [isReady, setIsReady] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [facing, setFacing] = useState<CameraFacing>('environment');
+    const [facing, setFacing] = useState<CameraFacing>('environment');
   const [flashOn, setFlashOn] = useState(false);
   const [hasFlashSupport, setHasFlashSupport] = useState(false);
 
@@ -48,21 +48,21 @@ export const useCamera = (): UseCameraResult => {
     setFlashOn(false);
   }, []);
 
-  const startWithFacing = useCallback(async (mode: CameraFacing) => {
-    setIsStarting(true);
-    setError(null);
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Camera API not available on this device.');
-      }
-      const next = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: mode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
+   const startWithFacing = useCallback(async (mode: CameraFacing) => {
+     setIsStarting(true);
+     setError(null);
+     try {
+       if (!navigator.mediaDevices?.getUserMedia) {
+         throw new Error('Camera API not available on this device.');
+       }
+       const next = await navigator.mediaDevices.getUserMedia({
+         video: {
+           facingMode: mode,
+           width: { ideal: 1920 },
+           height: { ideal: 1080 },
+         },
+         audio: false,
+       });
       setStream((prev) => {
         prev?.getTracks().forEach((t) => t.stop());
         return next;
@@ -135,12 +135,11 @@ export const useCamera = (): UseCameraResult => {
     return { blob, dataUrl };
   }, [isReady]);
 
-  useEffect(() => {
-    return () => {
-      stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+   useEffect(() => {
+     return () => {
+       stop();
+      };
+    }, [stop]);
 
   return {
     videoRef,

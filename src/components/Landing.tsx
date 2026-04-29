@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform, useSpring, useInView, useMotionValue } from 'framer-motion';
+import { motion, useScroll, useInView, useMotionValue, useSpring } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../contexts/AuthContext';
 import { CamDiagLogo } from '../components/ui/CamDiagLogo';
@@ -80,7 +80,7 @@ const MagneticButton = ({ children, ...rest }: React.ComponentProps<typeof motio
 const Landing = () => {
   const navigate = useNavigate();
   const { t, language, setLanguage } = useTranslation();
-  const { isAuthenticated, login, register, loginWithPhone, confirmPhoneCode, isLoading } = useAuth();
+   const { isAuthenticated, login, register, loginWithPhone, confirmPhoneCode } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -93,17 +93,20 @@ const Landing = () => {
   const [confirmationResult, setConfirmationResult] = useState<import('firebase/auth').ConfirmationResult | null>(null);
   const [error, setError] = useState('');
   const [showLogin, setShowLogin] = useState(false);
-  const heroRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.9]);
-  const springHeroY = useSpring(heroY, { stiffness: 100, damping: 30 });
+   const heroRef = useRef(null);
+   // Simplified animations to avoid scroll position issues
+   const heroY = useMotionValue(0);
+   const heroOpacity = useMotionValue(1);
+   const heroScale = useMotionValue(1);
 
-  const { scrollYProgress: pageScrollProgress } = useScroll();
-  const scaleX = useSpring(pageScrollProgress, { stiffness: 100, damping: 30 });
+   const { scrollYProgress: pageScrollProgress } = useScroll();
+   const scaleX = useSpring(pageScrollProgress, { stiffness: 100, damping: 30 });
 
-  useEffect(() => { if (isAuthenticated) navigate('/app'); }, [isAuthenticated, navigate]);
+    useEffect(() => {
+      if (isAuthenticated) {
+        void navigate('/app');
+      }
+    }, [isAuthenticated, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,9 +312,9 @@ const Landing = () => {
         </div>
       </motion.nav>
 
-      {/* Hero */}
-      <section ref={heroRef} className="relative z-10 px-6 md:px-12 pt-36 pb-24 max-w-6xl mx-auto text-center">
-        <motion.div style={{ y: springHeroY, opacity: heroOpacity, scale: heroScale }}>
+       {/* Hero */}
+       <section ref={heroRef} className="relative z-10 px-6 md:px-12 pt-36 pb-24 max-w-6xl mx-auto text-center min-h-[600px]">
+         <motion.div style={{ y: heroY, opacity: heroOpacity, scale: heroScale }}>
           {/* Hero 3D Logo */}
           <motion.div
             initial={{ scale: 0, rotate: -45, opacity: 0 }}
@@ -633,8 +636,8 @@ const Landing = () => {
                     viewport={{ once: true }}
                     transition={{ delay: 0.5 }}
                   >
-                    <p className="text-[10px] text-white/25 mb-2 uppercase tracking-widest">Prompt</p>
-                    <p className="text-sm text-white/55 font-mono">"Analyze this malaria RDT scan..."</p>
+                     <p className="text-[10px] text-white/25 mb-2 uppercase tracking-widest">Prompt</p>
+                      <p className="text-sm text-white/55 font-mono">Analyze this malaria RDT scan&#46;&#46;&#46;</p>
                   </motion.div>
                   <motion.div className="flex justify-center" animate={{ y: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity }}>
                     <svg className="w-7 h-7 text-cameroon-yellow/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
@@ -714,7 +717,7 @@ const Landing = () => {
                     <p className="text-xs text-white/35">{item.role}</p>
                   </div>
                 </div>
-                <p className="text-sm text-white/55 leading-relaxed italic">"{item.text}"</p>
+                 <p className="text-sm text-white/55 leading-relaxed italic">&quot;{item.text}&quot;</p>
               </motion.div>
             ))}
           </div>
@@ -886,15 +889,14 @@ const Landing = () => {
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     required
                   />
-                  <motion.button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all disabled:opacity-50"
-                    whileHover={{ boxShadow: '0 0 40px rgba(252,209,22,0.4)' }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {isLoading ? '...' : t.send_otp}
-                  </motion.button>
+                   <motion.button
+                     type="submit"
+                     className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all"
+                     whileHover={{ boxShadow: '0 0 40px rgba(252,209,22,0.4)' }}
+                     whileTap={{ scale: 0.98 }}
+                   >
+                     {t.send_otp}
+                   </motion.button>
                   <button
                     type="button"
                     onClick={() => setAuthMethod('email')}
@@ -938,15 +940,14 @@ const Landing = () => {
                   minLength={6}
                   required
                 />
-                <motion.button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all disabled:opacity-50"
-                  whileHover={{ boxShadow: '0 0 40px rgba(252,209,22,0.4)' }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {isLoading ? '...' : (authTab === 'register' ? (language === 'fr' ? 'Créer le compte' : 'Create Account') : t.login)}
-                </motion.button>
+                 <motion.button
+                   type="submit"
+                   className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3.5 rounded-xl transition-all"
+                   whileHover={{ boxShadow: '0 0 40px rgba(252,209,22,0.4)' }}
+                   whileTap={{ scale: 0.98 }}
+                 >
+                   {(authTab === 'register' ? (language === 'fr' ? 'Créer le compte' : 'Create Account') : t.login)}
+                 </motion.button>
                 <button
                   type="button"
                   onClick={() => setAuthMethod('phone')}
@@ -977,13 +978,18 @@ const Landing = () => {
                     : (language === 'fr' ? 'Pas de compte ? Créer un compte' : "Don't have an account? Sign up")}
                 </button>
               )}
-              <br />
-              <button
-                onClick={() => { closeModal(); navigate('/app'); }}
-                className="text-white/30 text-sm hover:text-cameroon-yellow transition-colors"
-              >
-                {language === 'fr' ? 'Continuer sans compte →' : language === 'pcm' ? 'Enter without account →' : 'Continue without account →'}
-              </button>
+                 <br />
+                     <button
+                       onClick={async () => {
+                         console.log('Demo button clicked - navigating to scanner');
+                         closeModal();
+                         // Navigate directly to scanner since authentication is disabled for demo
+                         void navigate('/scanner');
+                       }}
+                       className="text-white/30 text-sm hover:text-cameroon-yellow transition-colors"
+                     >
+                  {language === 'fr' ? 'Continuer sans compte →' : language === 'pcm' ? 'Enter without account →' : 'Continue without account →'}
+                </button>
             </div>
           </motion.div>
         </motion.div>

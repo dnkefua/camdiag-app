@@ -15,10 +15,10 @@ const Settings = () => {
     { label: t.about, icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/app');
-  };
+    const handleLogout = async () => {
+      await logout();
+      void navigate('/app');
+    };
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">

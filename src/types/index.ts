@@ -75,6 +75,12 @@ export interface User {
   initials: string;
 }
 
+export interface AppUser extends User {
+  uid: string;
+  role: string;
+  createdAt: number;
+}
+
 export interface MedGemmaAnalysisRequest {
   imageBase64?: string;
   prompt: string;

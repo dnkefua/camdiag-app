@@ -51,7 +51,7 @@ export const getAnalyticsInstance = (): Promise<Analytics | null> => {
 
 // Eagerly warm analytics for production (browser-only)
 if (typeof window !== 'undefined') {
-  getAnalyticsInstance();
+  void getAnalyticsInstance();
 }
 
 export default app;
