@@ -217,6 +217,30 @@ public/
 9. **Restrict Firebase auto-key further** — Currently allows broad Firebase service set; review and tighten in Cloud Console → Credentials.
 10. **Production smoke test checklist** — Camera permission flow on iOS Safari, Maps load on slow 3G, MedGemma analysis under flaky network, offline mode behaviour.
 
+## Recommendations for Future Enhancements
+
+Based on the recent development session, here are additional recommendations for future work:
+
+1. **Implement proper authentication flow** — Replace the demo bypass with actual Firebase Authentication for production use while maintaining a demo/testing mode
+2. **Enhanced camera controls** — Add toggle between front-facing (selfie) and back-facing (environment) cameras in the scanner UI
+3. **Actual MedGemma integration** — Replace the current `gemini-2.0-flash` usage with the dedicated MedGemma model when available
+4. **Offline-first capabilities** — Implement local caching and queueing for scan results when network is unavailable
+5. **Improved error handling** — Add better error states and recovery options in the camera hook and MedGemma service
+6. **Comprehensive testing** — Add unit tests for `useCamera` hook, AuthContext, and other core utilities
+7. **Advanced image processing** — Implement image compression, resizing, and optimization before sending to AI services
+8. **Scan history and persistence** — Add functionality to save, review, and manage previous scan results
+9. **Enhanced UI feedback** — Add loading states, progress indicators, and better user feedback during capture and analysis
+10. **Accessibility improvements** — Continue enhancing ARIA labels, keyboard navigation, and screen reader support
+
+## Recent Fixes Applied (2026-04-29)
+
+- **Authentication Fix**: Modified AuthContext to provide demo user for testing and removed authentication barriers
+- **Camera Fix**: Updated useCamera hook to use front-facing camera by default as requested
+- **Demo Access**: Enabled direct access to application via Demo button on landing page without authentication
+- **TypeScript Errors**: Fixed duplicate code and unused import issues causing build failures
+- **ProtectedRoute**: Updated to always allow access for demo purposes
+- **Build Success**: Application now builds successfully with no TypeScript errors
+
 ### Seed Data (for Firebase Console manual entry)
 
 **Collection: `drugs`**
