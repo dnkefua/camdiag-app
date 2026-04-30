@@ -1,12 +1,43 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../store/useAppStore';
+import { getPatientRecords } from '../services/firestore';
+import type { FirestorePatientRecord } from '../services/firestore';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { BackIcon, HomeIcon, UsersIcon, CameraIcon, UserIcon } from '../components/ui/Icons';
 
 const PatientRecords = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { patientRecords } = useAppStore();
+  const { user } = useAuth();
+  const { patientRecords, setPatientRecords } = useAppStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    setIsLoading(true);
+    setLoadError(null);
+    getPatientRecords(user.uid)
+      .then((records) => {
+        const mapped = records.map((r: FirestorePatientRecord) => ({
+          id: r.id ?? '',
+          date: r.date,
+          diagnosis: r.diagnosis,
+          status: r.status,
+          result: r.result,
+          category: r.category,
+          bodyPart: r.bodyPart,
+        }));
+        setPatientRecords(mapped);
+      })
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load records');
+      })
+      .finally(() => setIsLoading(false));
+  }, [user?.uid, setPatientRecords]);
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
@@ -36,12 +67,45 @@ const PatientRecords = () => {
         <section className="space-y-4">
           <h3 className="text-lg font-bold text-slate-800">{t.history}</h3>
           <div className="space-y-3">
-            {patientRecords.length === 0 && (
+            {isLoading && (
+              <LoadingSpinner size="md" message="Loading patient records..." />
+            )}
+            {loadError && !isLoading && (
+              <div className="bg-red-50 border border-red-200 p-4 rounded-2xl text-center">
+                <p className="text-sm text-red-600 font-medium">{loadError}</p>
+                <button
+                  onClick={() => {
+                    if (!user?.uid) return;
+                    setIsLoading(true);
+                    setLoadError(null);
+                    getPatientRecords(user.uid)
+                      .then((records) => {
+                        const mapped = records.map((r: FirestorePatientRecord) => ({
+                          id: r.id ?? '',
+                          date: r.date,
+                          diagnosis: r.diagnosis,
+                          status: r.status,
+                          result: r.result,
+                          category: r.category,
+                          bodyPart: r.bodyPart,
+                        }));
+                        setPatientRecords(mapped);
+                      })
+                      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load records'))
+                      .finally(() => setIsLoading(false));
+                  }}
+                  className="mt-2 text-xs font-bold text-red-700 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            {!isLoading && !loadError && patientRecords.length === 0 && (
               <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
                 <p className="text-sm text-slate-500 font-medium">No patient records yet. Complete a scan to see results here.</p>
               </div>
             )}
-            {patientRecords.map((item) => (
+            {!isLoading && patientRecords.map((item) => (
               <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group active:bg-slate-50 transition-colors">
                 <div>
                   <h4 className="font-bold text-slate-800 leading-tight">{item.diagnosis}</h4>

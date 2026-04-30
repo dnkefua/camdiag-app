@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { MedicalDisclaimer } from './components/ui/MedicalDisclaimer';
 import { reportEnvWarnings } from './utils/env';
 import { trackEvent } from './services/analytics';
+import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
 const Landing = lazy(() => import('./components/Landing'));
@@ -20,7 +21,20 @@ const Questionnaire = lazy(() => import('./components/Questionnaire'));
 const NotFound = lazy(() => import('./components/NotFound'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  // Always allow access for demo/testing purposes
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cameroon-ivory">
+        <LoadingSpinner size="lg" message="Loading..." />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 

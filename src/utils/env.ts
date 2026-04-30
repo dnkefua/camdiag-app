@@ -10,6 +10,7 @@ interface EnvFlags {
   firebaseAuth: boolean;
   analytics: boolean;
   sentry: boolean;
+  backend: boolean;
 }
 
 const present = (v: string | undefined): boolean =>
@@ -21,6 +22,7 @@ export const envFlags: EnvFlags = {
   firebaseAuth: present(import.meta.env.VITE_FIREBASE_API_KEY),
   analytics: present(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID),
   sentry: present(import.meta.env.VITE_SENTRY_DSN),
+  backend: present(import.meta.env.VITE_API_URL),
 };
 
 export const reportEnvWarnings = (): void => {

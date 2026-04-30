@@ -1,15 +1,24 @@
-import { useState, createContext, useContext } from 'react';
+import { useState, createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { AppUser } from '../types';
+import type { AppUser } from '../types';
+import {
+  loginWithEmail,
+  registerWithEmail,
+  logout as firebaseLogout,
+  loginWithPhone as firebaseLoginWithPhone,
+  confirmPhoneCode as firebaseConfirmPhoneCode,
+  onAuthChange,
+} from '../services/auth';
 
 interface AuthContextValue {
   user: AppUser | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   loginWithPhone: (phoneNumber: string) => Promise<any>;
-  confirmPhoneCode: (confirmationResult: any, code: string) => Promise<void>;
+  confirmPhoneCode: (confirmationResult: unknown, code: string) => Promise<void>;
 }
 
 const throwOutsideProvider = () => { throw new Error('AuthContext used outside AuthProvider'); };
@@ -17,10 +26,11 @@ const throwOutsideProvider = () => { throw new Error('AuthContext used outside A
 export const AuthContext = createContext<AuthContextValue>({
   user: null,
   isAuthenticated: false,
+  isLoading: true,
   login: async () => throwOutsideProvider(),
   register: async () => throwOutsideProvider(),
   logout: async () => throwOutsideProvider(),
-  loginWithPhone: async () => { return {} as any; },
+  loginWithPhone: async () => { throwOutsideProvider(); return {} as any; },
   confirmPhoneCode: async () => throwOutsideProvider(),
 });
 
@@ -33,50 +43,47 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-   // Always provide a demo user for testing
-   const demoUser: AppUser = {
-     id: 'demo-user-123',
-     uid: 'demo-user-123',
-     email: 'demo@camdiag.cm',
-     name: 'Demo User',
-     initials: 'DU',
-     role: 'patient',
-     createdAt: Date.now()
-   };
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [user, setUser] = useState<AppUser | null>(demoUser);
+  useEffect(() => {
+    const unsubscribe = onAuthChange((firebaseUser) => {
+      setUser(firebaseUser as unknown as AppUser | null);
+      setIsLoading(false);
+    });
+    return unsubscribe;
+  }, []);
 
-   // Simplified auth functions that don't actually do anything
-   const login = async (_email: string, _password: string) => {
-     // Simulate login success
-     setUser(demoUser);
-   };
+  const login = async (email: string, password: string) => {
+    const appUser = await loginWithEmail(email, password);
+    setUser(appUser as unknown as AppUser);
+  };
 
-   const register = async (_email: string, _password: string, _name: string) => {
-     // Simulate registration success
-     setUser(demoUser);
-   };
+  const register = async (email: string, password: string, name: string) => {
+    const appUser = await registerWithEmail(email, password, name);
+    setUser(appUser as unknown as AppUser);
+  };
 
-   const logout = async () => {
-     // For demo purposes, just keep the demo user
-     setUser(demoUser);
-   };
+  const logout = async () => {
+    await firebaseLogout();
+    setUser(null);
+  };
 
-   const handleLoginWithPhone = async (_phoneNumber: string): Promise<any> => {
-     // Return a mock confirmation result
-     return Promise.resolve({});
-   };
+  const handleLoginWithPhone = async (phoneNumber: string) => {
+    return firebaseLoginWithPhone(phoneNumber);
+  };
 
-   const handleConfirmPhoneCode = async (_confirmationResult: any, _code: string) => {
-     // Simulate successful phone verification
-     setUser(demoUser);
-   };
+  const handleConfirmPhoneCode = async (confirmationResult: unknown, code: string) => {
+    const appUser = await firebaseConfirmPhoneCode(confirmationResult as any, code);
+    setUser(appUser as unknown as AppUser);
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
+        isLoading,
         login,
         register,
         logout,

@@ -1,8 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { MedGemmaAnalysisRequest, MedGemmaAnalysisResponse, Language } from '../types';
 import { getActiveModel } from './model-config';
+import { getAuth } from 'firebase/auth';
 
 const API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY;
+const BACKEND_URL = import.meta.env.VITE_API_URL;
 const MODEL_ID = getActiveModel();
 
 const SYSTEM_PROMPT = `You are MedGemma, a medical AI assistant integrated into CamDiag, a clinical decision-support app for Cameroon healthcare workers.
@@ -45,7 +47,53 @@ const getClient = (): GoogleGenerativeAI => {
   return genAI;
 };
 
+const getAuthToken = async (): Promise<string | null> => {
+  try {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user) {
+      return await user.getIdToken();
+    }
+  } catch {
+    // Not signed in or no auth available
+  }
+  return null;
+};
+
+const callBackend = async <T>(endpoint: string, body: unknown): Promise<T | null> => {
+  if (!BACKEND_URL) return null;
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Backend returned ${response.status}`);
+    }
+    return (await response.json()) as T;
+  } catch {
+    return null; // Fall back to direct Gemini
+  }
+};
+
 export const analyzeMedicalImage = async (request: MedGemmaAnalysisRequest): Promise<MedGemmaAnalysisResponse> => {
+  // Try backend first if configured
+  if (BACKEND_URL) {
+    const backendResult = await callBackend<MedGemmaAnalysisResponse>('analyze', {
+      imageBase64: request.imageBase64,
+      prompt: request.prompt,
+      language: request.language || 'en',
+    });
+    if (backendResult) return backendResult;
+  }
+
+  // Fall back to direct Gemini
   const client = getClient();
   const model = client.getGenerativeModel({ model: MODEL_ID });
 
@@ -86,6 +134,13 @@ export const analyzeMedicalImage = async (request: MedGemmaAnalysisRequest): Pro
 };
 
 export const checkDrugInteractions = async (drugs: string[], language: Language): Promise<string> => {
+  // Try backend first if configured
+  if (BACKEND_URL) {
+    const backendResult = await callBackend<{ result: string }>('check-interactions', { drugs, language });
+    if (backendResult?.result) return backendResult.result;
+  }
+
+  // Fall back to direct Gemini
   const client = getClient();
   const model = client.getGenerativeModel({ model: MODEL_ID });
 
@@ -100,6 +155,13 @@ export const checkDrugInteractions = async (drugs: string[], language: Language)
 };
 
 export const searchMedicationInfo = async (medicationName: string, language: Language): Promise<string> => {
+  // Try backend first if configured
+  if (BACKEND_URL) {
+    const backendResult = await callBackend<{ result: string }>('search-drug', { medicationName, language });
+    if (backendResult?.result) return backendResult.result;
+  }
+
+  // Fall back to direct Gemini
   const client = getClient();
   const model = client.getGenerativeModel({ model: MODEL_ID });
 

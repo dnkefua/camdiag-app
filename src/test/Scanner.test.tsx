@@ -19,7 +19,7 @@ vi.mock('../hooks/useCamera', () => ({
     facing: 'environment',
     hasFlashSupport: true,
     flashOn: false,
-    start: vi.fn(),
+    start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn(),
     toggleFacing: vi.fn(),
     toggleFlash: vi.fn(),

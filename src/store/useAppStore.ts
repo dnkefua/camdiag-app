@@ -16,6 +16,7 @@ interface AppState {
   resetScanCount: () => void;
   setDiagnoses: (diagnoses: Diagnosis[]) => void;
   setMarkers: (markers: ClinicalMarker[]) => void;
+  setPatientRecords: (records: PatientRecord[]) => void;
   addPatientRecord: (record: PatientRecord) => void;
   setDrugDatabase: (drugs: Drug[]) => void;
   setAnalyzing: (isAnalyzing: boolean) => void;
@@ -37,6 +38,7 @@ export const useAppStore = create<AppState>((set) => ({
   resetScanCount: () => set({ scanCount: 0 }),
   setDiagnoses: (diagnoses) => set({ diagnoses }),
   setMarkers: (markers) => set({ markers }),
+  setPatientRecords: (records) => set({ patientRecords: records }),
   addPatientRecord: (record) => set((s) => ({ patientRecords: [record, ...s.patientRecords] })),
   setDrugDatabase: (drugs) => set({ drugDatabase: drugs }),
   setAnalyzing: (isAnalyzing) => set({ isAnalyzing }),

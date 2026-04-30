@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TranslationProvider } from '../hooks/useTranslation';
 import DrugDatabase from '../components/DrugDatabase';
@@ -21,15 +21,22 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-// Mock useAppStore — inject known drug data so tests don't depend on store state
-const mockDrugDatabase = [
-  { name: 'Coartem (Artemether/Lumefantrine)', type: 'Antimalarial', dosage: '20mg/120mg', availability: 'High', description: 'First-line treatment for uncomplicated malaria in Cameroon.' },
-  { name: 'Paracetamol (Efferalgan)', type: 'Analgesic', dosage: '500mg/1g', availability: 'High', description: 'Used for fever and pain relief.' },
-  { name: 'Amoxicillin', type: 'Antibiotic', dosage: '250mg/500mg', availability: 'High', description: 'Broad-spectrum antibiotic for bacterial infections.' },
+// Mock Firestore service
+const mockDrugData = [
+  { id: '1', name: 'Coartem (Artemether/Lumefantrine)', type: 'Antimalarial', dosage: '20mg/120mg', availability: 'High', description: 'First-line treatment for uncomplicated malaria in Cameroon.' },
+  { id: '2', name: 'Paracetamol (Efferalgan)', type: 'Analgesic', dosage: '500mg/1g', availability: 'High', description: 'Used for fever and pain relief.' },
+  { id: '3', name: 'Amoxicillin', type: 'Antibiotic', dosage: '250mg/500mg', availability: 'High', description: 'Broad-spectrum antibiotic for bacterial infections.' },
 ];
+vi.mock('../services/firestore', () => ({
+  getDrugs: vi.fn(() => Promise.resolve(mockDrugData)),
+}));
+
+// Reactive store mock: allows setDrugDatabase to update drugDatabase for re-renders
+let storeDrugs: typeof mockDrugData = [];
+const setDrugDatabase = (drugs: typeof mockDrugData) => { storeDrugs = drugs; };
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({ drugDatabase: mockDrugDatabase }),
+  useAppStore: () => ({ drugDatabase: storeDrugs, setDrugDatabase }),
 }));
 
 // Mock api service (API not configured in tests)
@@ -50,68 +57,83 @@ const renderWithProviders = (ui: React.ReactElement) => {
 describe('DrugDatabase', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    storeDrugs = [];
   });
 
-  it('renders the Drugs page heading', () => {
+  it('renders the Drugs page heading', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
-    // The h1 text is the t.drugs value from en.json — use exact h1 query
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    });
   });
 
-  it('renders the search input', () => {
+  it('renders the search input', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
-    expect(screen.getByPlaceholderText(/search medications/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/search medications/i)).toBeInTheDocument();
+    });
   });
 
-  it('renders all drugs from the store', () => {
+  it('renders all drugs from the store', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
-    expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
+    });
     expect(screen.getByText(/Paracetamol/i)).toBeInTheDocument();
     expect(screen.getByText(/Amoxicillin/i)).toBeInTheDocument();
   });
 
-  it('filters drugs by name when typing in search', () => {
+  it('filters drugs by name when typing in search', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
+    await waitFor(() => {
+      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
+    });
     const searchInput = screen.getByPlaceholderText(/search medications/i);
     fireEvent.change(searchInput, { target: { value: 'Coartem' } });
     expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
     expect(screen.queryByText(/Paracetamol/i)).not.toBeInTheDocument();
   });
 
-  it('filters drugs by type when typing in search', () => {
+  it('filters drugs by type when typing in search', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
+    await waitFor(() => {
+      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
+    });
     const searchInput = screen.getByPlaceholderText(/search medications/i);
     fireEvent.change(searchInput, { target: { value: 'Antibiotic' } });
     expect(screen.queryByText(/Coartem/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Amoxicillin/i)).toBeInTheDocument();
   });
 
-  it('shows all drugs again when search is cleared', () => {
+  it('shows all drugs again when search is cleared', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
+    await waitFor(() => {
+      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
+    });
     const searchInput = screen.getByPlaceholderText(/search medications/i);
     fireEvent.change(searchInput, { target: { value: 'Coartem' } });
     expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
@@ -121,24 +143,29 @@ describe('DrugDatabase', () => {
     expect(screen.getByText(/Paracetamol/i)).toBeInTheDocument();
   });
 
-  it('renders bottom navigation', () => {
+  it('renders bottom navigation', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
-    expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument();
+    });
     expect(screen.getByRole('button', { name: /patients/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /scan/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /profile/i })).toBeInTheDocument();
   });
 
-  it('navigates back to /app when back button is clicked', () => {
+  it('navigates back to /app when back button is clicked', async () => {
     renderWithProviders(
       <TranslationProvider>
         <DrugDatabase />
       </TranslationProvider>
     );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole('button', { name: /back/i }));
     expect(mockNavigate).toHaveBeenCalledWith('/app');
   });

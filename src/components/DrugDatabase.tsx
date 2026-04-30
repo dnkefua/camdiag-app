@@ -1,21 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAppStore } from '../store/useAppStore';
 import { isApiConfigured } from '../services/api';
 import { searchMedicationInfo, checkDrugInteractions } from '../services/medgemma';
+import { getDrugs } from '../services/firestore';
+import type { FirestoreDrug } from '../services/firestore';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { BackIcon, SearchIcon, HomeIcon, UsersIcon, CameraIcon, UserIcon, AlertIcon } from '../components/ui/Icons';
 
 const DrugDatabase = () => {
   const navigate = useNavigate();
   const { t, language } = useTranslation();
-  const { drugDatabase } = useAppStore();
+  const { drugDatabase, setDrugDatabase } = useAppStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [interactionCheck, setInteractionCheck] = useState<string | null>(null);
   const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
   const apiReady = isApiConfigured();
+
+  useEffect(() => {
+    setIsLoading(true);
+    setLoadError(null);
+    getDrugs()
+      .then((drugs) => {
+        const mapped = drugs.map((d: FirestoreDrug) => ({
+          name: d.name,
+          type: d.type,
+          dosage: d.dosage,
+          availability: d.availability,
+          description: d.description,
+        }));
+        setDrugDatabase(mapped);
+      })
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load medications');
+      })
+      .finally(() => setIsLoading(false));
+  }, [setDrugDatabase]);
 
   const filteredDrugs = drugDatabase.filter(drug =>
     drug.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,12 +144,42 @@ const DrugDatabase = () => {
         )}
 
         <div className="space-y-4">
-          {filteredDrugs.length === 0 && (
+          {isLoading && (
+            <LoadingSpinner size="md" message="Loading medications..." />
+          )}
+          {loadError && !isLoading && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-2xl text-center">
+              <p className="text-sm text-red-600 font-medium">{loadError}</p>
+              <button
+                onClick={() => {
+                  setIsLoading(true);
+                  setLoadError(null);
+                  getDrugs()
+                    .then((drugs) => {
+                      const mapped = drugs.map((d: FirestoreDrug) => ({
+                        name: d.name,
+                        type: d.type,
+                        dosage: d.dosage,
+                        availability: d.availability,
+                        description: d.description,
+                      }));
+                      setDrugDatabase(mapped);
+                    })
+                    .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load medications'))
+                    .finally(() => setIsLoading(false));
+                }}
+                className="mt-2 text-xs font-bold text-red-700 underline"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!isLoading && !loadError && filteredDrugs.length === 0 && (
             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
               <p className="text-sm text-slate-500 font-medium">No medications found. Try a different search term.</p>
             </div>
           )}
-          {filteredDrugs.map((drug, idx) => (
+          {!isLoading && filteredDrugs.map((drug, idx) => (
             <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-slate-800">{drug.name}</h3>
