@@ -17,7 +17,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
-  loginWithPhone: (phoneNumber: string) => Promise<any>;
+  loginWithPhone: (phoneNumber: string) => Promise<unknown>;
   confirmPhoneCode: (confirmationResult: unknown, code: string) => Promise<void>;
 }
 
@@ -30,7 +30,7 @@ export const AuthContext = createContext<AuthContextValue>({
   login: async () => throwOutsideProvider(),
   register: async () => throwOutsideProvider(),
   logout: async () => throwOutsideProvider(),
-  loginWithPhone: async () => { throwOutsideProvider(); return {} as any; },
+  loginWithPhone: async () => { throwOutsideProvider(); return {} as unknown; },
   confirmPhoneCode: async () => throwOutsideProvider(),
 });
 
@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const handleConfirmPhoneCode = async (confirmationResult: unknown, code: string) => {
-    const appUser = await firebaseConfirmPhoneCode(confirmationResult as any, code);
+    const appUser = await firebaseConfirmPhoneCode(confirmationResult, code);
     setUser(appUser as unknown as AppUser);
   };
 

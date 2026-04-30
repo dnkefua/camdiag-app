@@ -18,8 +18,6 @@ const PatientRecords = () => {
 
   useEffect(() => {
     if (!user?.uid) return;
-    setIsLoading(true);
-    setLoadError(null);
     getPatientRecords(user.uid)
       .then((records) => {
         const mapped = records.map((r: FirestorePatientRecord) => ({
@@ -67,7 +65,7 @@ const PatientRecords = () => {
         <section className="space-y-4">
           <h3 className="text-lg font-bold text-slate-800">{t.history}</h3>
           <div className="space-y-3">
-            {isLoading && (
+            {isLoading && user?.uid && (
               <LoadingSpinner size="md" message="Loading patient records..." />
             )}
             {loadError && !isLoading && (
