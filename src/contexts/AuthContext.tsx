@@ -1,5 +1,6 @@
 import { useState, createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import type { ConfirmationResult } from 'firebase/auth';
 import type { AppUser } from '../types';
 import {
   loginWithEmail,
@@ -17,8 +18,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
-  loginWithPhone: (phoneNumber: string) => Promise<unknown>;
-  confirmPhoneCode: (confirmationResult: unknown, code: string) => Promise<void>;
+  loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
+  confirmPhoneCode: (confirmationResult: ConfirmationResult, code: string) => Promise<void>;
 }
 
 const throwOutsideProvider = () => { throw new Error('AuthContext used outside AuthProvider'); };
@@ -30,7 +31,7 @@ export const AuthContext = createContext<AuthContextValue>({
   login: async () => throwOutsideProvider(),
   register: async () => throwOutsideProvider(),
   logout: async () => throwOutsideProvider(),
-  loginWithPhone: async () => { throwOutsideProvider(); return {} as unknown; },
+  loginWithPhone: async () => { throwOutsideProvider(); return {} as ConfirmationResult; },
   confirmPhoneCode: async () => throwOutsideProvider(),
 });
 
@@ -73,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return firebaseLoginWithPhone(phoneNumber);
   };
 
-  const handleConfirmPhoneCode = async (confirmationResult: unknown, code: string) => {
+  const handleConfirmPhoneCode = async (confirmationResult: ConfirmationResult, code: string) => {
     const appUser = await firebaseConfirmPhoneCode(confirmationResult, code);
     setUser(appUser as unknown as AppUser);
   };
