@@ -60,7 +60,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<ErrorBoundary><Landing /></ErrorBoundary>} />
             <Route path="/app" element={<ProtectedRoute><ErrorBoundary><DiagnosticHub /></ErrorBoundary></ProtectedRoute>} />
-            <Route path="/scanner" element={<ProtectedRoute><ErrorBoundary><Scanner /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/scanner" element={<ErrorBoundary><Scanner /></ErrorBoundary>} />
             <Route path="/analysis" element={<ProtectedRoute><ErrorBoundary><AnalysisResults /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/next-steps" element={<ProtectedRoute><ErrorBoundary><NextSteps /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/drugs" element={<ProtectedRoute><ErrorBoundary><DrugDatabase /></ErrorBoundary></ProtectedRoute>} />
