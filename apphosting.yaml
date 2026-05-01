@@ -17,6 +17,12 @@ outputFiles:
   public: dist
 
 env:
+  - variable: VITE_FIREBASE_API_KEY
+    value: AIzaSyDeMKB-ePfx5ojM3489WzsVTo8v1rh8muQ
+    availability:
+      - BUILD
+      - RUNTIME
+
   - variable: VITE_FIREBASE_AUTH_DOMAIN
     value: camdiag-c7e78.firebaseapp.com
     availability:
@@ -30,7 +36,25 @@ env:
       - RUNTIME
 
   - variable: VITE_FIREBASE_STORAGE_BUCKET
-    value: camdiag-c7e78.appspot.com
+    value: camdiag-c7e78.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: VITE_FIREBASE_MESSAGING_SENDER_ID
+    value: "781571839717"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: VITE_FIREBASE_APP_ID
+    value: "1:781571839717:web:3ba54c6911d1b2378a660c"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: VITE_FIREBASE_MEASUREMENT_ID
+    value: G-1NGH56H4GR
     availability:
       - BUILD
       - RUNTIME
@@ -52,7 +76,4 @@ env:
 
   # ─── Sensitive keys — set in Firebase Console App Hosting backend settings ───
   # Firebase Console → App Hosting → your backend → Environment Variables
-  # VITE_FIREBASE_API_KEY
-  # VITE_FIREBASE_MESSAGING_SENDER_ID
-  # VITE_FIREBASE_APP_ID
-  # VITE_FIREBASE_MEASUREMENT_ID
+  # Do not expose server-only provider secrets with a VITE_* prefix.
