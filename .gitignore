@@ -23,6 +23,14 @@ test-results
 # Firebase service account (admin credentials)
 firebase-service-account.json
 
+# Local deployment helpers / review notes that should not ship with App Hosting
+DEPLOY.bat
+FIX_DEPLOY.bat
+FIX_GIT.bat
+SETUP_SECRETS.bat
+public/Recommendations.md
+C*UsersA2ZOneDriveDocumentsNDN
+
 
 # Editor directories and files
 .vscode/*

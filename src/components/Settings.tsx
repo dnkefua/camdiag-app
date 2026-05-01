@@ -21,7 +21,7 @@ const Settings = () => {
     };
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
+    <div className="bg-slate-50 text-slate-900 font-sans screen-safe flex flex-col pb-24">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center gap-3 shadow-sm">
         <button onClick={() => navigate('/app')} aria-label="Back" className="text-slate-600 p-1">
           <BackIcon />
@@ -29,7 +29,7 @@ const Settings = () => {
         <h1 className="text-xl font-bold text-cameroon-green">{t.settings}</h1>
       </header>
 
-      <main aria-labelledby="settings-heading" className="p-5 space-y-6">
+      <main aria-labelledby="settings-heading" className="p-4 sm:p-5 space-y-6">
         <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 flex items-center gap-4 bg-gradient-to-r from-medical-green/5 to-transparent">
             <div className="w-16 h-16 rounded-full bg-medical-green flex items-center justify-center text-white text-2xl font-black shadow-lg">
@@ -63,7 +63,7 @@ const Settings = () => {
         </button>
       </main>
 
-      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom z-20">
+      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-5 sm:px-6 py-3 flex justify-between mobile-bottom-nav z-20">
         <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-slate-400">
           <HomeIcon /><span className="text-[10px] font-medium">{t.home}</span>
         </button>

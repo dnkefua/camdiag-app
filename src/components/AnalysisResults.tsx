@@ -17,18 +17,18 @@ const AnalysisResults = () => {
   const isAiEnabled = isApiConfigured();
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
+    <div className="bg-slate-50 text-slate-900 font-sans screen-safe flex flex-col pb-24">
       <a href="#analysis-main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-white focus:text-medical-green focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-xl focus:font-bold">
         Skip to main content
       </a>
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center justify-between shadow-sm">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/scanner')} aria-label="Back" className="text-slate-600 p-1 active:scale-90 transition-transform">
             <BackIcon />
           </button>
           <h1 className="text-xl font-bold text-cameroon-green">{t.analysis_title}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="flex h-2 w-2 rounded-full bg-medical-green animate-pulse"></span>
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.ai_active}</span>
           {isAiEnabled && (
@@ -57,7 +57,7 @@ const AnalysisResults = () => {
         </div>
       )}
 
-      <main aria-labelledby="analysis-heading" className="p-5 space-y-6 max-w-lg mx-auto w-full">
+      <main aria-labelledby="analysis-heading" className="p-4 sm:p-5 space-y-6 max-w-lg mx-auto w-full">
         <h2 id="analysis-heading" className="sr-only">{t.analysis_title}</h2>
 
         <section className="bg-red-50 border-2 border-red-500 rounded-3xl p-4 flex items-start gap-3 shadow-lg">
@@ -124,7 +124,7 @@ const AnalysisResults = () => {
                 className={`w-full text-left p-5 rounded-3xl border-2 transition-all duration-300 transform ${selectedDiag === idx ? 'bg-white border-medical-green shadow-xl shadow-medical-green/10 scale-[1.02]' : 'bg-white border-slate-100 hover:border-slate-200'}`}
               >
                 <div className="flex justify-between items-center mb-1">
-                  <h4 className={`font-black tracking-tight ${selectedDiag === idx ? 'text-medical-green text-lg' : 'text-slate-800'}`}>{diag.name}</h4>
+                  <h4 className={`font-black ${selectedDiag === idx ? 'text-medical-green text-lg' : 'text-slate-800'}`}>{diag.name}</h4>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-black ${selectedDiag === idx ? 'bg-medical-green text-white' : 'bg-slate-100 text-slate-500'}`}>{diag.probability}</span>
                 </div>
                 {selectedDiag === idx && (
@@ -144,7 +144,7 @@ const AnalysisResults = () => {
 
         <section className="space-y-4">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.clinical_markers}</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:gap-4">
             {markers.length === 0 && !isAnalyzing && (
               <div className="col-span-2 bg-white p-5 rounded-3xl border border-slate-100 text-center">
                 <p className="text-sm text-slate-500 font-medium">No clinical markers detected.</p>

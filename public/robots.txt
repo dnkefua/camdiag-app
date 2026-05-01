@@ -1,0 +1,16 @@
+# CamDiag public crawl policy
+User-agent: *
+Allow: /
+Allow: /demo
+Disallow: /app
+Disallow: /scanner
+Disallow: /analysis
+Disallow: /next-steps
+Disallow: /drugs
+Disallow: /patients
+Disallow: /settings
+Disallow: /questionnaire
+Disallow: /blog
+Disallow: /coming-up
+
+Sitemap: https://camdiag-app--camdiag-c7e78.europe-west4.hosted.app/sitemap.xml

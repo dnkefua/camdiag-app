@@ -24,7 +24,7 @@ const DiagnosticHub = () => {
 
   return (
     <motion.div key="hub" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
-      <div className="bg-cameroon-ivory text-cameroon-night font-sans min-h-screen flex flex-col">
+      <div className="bg-cameroon-ivory text-cameroon-night font-sans screen-safe flex flex-col">
         {/* Cameroon flag accent strip */}
         <div className="h-1 bg-cameroon-flag" />
 
@@ -55,7 +55,7 @@ const DiagnosticHub = () => {
           </div>
         )}
 
-        <main aria-labelledby="hub-heading" className="flex-grow p-5 space-y-8 overflow-y-auto">
+        <main aria-labelledby="hub-heading" className="flex-grow p-4 sm:p-5 space-y-6 sm:space-y-8 overflow-y-auto pb-28">
           <section className="space-y-1">
             <p className="text-cameroon-green/70 font-semibold uppercase tracking-wider text-xs">{t.hub_greeting}</p>
             <h2 id="hub-heading" className="text-3xl font-black text-cameroon-night font-display">{t.hub_title}</h2>
@@ -67,7 +67,7 @@ const DiagnosticHub = () => {
               type="button"
               whileHover={{ scale: 1.01, y: -2 }}
               whileTap={{ scale: 0.97 }}
-              className="w-full bg-jungle text-white rounded-3xl p-8 flex flex-col items-center justify-center gap-4 shadow-premium relative overflow-hidden"
+              className="w-full bg-jungle text-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 flex flex-col items-center justify-center gap-4 shadow-premium relative overflow-hidden"
             >
               <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-cameroon-yellow/25 blur-2xl" />
               <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-cameroon-red/20 blur-2xl" />
@@ -130,7 +130,7 @@ const DiagnosticHub = () => {
           </section>
         </main>
 
-        <nav aria-label="Main navigation" className="glass-effect border-t border-cameroon-green/10 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom">
+        <nav aria-label="Main navigation" className="glass-effect border-t border-cameroon-green/10 fixed bottom-0 left-0 right-0 px-5 sm:px-6 py-3 flex justify-between mobile-bottom-nav z-30">
           <button type="button" onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-cameroon-green">
             <HomeIcon />
             <span className="text-[10px] font-black uppercase tracking-wider">{t.home}</span>

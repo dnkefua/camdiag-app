@@ -54,7 +54,7 @@ const Questionnaire = () => {
   }
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
+    <div className="bg-slate-50 text-slate-900 font-sans screen-safe flex flex-col pb-24">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center gap-3 shadow-sm">
         <button onClick={() => navigate('/analysis')} aria-label="Back" className="text-slate-600 p-1">
           <BackIcon />
@@ -62,7 +62,7 @@ const Questionnaire = () => {
         <h1 className="text-xl font-bold text-cameroon-green">{t.questionnaire_title}</h1>
       </header>
 
-      <main aria-labelledby="quest-heading" className="p-6 space-y-8 max-w-lg mx-auto w-full">
+      <main aria-labelledby="quest-heading" className="p-4 sm:p-6 space-y-8 max-w-lg mx-auto w-full">
         <h2 id="quest-heading" className="sr-only">{t.questionnaire_title}</h2>
         <section className="bg-cameroon-green/10 p-5 rounded-3xl border border-cameroon-green/20">
           <p className="text-cameroon-green font-bold text-sm text-center italic">{t.quest_intro}</p>

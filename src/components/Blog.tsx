@@ -33,7 +33,7 @@ const Blog = () => {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen pb-20 font-sans text-slate-900 flex flex-col">
+    <div className="bg-slate-50 screen-safe pb-24 font-sans text-slate-900 flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-3 flex items-center gap-3 shadow-sm">
         <button onClick={() => navigate('/app')} aria-label="Back" className="text-slate-600 p-1 active:scale-95 transition-transform">
           <BackIcon />
@@ -47,7 +47,7 @@ const Blog = () => {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-colors ${
+              className={`whitespace-nowrap min-h-10 px-4 py-2 rounded-full text-sm font-bold transition-colors ${
                 activeTab === key ? 'bg-medical-green text-white shadow-md' : 'bg-slate-100 text-slate-600'
               }`}
             >

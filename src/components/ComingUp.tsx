@@ -40,8 +40,8 @@ const ComingUp = () => {
   const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
 
   return (
-    <div className="bg-black min-h-screen text-white font-sans flex flex-col relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
+    <div className="bg-black screen-safe text-white font-sans flex flex-col relative overflow-hidden">
+      <div className="absolute inset-0 hidden sm:block opacity-20 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-500 rounded-full blur-[100px]"></div>
       </div>
@@ -54,7 +54,7 @@ const ComingUp = () => {
         <div className="w-10"></div>
       </header>
 
-      <main aria-labelledby="comingup-heading" className="flex-grow flex items-center justify-center p-6 relative z-10">
+      <main aria-labelledby="comingup-heading" className="flex-grow flex items-center justify-center p-4 sm:p-6 relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -62,19 +62,19 @@ const ComingUp = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 1.1, y: -20 }}
             transition={{ duration: 0.4 }}
-            className={`w-full max-w-sm aspect-[3/4] rounded-[2.5rem] bg-gradient-to-br ${slides[currentSlide]?.gradient} p-8 flex flex-col justify-between shadow-2xl border border-white/10`}
+            className={`w-full max-w-sm aspect-[3/4] rounded-3xl sm:rounded-[2.5rem] bg-gradient-to-br ${slides[currentSlide]?.gradient} p-6 sm:p-8 flex flex-col justify-between shadow-2xl border border-white/10`}
           >
             <div className="space-y-6">
               <div className="bg-white/10 w-fit p-4 rounded-3xl backdrop-blur-md border border-white/20">
                 {slides[currentSlide]?.icon}
               </div>
               <div>
-                <h2 id="comingup-heading" className="text-3xl font-black leading-tight mb-2 tracking-tight">{slides[currentSlide]?.title}</h2>
+                <h2 id="comingup-heading" className="text-2xl sm:text-3xl font-black leading-tight mb-2">{slides[currentSlide]?.title}</h2>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-white/70">{slides[currentSlide]?.subtitle}</h3>
               </div>
             </div>
 
-            <p className="text-lg leading-relaxed font-medium text-white/90">
+            <p className="text-base sm:text-lg leading-relaxed font-medium text-white/90">
               {slides[currentSlide]?.content}
             </p>
           </motion.div>

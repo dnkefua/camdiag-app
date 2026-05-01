@@ -25,13 +25,23 @@
   --cam-yellow: #FCD116;
   --cam-night: #0A1F1A;
   --cam-ivory: #FFF7E6;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+html {
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100dvh;
+  min-height: 100svh;
   background: var(--cam-ivory);
+  overflow-x: hidden;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
   -ms-overflow-style: -ms-autohiding-scrollbar;
@@ -42,6 +52,7 @@ body {
 #root {
   width: 100%;
   max-width: 100%;
+  min-height: 100svh;
 }
 
 /* === Premium glass + gradient utilities === */
@@ -85,8 +96,26 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
-.safe-area-top { padding-top: env(safe-area-inset-top); }
+.safe-area-bottom { padding-bottom: calc(0.75rem + var(--safe-bottom)); }
+.safe-area-top { padding-top: calc(0.75rem + var(--safe-top)); }
+.screen-safe { min-height: 100svh; min-height: 100dvh; }
+.mobile-bottom-nav {
+  padding-bottom: calc(0.75rem + var(--safe-bottom));
+}
+
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  .glass-dark,
+  .glass-effect {
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+  }
+}
 
 /* === Scanner viewfinder === */
 .viewfinder-bg {

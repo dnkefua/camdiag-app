@@ -199,7 +199,7 @@ export const CamDiagLogo = ({
       {showWordmark && (
         <div className="flex flex-col leading-none">
           <span
-            className="font-display font-black tracking-tight text-2xl"
+            className="font-display font-black text-2xl"
             style={{ letterSpacing: '-0.02em' }}
           >
             <span className="text-cameroon-green">Cam</span>

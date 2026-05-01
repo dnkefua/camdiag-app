@@ -70,7 +70,7 @@ const NextSteps = () => {
   }, []);
 
   return (
-    <div className="bg-cameroon-ivory text-cameroon-night font-sans min-h-screen flex flex-col pb-20">
+    <div className="bg-cameroon-ivory text-cameroon-night font-sans screen-safe flex flex-col pb-24">
       {/* Cameroon flag accent strip */}
       <div className="h-1 bg-cameroon-flag" />
 
@@ -79,7 +79,7 @@ const NextSteps = () => {
           <button onClick={() => navigate('/app')} aria-label="Back" className="text-cameroon-green p-1 active:scale-95 transition-transform">
             <BackIcon />
           </button>
-          <h1 className="text-xl font-black text-cameroon-green-deep tracking-tight">{t.next_steps}</h1>
+          <h1 className="text-xl font-black text-cameroon-green-deep">{t.next_steps}</h1>
         </div>
         <button
           onClick={() => setShowMap(!showMap)}
@@ -93,7 +93,7 @@ const NextSteps = () => {
         </button>
       </header>
 
-      <main aria-labelledby="nextsteps-heading" className="flex-grow p-4 space-y-6 max-w-lg mx-auto w-full">
+      <main aria-labelledby="nextsteps-heading" className="flex-grow p-4 sm:p-5 space-y-6 max-w-lg mx-auto w-full">
         {showMap ? (
           <section className="space-y-3">
             <FacilityMap facilities={allMappedFacilities} height="520px" />
@@ -208,7 +208,7 @@ const NextSteps = () => {
         </section>
       </main>
 
-      <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 glass-effect border-t border-cameroon-green/10 px-8 py-4 flex justify-between items-center z-30">
+      <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 glass-effect border-t border-cameroon-green/10 px-6 sm:px-8 py-3 flex justify-between items-center mobile-bottom-nav z-30">
         <button onClick={() => navigate('/app')} aria-label="Home" className="text-cameroon-green/60 active:scale-90 transition-transform"><HomeIcon /></button>
         <button onClick={() => navigate('/scanner')} aria-label="New scan" className="bg-cameroon-green w-14 h-14 rounded-2xl shadow-cameroon flex items-center justify-center text-white active:scale-95 transition-all -mt-12 border-4 border-cameroon-ivory">
           <PlusIcon />

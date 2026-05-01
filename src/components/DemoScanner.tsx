@@ -29,7 +29,7 @@ const DemoScanner = () => {
   };
 
   return (
-    <div className="min-h-screen bg-cameroon-night text-white flex flex-col">
+    <div className="screen-safe bg-cameroon-night text-white flex flex-col">
       <header className="px-5 py-4 flex items-center gap-3 border-b border-white/10">
         <button
           type="button"
@@ -45,7 +45,7 @@ const DemoScanner = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-6 flex flex-col items-center justify-center gap-8">
+      <main className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center gap-6 sm:gap-8">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}

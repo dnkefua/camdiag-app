@@ -38,7 +38,7 @@ const PatientRecords = () => {
   }, [user?.uid, setPatientRecords]);
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col pb-20">
+    <div className="bg-slate-50 text-slate-900 font-sans screen-safe flex flex-col pb-24">
       <a href="#patients-main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-white focus:text-medical-green focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-xl focus:font-bold">
         Skip to main content
       </a>
@@ -49,7 +49,7 @@ const PatientRecords = () => {
         <h1 className="text-xl font-bold text-cameroon-green">{t.patients}</h1>
       </header>
 
-      <main aria-labelledby="patients-heading" className="p-5 space-y-6">
+      <main aria-labelledby="patients-heading" className="p-4 sm:p-5 space-y-6">
         <h2 id="patients-heading" className="sr-only">{t.patients}</h2>
         <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
@@ -127,7 +127,7 @@ const PatientRecords = () => {
         </section>
       </main>
 
-      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-6 py-3 flex justify-between safe-area-bottom z-20">
+      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-5 sm:px-6 py-3 flex justify-between mobile-bottom-nav z-20">
         <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-slate-400">
           <HomeIcon /><span className="text-[10px] font-medium">{t.home}</span>
         </button>

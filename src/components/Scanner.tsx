@@ -95,7 +95,7 @@ const Scanner = () => {
   };
 
   return (
-    <div className="bg-cameroon-night h-screen w-full overflow-hidden flex flex-col text-white font-sans">
+    <div className="bg-cameroon-night screen-safe w-full overflow-hidden flex flex-col text-white font-sans">
       {flashOverlay && (
         <div className="fixed inset-0 bg-white z-[100] transition-opacity duration-150 pointer-events-none" />
       )}
@@ -237,10 +237,10 @@ const Scanner = () => {
           </motion.div>
         )}
 
-        <div className="absolute top-20 left-0 right-0 mx-auto w-full flex justify-center z-10">
+        <div className="absolute top-20 left-0 right-0 mx-auto w-full flex justify-center z-10 px-4">
           <button
             onClick={() => setScanMode((prev) => (prev === 'document' ? 'body' : 'document'))}
-            className={`min-w-[160px] px-4 py-2 rounded-full text-sm font-black border backdrop-blur-md transition-all ${
+            className={`min-w-[160px] min-h-11 px-4 py-2 rounded-full text-sm font-black border backdrop-blur-md transition-all ${
               scanMode === 'document'
                 ? 'bg-black/40 border-cameroon-yellow/40 text-white'
                 : 'bg-cameroon-red/85 border-cameroon-red-light text-white'
@@ -270,7 +270,7 @@ const Scanner = () => {
         </div>
       </main>
 
-      <footer className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pb-10 pt-6 px-8 flex items-center justify-between safe-area-bottom">
+      <footer className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-6 px-6 sm:px-8 flex items-center justify-between safe-area-bottom">
         <label aria-label="Open gallery" className="flex flex-col items-center gap-1 group cursor-pointer">
           <div className="p-3 rounded-full bg-white/10 group-active:bg-white/20 transition-colors border border-white/15">
             <ImageIcon />

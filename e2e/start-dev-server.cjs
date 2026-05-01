@@ -3,7 +3,7 @@ const { spawn } = require('node:child_process');
 process.env.VITE_E2E_AUTH_BYPASS = 'true';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const child = spawn(npm, ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '5174'], {
+const child = spawn(npm, ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '5175'], {
   env: process.env,
   stdio: 'inherit',
   shell: true,
