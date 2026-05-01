@@ -5,33 +5,27 @@ describe('model-config', () => {
     vi.resetModules();
   });
 
-  it('returns gemini-2.0-flash by default', async () => {
-    vi.stubEnv('VITE_GOOGLE_AI_MODEL', '');
-    vi.stubEnv('VITE_USE_MEDGEMMA', '');
+  it('returns medgemma-4b-it by default', async () => {
     const { getActiveModel } = await import('../services/model-config');
-    expect(getActiveModel()).toBe('gemini-2.0-flash');
+    expect(getActiveModel()).toBe('medgemma-4b-it');
   });
 
-  it('returns env-var model when set', async () => {
-    vi.stubEnv('VITE_GOOGLE_AI_MODEL', 'medgemma-27b');
+  it('does not allow client-side model overrides', async () => {
+    vi.stubEnv('VITE_GOOGLE_AI_MODEL', 'gemini-2.0-flash');
     const { getActiveModel } = await import('../services/model-config');
-    expect(getActiveModel()).toBe('medgemma-27b');
+    expect(getActiveModel()).toBe('medgemma-4b-it');
   });
 
   it('getModelInfo identifies medgemma models', async () => {
-    vi.stubEnv('VITE_GOOGLE_AI_MODEL', 'medgemma-27b');
     const { getModelInfo } = await import('../services/model-config');
     const info = getModelInfo();
     expect(info.isMedgemma).toBe(true);
-    expect(info.source).toBe('env');
+    expect(info.source).toBe('backend-default');
   });
 
-  it('getModelInfo identifies non-medgemma models', async () => {
-    vi.stubEnv('VITE_GOOGLE_AI_MODEL', '');
-    vi.stubEnv('VITE_USE_MEDGEMMA', '');
+  it('getModelInfo includes defaultModel', async () => {
     const { getModelInfo } = await import('../services/model-config');
     const info = getModelInfo();
-    expect(info.isMedgemma).toBe(false);
-    expect(info.source).toBe('default');
+    expect(info.defaultModel).toBe('medgemma-4b-it');
   });
 });

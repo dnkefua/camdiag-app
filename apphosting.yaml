@@ -35,8 +35,8 @@ env:
       - BUILD
       - RUNTIME
 
-  - variable: VITE_GOOGLE_AI_MODEL
-    value: gemini-2.0-flash
+  - variable: VITE_API_URL
+    value: https://us-central1-camdiag-c7e78.cloudfunctions.net/api
     availability:
       - BUILD
       - RUNTIME
@@ -56,4 +56,3 @@ env:
   # VITE_FIREBASE_MESSAGING_SENDER_ID
   # VITE_FIREBASE_APP_ID
   # VITE_FIREBASE_MEASUREMENT_ID
-  # VITE_GOOGLE_AI_API_KEY

@@ -10,6 +10,7 @@ import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
 const Landing = lazy(() => import('./components/Landing'));
+const DemoScanner = lazy(() => import('./components/DemoScanner'));
 const DiagnosticHub = lazy(() => import('./components/DiagnosticHub'));
 const Scanner = lazy(() => import('./components/Scanner'));
 const AnalysisResults = lazy(() => import('./components/AnalysisResults'));
@@ -18,6 +19,8 @@ const DrugDatabase = lazy(() => import('./components/DrugDatabase'));
 const PatientRecords = lazy(() => import('./components/PatientRecords'));
 const Settings = lazy(() => import('./components/Settings'));
 const Questionnaire = lazy(() => import('./components/Questionnaire'));
+const Blog = lazy(() => import('./components/Blog'));
+const ComingUp = lazy(() => import('./components/ComingUp'));
 const NotFound = lazy(() => import('./components/NotFound'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -59,14 +62,17 @@ const App = () => {
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<ErrorBoundary><Landing /></ErrorBoundary>} />
+            <Route path="/demo" element={<ErrorBoundary><DemoScanner /></ErrorBoundary>} />
             <Route path="/app" element={<ProtectedRoute><ErrorBoundary><DiagnosticHub /></ErrorBoundary></ProtectedRoute>} />
-            <Route path="/scanner" element={<ErrorBoundary><Scanner /></ErrorBoundary>} />
+            <Route path="/scanner" element={<ProtectedRoute><ErrorBoundary><Scanner /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/analysis" element={<ProtectedRoute><ErrorBoundary><AnalysisResults /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/next-steps" element={<ProtectedRoute><ErrorBoundary><NextSteps /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/drugs" element={<ProtectedRoute><ErrorBoundary><DrugDatabase /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/patients" element={<ProtectedRoute><ErrorBoundary><PatientRecords /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><ErrorBoundary><Settings /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/questionnaire" element={<ProtectedRoute><ErrorBoundary><Questionnaire /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/blog" element={<ProtectedRoute><ErrorBoundary><Blog /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/coming-up" element={<ProtectedRoute><ErrorBoundary><ComingUp /></ErrorBoundary></ProtectedRoute>} />
             <Route path="*" element={<ErrorBoundary><NotFound /></ErrorBoundary>} />
           </Routes>
         </AnimatePresence>

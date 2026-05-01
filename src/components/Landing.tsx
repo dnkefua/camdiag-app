@@ -385,7 +385,7 @@ const Landing = () => {
               </motion.svg>
             </MagneticButton>
             <MagneticButton
-              onClick={() => navigate('/scanner')}
+              onClick={() => navigate('/demo')}
               className="bg-white/[0.06] border border-cameroon-green/30 text-white font-bold text-lg px-10 py-4 rounded-full backdrop-blur-sm"
               whileHover={{ scale: 1.05, backgroundColor: 'rgba(0, 122, 94, 0.15)' }}
               whileTap={{ scale: 0.97 }}
@@ -981,10 +981,8 @@ const Landing = () => {
                  <br />
                      <button
                        onClick={async () => {
-                         console.log('Demo button clicked - navigating to scanner');
                          closeModal();
-                         // Navigate directly to scanner since authentication is disabled for demo
-                         void navigate('/scanner');
+                         void navigate('/demo');
                        }}
                        className="text-white/30 text-sm hover:text-cameroon-yellow transition-colors"
                      >

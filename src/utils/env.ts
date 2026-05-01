@@ -14,10 +14,10 @@ interface EnvFlags {
 }
 
 const present = (v: string | undefined): boolean =>
-  Boolean(v) && v !== 'your_google_ai_api_key_here' && v !== 'your_google_maps_api_key_here' && !v?.startsWith('your_');
+  Boolean(v) && v !== 'your_google_maps_api_key_here' && !v?.startsWith('your_');
 
 export const envFlags: EnvFlags = {
-  ai: present(import.meta.env.VITE_GOOGLE_AI_API_KEY),
+  ai: present(import.meta.env.VITE_API_URL),
   maps: present(import.meta.env.VITE_GOOGLE_MAPS_API_KEY),
   firebaseAuth: present(import.meta.env.VITE_FIREBASE_API_KEY),
   analytics: present(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID),
@@ -28,7 +28,7 @@ export const envFlags: EnvFlags = {
 export const reportEnvWarnings = (): void => {
   if (!import.meta.env.DEV) return;
   const missing: string[] = [];
-  if (!envFlags.ai) missing.push('VITE_GOOGLE_AI_API_KEY (MedGemma analysis disabled)');
+  if (!envFlags.ai) missing.push('VITE_API_URL (CamDiag AI backend disabled)');
   if (!envFlags.maps) missing.push('VITE_GOOGLE_MAPS_API_KEY (live facility map disabled)');
   if (!envFlags.firebaseAuth) missing.push('VITE_FIREBASE_API_KEY (auth disabled)');
   if (missing.length) {

@@ -1,7 +1,7 @@
 import { defineString } from 'firebase-functions/params';
 
 export const GEMINI_API_KEY = defineString('GEMINI_API_KEY');
-export const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'gemini-2.0-flash' });
+export const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'medgemma-4b-it' });
 
 export const RATE_LIMIT = {
   ANALYZE: { windowMs: 60_000, max: 30 },

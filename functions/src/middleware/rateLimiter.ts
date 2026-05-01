@@ -43,7 +43,7 @@ export const rateLimiter = (config: RateLimitConfig) => {
           return { allowed: false, remaining: 0 };
         }
 
-        const updatedEntries = [...recent, { count: totalCount + 1, windowStart: Date.now() }];
+        const updatedEntries = [...recent, { count: 1, windowStart: Date.now() }];
         transaction.set(rateLimitRef, {
           ...data,
           [route]: updatedEntries,
@@ -64,8 +64,9 @@ export const rateLimiter = (config: RateLimitConfig) => {
       res.setHeader('X-RateLimit-Remaining', result.remaining);
       next();
     } catch {
-      // Fail-open: if rate limiting fails, allow the request through
-      next();
+      res.status(503).json({
+        error: 'Rate limit check is temporarily unavailable. Please try again shortly.',
+      });
     }
   };
 };

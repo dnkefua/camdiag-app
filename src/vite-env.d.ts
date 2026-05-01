@@ -2,9 +2,9 @@
 /// <reference types="google.maps" />
 
 interface ImportMetaEnv {
-  readonly VITE_GOOGLE_AI_API_KEY: string;
-  readonly VITE_GOOGLE_AI_MODEL?: string;
   readonly VITE_USE_MEDGEMMA?: string;
+  readonly VITE_API_URL?: string;
+  readonly VITE_E2E_AUTH_BYPASS?: string;
   readonly VITE_GOOGLE_MAPS_API_KEY: string;
   readonly VITE_FIREBASE_API_KEY: string;
   readonly VITE_FIREBASE_AUTH_DOMAIN: string;

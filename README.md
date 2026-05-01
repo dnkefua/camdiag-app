@@ -21,9 +21,9 @@ CamDiag is an AI-powered diagnostic assistance application designed for Cameroon
 - **Zustand** - Global state management
 - **Tailwind CSS 3** - Styling
 - **Framer Motion** - Animations
-- **Google Generative AI SDK** - MedGemma / Gemini integration
+- **Firebase Functions** - Server-side MedGemma / Gemini proxy
 - **Vitest** + **React Testing Library** - Testing
-- **Firebase Hosting** - Deployment
+- **Firebase App Hosting** - Web deployment
 
 ## Project Structure
 
@@ -67,7 +67,7 @@ npm install
 
 ### Environment Setup
 
-Copy `.env.example` to `.env` and add your Google AI API key:
+Copy `.env.example` to `.env` and add the public Firebase, Maps, and backend URL values:
 
 ```bash
 cp .env.example .env
@@ -75,10 +75,10 @@ cp .env.example .env
 
 Edit `.env`:
 ```
-VITE_GOOGLE_AI_API_KEY=your_actual_api_key_here
+VITE_API_URL=https://us-central1-<project-id>.cloudfunctions.net/api
 ```
 
-Get an API key from [Google AI Studio](https://aistudio.google.com/).
+The Gemini/MedGemma API key is server-only. Configure it as `GEMINI_API_KEY` for Firebase Functions, never as a `VITE_*` browser variable.
 
 ### Development
 
@@ -115,7 +115,7 @@ CamDiag integrates with Google's MedGemma model through the Gemini API for:
 2. **Drug Interaction Checking** - Query medication combinations for potential contraindications
 3. **Medication Information** - Search for detailed medication data including Cameroon availability
 
-The integration uses the `@google/generative-ai` SDK with the `gemini-2.0-flash` model. Responses are parsed and validated on the client side.
+The integration uses the `@google/generative-ai` SDK only inside Firebase Functions with the `medgemma-4b-it` launch model. Browser clients call the authenticated backend only; responses are parsed and validated server-side before returning to the app.
 
 **Important:** Always include medical disclaimers. CamDiag is a decision support tool, not a replacement for professional medical diagnosis.
 
@@ -129,19 +129,22 @@ To add a new language, create a new JSON file and update the `Language` type in 
 
 ## Deployment
 
+The web app is deployed by Firebase App Hosting from the connected GitHub branch using `apphosting.yaml`.
+
+Backend services are deployed separately:
+
 ```bash
-npm run build
-firebase deploy
+firebase deploy --only functions,firestore:rules
 ```
 
-Make sure `.firebaserc` is configured with your Firebase project ID.
+Make sure `.firebaserc` is configured with your Firebase project ID and App Hosting has the public web env vars configured.
 
 ## Security
 
 - Content Security Policy headers are configured in `firebase.json`
 - Input sanitization is applied to all user-submitted text
-- Drug interaction checking runs both locally (instant) and via MedGemma (comprehensive)
-- No patient data is stored remotely - all data remains local unless explicitly shared
+- AI analysis and drug interaction checks require Firebase Auth and go through backend rate limits/audit logging
+- Unauthenticated users can only access the no-AI demo flow
 - Medical disclaimers are prominently displayed throughout the application
 
 ## License

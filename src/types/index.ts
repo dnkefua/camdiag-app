@@ -2,6 +2,7 @@ export type Language = 'en' | 'fr' | 'pcm';
 
 export type ScreenRoute =
   | '/'
+  | '/demo'
   | '/scanner'
   | '/analysis'
   | '/next-steps'

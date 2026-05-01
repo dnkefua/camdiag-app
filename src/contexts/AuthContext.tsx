@@ -23,6 +23,13 @@ interface AuthContextValue {
 }
 
 const throwOutsideProvider = () => { throw new Error('AuthContext used outside AuthProvider'); };
+const E2E_TEST_USER_CREATED_AT = 0;
+
+const shouldUseE2EAuthBypass = (): boolean => {
+  if (!import.meta.env.DEV || import.meta.env.VITE_E2E_AUTH_BYPASS !== 'true') return false;
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem('camdiag_e2e_auth') === 'true';
+};
 
 export const AuthContext = createContext<AuthContextValue>({
   user: null,
@@ -44,16 +51,27 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const e2eAuthBypass = shouldUseE2EAuthBypass();
+  const testUser: AppUser = {
+    id: 'e2e-user',
+    uid: 'e2e-user',
+    email: 'e2e@camdiag.test',
+    name: 'E2E Clinician',
+    initials: 'EC',
+    role: 'doctor',
+    createdAt: E2E_TEST_USER_CREATED_AT,
+  };
+  const [user, setUser] = useState<AppUser | null>(e2eAuthBypass ? testUser : null);
+  const [isLoading, setIsLoading] = useState(!e2eAuthBypass);
 
   useEffect(() => {
+    if (e2eAuthBypass) return undefined;
     const unsubscribe = onAuthChange((firebaseUser) => {
       setUser(firebaseUser as unknown as AppUser | null);
       setIsLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [e2eAuthBypass]);
 
   const login = async (email: string, password: string) => {
     const appUser = await loginWithEmail(email, password);

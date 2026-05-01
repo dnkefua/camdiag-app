@@ -17,4 +17,4 @@ export const checkLocalContraindications = (diagnoses: Diagnosis[]): Contraindic
   return null;
 };
 
-export const isApiConfigured = (): boolean => envFlags.ai;
+export const isApiConfigured = (): boolean => envFlags.backend;
