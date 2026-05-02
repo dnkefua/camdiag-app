@@ -19,6 +19,7 @@ test-results
 .env
 .env.local
 .env.*.local
+functions/.env*
 
 # Firebase service account (admin credentials)
 firebase-service-account.json

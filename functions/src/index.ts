@@ -14,18 +14,26 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
 
-// Health check
-app.get('/api/health', (_req, res) => {
+const healthCheck = (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+};
 
-// Routes
+// Health check. Support both root and /api prefixes because Firebase
+// strips the function name from some Cloud Functions URLs.
+app.get('/health', healthCheck);
+app.get('/api/health', healthCheck);
+
+// Routes. Keep both mount points so existing App Hosting builds that call
+// https://...cloudfunctions.net/api/analyze continue to work immediately.
+app.use('/', analyzeRouter);
+app.use('/', searchDrugRouter);
+app.use('/', checkInteractionsRouter);
 app.use('/api', analyzeRouter);
 app.use('/api', searchDrugRouter);
 app.use('/api', checkInteractionsRouter);
 
 // 404 handler
-app.use('/api/*', (_req, res) => {
+app.use('*', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
