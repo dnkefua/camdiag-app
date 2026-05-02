@@ -69,10 +69,10 @@ export const rateLimiter = (config: RateLimitConfig) => {
 
       res.setHeader('X-RateLimit-Remaining', result.remaining);
       next();
-    } catch {
-      res.status(503).json({
-        error: 'Rate limit check is temporarily unavailable. Please try again shortly.',
-      });
+    } catch (err) {
+      console.error('[CamDiag] Rate limit check failed; allowing request:', err);
+      res.setHeader('X-RateLimit-Status', 'unavailable');
+      next();
     }
   };
 };
