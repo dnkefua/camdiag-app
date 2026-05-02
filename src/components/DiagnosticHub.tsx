@@ -80,7 +80,7 @@ const DiagnosticHub = () => {
               </div>
             </motion.button>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 min-[380px]:gap-4">
               {[
                 { onClick: () => navigate('/drugs'), icon: <ClipBoardIcon className="h-6 w-6" />, label: t.drugs, accent: 'text-cameroon-green bg-cameroon-green/8 border-cameroon-green/20' },
                 { onClick: () => navigate('/next-steps'), icon: <LocationIcon className="h-6 w-6" />, label: t.facilities, accent: 'text-cameroon-red bg-cameroon-red/8 border-cameroon-red/20' },
@@ -93,10 +93,10 @@ const DiagnosticHub = () => {
                   onClick={tile.onClick}
                   whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.96 }}
-                  className={`p-4 rounded-2xl flex flex-col items-center gap-2 shadow-sm border-2 transition-all ${tile.accent}`}
+                  className={`min-w-0 p-3 min-[380px]:p-4 rounded-2xl flex flex-col items-center gap-2 shadow-sm border-2 transition-all ${tile.accent}`}
                 >
                   {tile.icon}
-                  <span className={`text-sm font-black tracking-wide ${tile.isPremium ? 'text-white' : ''}`}>{tile.label}</span>
+                  <span className={`text-center text-xs min-[380px]:text-sm leading-tight font-black tracking-wide break-words ${tile.isPremium ? 'text-white' : ''}`}>{tile.label}</span>
                 </motion.button>
               ))}
             </div>
@@ -114,16 +114,16 @@ const DiagnosticHub = () => {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
-                  className="bg-white p-4 rounded-2xl border border-cameroon-green/10 flex items-center gap-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
+                  className="bg-white p-4 rounded-2xl border border-cameroon-green/10 flex items-center gap-3 min-[380px]:gap-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-cameroon-green/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-cameroon-green/10 flex shrink-0 items-center justify-center">
                     <CameraIcon className="h-6 w-6 text-cameroon-green" />
                   </div>
-                  <div className="flex-grow">
-                    <h4 className="font-black text-cameroon-night">{item.title}</h4>
+                  <div className="min-w-0 flex-grow">
+                    <h4 className="font-black text-cameroon-night leading-tight">{item.title}</h4>
                     <p className="text-xs text-slate-500 font-medium">{item.date} · ID: {item.id}</p>
                   </div>
-                  <span className="inline-block px-2.5 py-1 rounded-full bg-cameroon-green/10 text-cameroon-green-deep text-[10px] font-black uppercase tracking-wider">{item.match}</span>
+                  <span className="inline-block shrink-0 px-2 py-1 rounded-full bg-cameroon-green/10 text-cameroon-green-deep text-[9px] min-[380px]:text-[10px] font-black uppercase tracking-wider">{item.match}</span>
                 </motion.article>
               ))}
             </div>

@@ -105,6 +105,7 @@
   "loading": "Loading...",
   "analyzing": "Analyzing scan...",
   "login": "Log In",
+  "continue_with_google": "Continue with Gmail",
   "signup": "Sign Up",
   "email_placeholder": "Enter your email",
   "password_placeholder": "Enter your password",

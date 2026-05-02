@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useInView, useMotionValue, useSpring } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
@@ -80,7 +80,7 @@ const MagneticButton = ({ children, ...rest }: React.ComponentProps<typeof motio
 const Landing = () => {
   const navigate = useNavigate();
   const { t, language, setLanguage } = useTranslation();
-   const { isAuthenticated, login, register, loginWithPhone, confirmPhoneCode } = useAuth();
+   const { isAuthenticated, login, loginWithGoogle, register, loginWithPhone, confirmPhoneCode } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -102,11 +102,27 @@ const Landing = () => {
    const { scrollYProgress: pageScrollProgress } = useScroll();
    const scaleX = useSpring(pageScrollProgress, { stiffness: 100, damping: 30 });
 
+    const closeModal = useCallback(() => {
+      setShowLogin(false); setError(''); setOtpError('');
+      setEmail(''); setPassword(''); setName('');
+      setPhoneNumber(''); setOtp(''); setOtpSent(false);
+      setConfirmationResult(null); setAuthMethod('email'); setAuthTab('login');
+    }, []);
+
     useEffect(() => {
       if (isAuthenticated) {
         void navigate('/app');
       }
     }, [isAuthenticated, navigate]);
+
+    useEffect(() => {
+      if (!showLogin) return undefined;
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') closeModal();
+      };
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }, [closeModal, showLogin]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,11 +166,15 @@ const Landing = () => {
     }
   };
 
-  const closeModal = () => {
-    setShowLogin(false); setError(''); setOtpError('');
-    setEmail(''); setPassword(''); setName('');
-    setPhoneNumber(''); setOtp(''); setOtpSent(false);
-    setConfirmationResult(null); setAuthMethod('email'); setAuthTab('login');
+  const handleGoogleLogin = async () => {
+    setError('');
+    setOtpError('');
+    try {
+      await loginWithGoogle();
+      setShowLogin(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed. Please try again.');
+    }
   };
 
   const features = [
@@ -277,10 +297,10 @@ const Landing = () => {
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: CUSTOM_EASE }}
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 px-3 sm:px-5 md:px-12 py-3 sm:py-4 glass-dark"
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 px-2 min-[380px]:px-3 sm:px-5 md:px-12 py-3 sm:py-4 glass-dark"
       >
-        <motion.div className="shrink-0" whileHover={{ scale: 1.02 }} transition={{ type: 'spring', stiffness: 400 }}>
-          <CamDiagLogo size={40} animated showWordmark />
+        <motion.div className="min-w-0 shrink" whileHover={{ scale: 1.02 }} transition={{ type: 'spring', stiffness: 400 }}>
+          <CamDiagLogo size={36} animated showWordmark className="[&>div:last-child]:hidden min-[420px]:[&>div:last-child]:flex sm:[&>div:last-child]:flex" />
         </motion.div>
 
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
@@ -295,15 +315,15 @@ const Landing = () => {
           ))}
         </div>
 
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <div className="flex bg-white/5 border border-white/10 rounded-full p-1 text-[11px] sm:text-xs font-bold">
-            <button onClick={() => setLanguage('en')} className={`${language === 'en' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} min-h-8 px-2 sm:px-3 py-1 rounded-full transition-all`}>EN</button>
-            <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} min-h-8 px-2 sm:px-3 py-1 rounded-full transition-all`}>FR</button>
-            <button onClick={() => setLanguage('pcm')} className={`${language === 'pcm' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} min-h-8 px-2 sm:px-3 py-1 rounded-full transition-all`}>Local</button>
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
+          <div className="flex bg-white/5 border border-white/10 rounded-full p-1 text-[10px] min-[380px]:text-[11px] sm:text-xs font-bold">
+            <button onClick={() => setLanguage('en')} className={`${language === 'en' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} min-h-8 px-1.5 min-[380px]:px-2 sm:px-3 py-1 rounded-full transition-all`}>EN</button>
+            <button onClick={() => setLanguage('fr')} className={`${language === 'fr' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} min-h-8 px-1.5 min-[380px]:px-2 sm:px-3 py-1 rounded-full transition-all`}>FR</button>
+            <button onClick={() => setLanguage('pcm')} className={`${language === 'pcm' ? 'bg-cameroon-yellow text-cameroon-night shadow-sm' : 'text-white/40 hover:text-white/70'} min-h-8 px-1.5 min-[380px]:px-2 sm:px-3 py-1 rounded-full transition-all`}>Local</button>
           </div>
           <MagneticButton
             onClick={() => setShowLogin(true)}
-            className="bg-cameroon-yellow text-cameroon-night font-black text-xs sm:text-sm px-3 sm:px-5 py-2.5 rounded-full shadow-sunset-glow whitespace-nowrap"
+            className="bg-cameroon-yellow text-cameroon-night font-black text-xs sm:text-sm px-2.5 min-[380px]:px-3 sm:px-5 py-2.5 rounded-full shadow-sunset-glow whitespace-nowrap"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
@@ -799,7 +819,7 @@ const Landing = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[1000] glass-dark flex items-center justify-center p-6"
+          className="fixed inset-0 z-[1000] glass-dark flex items-start sm:items-center justify-center overflow-y-auto px-4 py-5 sm:p-6"
           onClick={closeModal}
         >
           <motion.div
@@ -807,7 +827,7 @@ const Landing = () => {
             animate={{ scale: 1, y: 0, opacity: 1, filter: 'blur(0px)' }}
             exit={{ scale: 0.9, y: 30, opacity: 0 }}
             transition={{ duration: 0.4, ease: CUSTOM_EASE }}
-            className="bg-cameroon-night/95 border border-cameroon-yellow/20 rounded-3xl p-8 w-full max-w-md shadow-premium"
+            className="my-auto bg-cameroon-night/95 border border-cameroon-yellow/20 rounded-2xl sm:rounded-3xl p-5 sm:p-8 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto shadow-premium"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
@@ -908,6 +928,19 @@ const Landing = () => {
               )
             ) : (
               <form onSubmit={handleLogin} className="space-y-4">
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="w-full min-h-12 bg-white text-cameroon-night font-black rounded-xl flex items-center justify-center gap-3 border border-white/80 shadow-sm active:scale-[0.98] transition-all"
+                >
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-lg font-black text-cameroon-green border border-slate-200">G</span>
+                  <span>{t.continue_with_google}</span>
+                </button>
+                <div className="flex items-center gap-3 text-white/30 text-xs font-bold uppercase tracking-wider">
+                  <span className="h-px flex-1 bg-white/10" />
+                  <span>{t.or_continue_with_email}</span>
+                  <span className="h-px flex-1 bg-white/10" />
+                </div>
                 {authTab === 'register' && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                     <input
@@ -996,17 +1029,6 @@ const Landing = () => {
       {/* reCAPTCHA container for phone auth */}
       <div id="recaptcha-container" />
 
-      {/* Focus trap for login modal */}
-      {showLogin && (
-        <div
-          ref={(el) => el?.focus()}
-          tabIndex={-1}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') closeModal();
-          }}
-          style={{ outline: 'none' }}
-        />
-      )}
     </div>
   );
 };

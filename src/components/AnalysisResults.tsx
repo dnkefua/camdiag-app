@@ -223,17 +223,17 @@ const AnalysisResults = () => {
         </section>
 
         <div className="pt-2 pb-8 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <button className="w-full bg-slate-900 justify-center text-white text-xs font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1">
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3">
+            <button className="w-full min-w-0 bg-slate-900 justify-center text-white text-xs font-bold py-3 px-2 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1">
               <DownloadIcon />
-              {t.download_pdf}
+              <span className="truncate">{t.download_pdf}</span>
             </button>
             <button
               onClick={() => navigate('/patients')}
-              className="w-full bg-medical-blue justify-center text-white text-xs font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1"
+              className="w-full min-w-0 bg-medical-blue justify-center text-white text-xs font-bold py-3 px-2 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1"
             >
               <UserIcon className="h-4 w-4" />
-              {t.save_to_records}
+              <span className="truncate">{t.save_to_records}</span>
             </button>
           </div>
 

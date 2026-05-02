@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { createElement } from 'react';
 import { vi } from 'vitest';
-import type { ReactNode, PropsWithChildren } from 'react';
+import type { ComponentType, ReactNode, PropsWithChildren } from 'react';
 
 /**
  * Comprehensive framer-motion mock used by component tests.
@@ -19,11 +19,16 @@ export const createFramerMotionMock = () => {
     return rest;
   };
 
+  const componentCache = new Map<string, ComponentType<PropsWithChildren<Record<string, unknown>>>>();
+
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(_target, tag: string | symbol) {
       const tagName = typeof tag === 'string' ? tag : 'div';
+      const cached = componentCache.get(tagName);
+      if (cached) return cached;
       const Component = ({ children, ...rest }: PropsWithChildren<Record<string, unknown>>) =>
         createElement(tagName, stripAnimationProps(rest), children as ReactNode);
+      componentCache.set(tagName, Component);
       return Component;
     },
   };

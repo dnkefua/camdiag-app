@@ -4,6 +4,7 @@ import type { ConfirmationResult } from 'firebase/auth';
 import type { AppUser } from '../types';
 import {
   loginWithEmail,
+  loginWithGoogle as firebaseLoginWithGoogle,
   registerWithEmail,
   logout as firebaseLogout,
   loginWithPhone as firebaseLoginWithPhone,
@@ -16,6 +17,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
@@ -36,6 +38,7 @@ export const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: false,
   isLoading: true,
   login: async () => throwOutsideProvider(),
+  loginWithGoogle: async () => throwOutsideProvider(),
   register: async () => throwOutsideProvider(),
   logout: async () => throwOutsideProvider(),
   loginWithPhone: async () => { throwOutsideProvider(); return {} as ConfirmationResult; },
@@ -78,6 +81,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(appUser as unknown as AppUser);
   };
 
+  const loginWithGoogle = async () => {
+    const appUser = await firebaseLoginWithGoogle();
+    setUser(appUser as unknown as AppUser);
+  };
+
   const register = async (email: string, password: string, name: string) => {
     const appUser = await registerWithEmail(email, password, name);
     setUser(appUser as unknown as AppUser);
@@ -104,6 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         isLoading,
         login,
+        loginWithGoogle,
         register,
         logout,
         loginWithPhone: handleLoginWithPhone,

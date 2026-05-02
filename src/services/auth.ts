@@ -5,6 +5,8 @@ import {
   onAuthStateChanged,
   signInWithPhoneNumber,
   RecaptchaVerifier,
+  GoogleAuthProvider,
+  signInWithPopup,
   type ConfirmationResult,
   type User,
 } from 'firebase/auth';
@@ -22,6 +24,14 @@ export interface AppUser {
 
 export const loginWithEmail = async (email: string, password: string): Promise<AppUser> => {
   const credential = await signInWithEmailAndPassword(auth, email, password);
+  return getUserProfile(credential.user);
+};
+
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export const loginWithGoogle = async (): Promise<AppUser> => {
+  const credential = await signInWithPopup(auth, googleProvider);
   return getUserProfile(credential.user);
 };
 

@@ -63,20 +63,20 @@ const Settings = () => {
         </button>
       </main>
 
-      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-5 sm:px-6 py-3 flex justify-between mobile-bottom-nav z-20">
-        <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-slate-400">
-          <HomeIcon /><span className="text-[10px] font-medium">{t.home}</span>
+      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-2 sm:px-6 py-3 grid grid-cols-4 gap-1 mobile-bottom-nav z-20">
+        <button onClick={() => navigate('/app')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
+          <HomeIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.home}</span>
         </button>
-        <button onClick={() => navigate('/patients')} className="flex flex-col items-center gap-1 text-slate-400">
-          <UsersIcon /><span className="text-[10px] font-medium">{t.patients}</span>
+        <button onClick={() => navigate('/patients')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
+          <UsersIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.patients}</span>
         </button>
-        <button onClick={() => navigate('/scanner')} className="flex flex-col items-center gap-1 text-slate-400">
+        <button onClick={() => navigate('/scanner')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
           <div className="bg-slate-200 text-slate-600 p-1 rounded-lg"><CameraIcon /></div>
-          <span className="text-[10px] font-medium">{t.scan}</span>
+          <span className="max-w-full truncate text-[10px] font-medium">{t.scan}</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-cameroon-green">
+        <button className="min-w-0 flex flex-col items-center gap-1 text-cameroon-green">
           <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-          <span className="text-[10px] font-bold">{t.profile}</span>
+          <span className="max-w-full truncate text-[10px] font-bold">{t.profile}</span>
         </button>
       </nav>
     </div>

@@ -127,19 +127,19 @@ const PatientRecords = () => {
         </section>
       </main>
 
-      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-5 sm:px-6 py-3 flex justify-between mobile-bottom-nav z-20">
-        <button onClick={() => navigate('/app')} className="flex flex-col items-center gap-1 text-slate-400">
-          <HomeIcon /><span className="text-[10px] font-medium">{t.home}</span>
+      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-2 sm:px-6 py-3 grid grid-cols-4 gap-1 mobile-bottom-nav z-20">
+        <button onClick={() => navigate('/app')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
+          <HomeIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.home}</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-cameroon-green">
-          <UsersIcon /><span className="text-[10px] font-bold">{t.patients}</span>
+        <button className="min-w-0 flex flex-col items-center gap-1 text-cameroon-green">
+          <UsersIcon /><span className="max-w-full truncate text-[10px] font-bold">{t.patients}</span>
         </button>
-        <button onClick={() => navigate('/scanner')} className="flex flex-col items-center gap-1 text-slate-400">
+        <button onClick={() => navigate('/scanner')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
           <div className="bg-slate-200 text-slate-600 p-1 rounded-lg"><CameraIcon /></div>
-          <span className="text-[10px] font-medium">{t.scan}</span>
+          <span className="max-w-full truncate text-[10px] font-medium">{t.scan}</span>
         </button>
-        <button onClick={() => navigate('/settings')} className="flex flex-col items-center gap-1 text-slate-400">
-          <UserIcon /><span className="text-[10px] font-medium">{t.profile}</span>
+        <button onClick={() => navigate('/settings')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
+          <UserIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.profile}</span>
         </button>
       </nav>
     </div>
