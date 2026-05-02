@@ -1,5 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GEMINI_API_KEY, GEMINI_MODEL } from '../config.js';
+import { GEMINI_LOCATION, GEMINI_MODEL } from '../config.js';
 
 const SYSTEM_PROMPT = `You are MedGemma, a medical AI assistant integrated into CamDiag, a clinical decision-support app for Cameroon healthcare workers.
 
@@ -29,61 +28,106 @@ Format your response as JSON matching this structure:
   "disclaimer": "This is NOT a diagnosis. This is AI-assisted clinical decision support. All findings must be reviewed by a qualified clinician before any treatment decisions."
 }`;
 
-let genAI: GoogleGenerativeAI | null = null;
+interface VertexResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+    status?: string;
+  };
+}
 
-function getClient(): GoogleGenerativeAI {
-  if (!genAI) {
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY.value());
+const getProjectId = (): string => {
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+  if (!projectId) throw new Error('Google Cloud project is not configured for Vertex AI.');
+  return projectId;
+};
+
+const getAccessToken = async (): Promise<string> => {
+  const response = await fetch(
+    'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
+    { headers: { 'Metadata-Flavor': 'Google' } },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Could not get service account token for Vertex AI (${response.status}).`);
   }
-  return genAI;
-}
 
-function getModel() {
-  return getClient().getGenerativeModel({ model: GEMINI_MODEL.value() });
-}
+  const data = await response.json() as { access_token?: string };
+  if (!data.access_token) throw new Error('Service account token response did not include an access token.');
+  return data.access_token;
+};
+
+const getMimeType = (imageBase64: string): string => {
+  const match = imageBase64.match(/^data:([^;]+);base64,/);
+  return match?.[1] || 'image/jpeg';
+};
+
+const getBase64Data = (imageBase64: string): string => imageBase64.split(',')[1] || imageBase64;
+
+const callVertex = async (parts: Array<Record<string, unknown>>): Promise<string> => {
+  const projectId = getProjectId();
+  const location = GEMINI_LOCATION.value();
+  const model = GEMINI_MODEL.value();
+  const token = await getAccessToken();
+  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  const data = await response.json() as VertexResponse;
+  if (!response.ok) {
+    throw new Error(data.error?.message || `Vertex AI returned ${response.status}`);
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim();
+  if (!text) throw new Error('Vertex AI returned an empty response.');
+  return text;
+};
 
 export async function analyzeImage(imageBase64: string, prompt: string, language: string) {
-  const model = getModel();
-  const base64Data = imageBase64.split(',')[1] || imageBase64;
-
-  const result = await model.generateContent([
-    { text: SYSTEM_PROMPT },
+  return callVertex([
     {
       inlineData: {
-        mimeType: 'image/jpeg',
-        data: base64Data,
+        mimeType: getMimeType(imageBase64),
+        data: getBase64Data(imageBase64),
       },
     },
     {
       text: `${prompt}\n\nRespond in ${language === 'fr' ? 'French' : 'English'}. Format as JSON.`,
     },
   ]);
-
-  return result.response.text();
 }
 
 export async function searchMedication(medicationName: string, language: string) {
-  const model = getModel();
-
-  const result = await model.generateContent([
-    { text: SYSTEM_PROMPT },
+  return callVertex([
     {
       text: `Provide information about the medication "${medicationName}" including: generic name, common dosages, availability in Cameroon, side effects, and any contraindications. Respond in ${language === 'fr' ? 'French' : 'English'}.`,
     },
   ]);
-
-  return result.response.text();
 }
 
 export async function checkDrugInteractions(drugs: string[], language: string) {
-  const model = getModel();
-
-  const result = await model.generateContent([
-    { text: SYSTEM_PROMPT },
+  return callVertex([
     {
       text: `Check for drug interactions between these medications: ${drugs.join(', ')}. Consider medications commonly available in Cameroon. Respond in ${language === 'fr' ? 'French' : 'English'}. Provide a brief, clear warning if any interactions exist, or state that no significant interactions were found.`,
     },
   ]);
-
-  return result.response.text();
 }

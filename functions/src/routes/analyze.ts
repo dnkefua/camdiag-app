@@ -39,6 +39,9 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
 
     res.json(validated);
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[CamDiag] Analyze failed:', message);
+
     // Log failure
     if (req.uid) {
       await writeAuditLog({
@@ -47,11 +50,12 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
         request: { prompt: req.body?.prompt, language: req.body?.language },
         responsePreview: '',
         success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
+        error: message,
       });
     }
 
     res.status(500).json({
+      error: 'AI analysis could not be completed. Please try again shortly.',
       diagnoses: [],
       markers: [],
       contraindications: [],
