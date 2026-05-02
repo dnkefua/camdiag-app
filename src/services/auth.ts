@@ -21,6 +21,14 @@ export interface AppUser {
   initials: string;
   role: 'patient' | 'doctor' | 'nurse' | 'admin';
   createdAt: unknown;
+  photoUrl?: string;
+  about?: string;
+  symptoms?: string;
+  notificationPrefs?: {
+    scanResults: boolean;
+    medicationAlerts: boolean;
+    productUpdates: boolean;
+  };
 }
 
 const getDisplayName = (firebaseUser: User): string => (
@@ -40,6 +48,14 @@ const createUserProfile = (firebaseUser: User, override?: Partial<AppUser>): App
     initials: override?.initials ?? name.substring(0, 2).toUpperCase(),
     role: override?.role ?? 'patient',
     createdAt: override?.createdAt ?? serverTimestamp(),
+    photoUrl: override?.photoUrl ?? firebaseUser.photoURL ?? undefined,
+    about: override?.about ?? '',
+    symptoms: override?.symptoms ?? '',
+    notificationPrefs: override?.notificationPrefs ?? {
+      scanResults: true,
+      medicationAlerts: true,
+      productUpdates: false,
+    },
   };
 };
 

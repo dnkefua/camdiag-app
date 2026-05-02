@@ -24,11 +24,11 @@ const DiagnosticHub = () => {
 
   return (
     <motion.div key="hub" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
-      <div className="bg-cameroon-ivory text-cameroon-night font-sans screen-safe flex flex-col">
+      <div className="bg-cameroon-ivory text-cameroon-night font-sans h-[100svh] h-[100dvh] flex flex-col overflow-hidden">
         {/* Cameroon flag accent strip */}
         <div className="h-1 bg-cameroon-flag" />
 
-        <header className="bg-white/90 backdrop-blur-md border-b border-cameroon-green/10 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
+        <header className="bg-white/90 backdrop-blur-md border-b border-cameroon-green/10 z-10 px-4 py-3 flex justify-between items-center shadow-sm shrink-0 safe-area-top">
           <CamDiagLogo size={36} showWordmark />
           <div className="flex bg-cameroon-green/8 rounded-full p-1 text-xs font-bold shadow-inner border border-cameroon-green/15">
             {(['en', 'fr', 'pcm'] as const).map((lang) => (
@@ -49,13 +49,13 @@ const DiagnosticHub = () => {
         </header>
 
         {!isOnline && (
-          <div className="bg-cameroon-yellow/15 px-4 py-2 border-b border-cameroon-yellow/30 flex items-center justify-center gap-2">
+          <div className="bg-cameroon-yellow/15 px-4 py-2 border-b border-cameroon-yellow/30 flex items-center justify-center gap-2 shrink-0">
             <div className="w-2 h-2 rounded-full bg-cameroon-yellow-deep animate-pulse" />
             <span className="text-xs font-bold text-cameroon-yellow-deep">{t.offline_mode}</span>
           </div>
         )}
 
-        <main aria-labelledby="hub-heading" className="flex-grow p-4 sm:p-5 space-y-6 sm:space-y-8 overflow-y-auto pb-28">
+        <main aria-labelledby="hub-heading" className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-6 sm:space-y-8 pb-32">
           <section className="space-y-1">
             <p className="text-cameroon-green/70 font-semibold uppercase tracking-wider text-xs">{t.hub_greeting}</p>
             <h2 id="hub-heading" className="text-3xl font-black text-cameroon-night font-display">{t.hub_title}</h2>

@@ -5,17 +5,56 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useAppStore } from '../store/useAppStore';
 import { checkLocalContraindications } from '../services/api';
 import { isApiConfigured } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { addPatientRecord as savePatientRecord } from '../services/firestore';
 import { BackIcon, ArrowRightIcon, DocumentIcon, AlertIcon, DownloadIcon, UserIcon, HomeIcon } from '../components/ui/Icons';
 
 const AnalysisResults = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { diagnoses, markers, selectedDiagnosis, setSelectedDiagnosis, analysisError, setAnalysisError, isAnalyzing } = useAppStore();
+  const { user } = useAuth();
+  const { diagnoses, markers, selectedDiagnosis, setSelectedDiagnosis, analysisError, setAnalysisError, isAnalyzing, addPatientRecord } = useAppStore();
   const [selectedDiag, setSelectedDiag] = useState(selectedDiagnosis);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const safetyRisk = checkLocalContraindications(diagnoses);
   const isAiEnabled = isApiConfigured();
   const selectedReport = diagnoses[selectedDiag];
+
+  const handleSaveToRecords = async () => {
+    if (!selectedReport || !user?.uid || saveState === 'saving') return;
+
+    setSaveState('saving');
+    setSaveError(null);
+
+    const record = {
+      userId: user.uid,
+      date: new Date().toLocaleString(),
+      diagnosis: selectedReport.name,
+      status: selectedReport.probability,
+      result: selectedReport.probability,
+      category: 'AI Analysis',
+      bodyPart: markers.map((marker) => marker.label).filter(Boolean).slice(0, 3).join(', ') || 'Medical document',
+    };
+
+    try {
+      const id = await savePatientRecord(record);
+      addPatientRecord({
+        id,
+        date: record.date,
+        diagnosis: record.diagnosis,
+        status: record.status,
+        result: record.result,
+        category: record.category,
+        bodyPart: record.bodyPart,
+      });
+      setSaveState('saved');
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save result.');
+      setSaveState('error');
+    }
+  };
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans h-[100svh] h-[100dvh] flex flex-col overflow-hidden">
@@ -230,13 +269,28 @@ const AnalysisResults = () => {
               <span className="truncate">{t.download_pdf}</span>
             </button>
             <button
-              onClick={() => navigate('/patients')}
+              onClick={handleSaveToRecords}
+              disabled={!selectedReport || !user?.uid || saveState === 'saving'}
               className="w-full min-w-0 bg-medical-blue justify-center text-white text-xs font-bold py-3 px-2 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1"
             >
               <UserIcon className="h-4 w-4" />
-              <span className="truncate">{t.save_to_records}</span>
+              <span className="truncate">
+                {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : t.save_to_records}
+              </span>
             </button>
           </div>
+          {saveState === 'saved' && (
+            <button
+              type="button"
+              onClick={() => navigate('/patients')}
+              className="w-full text-xs font-bold text-medical-blue underline"
+            >
+              View saved records
+            </button>
+          )}
+          {saveError && (
+            <p className="text-xs font-medium text-red-600 text-center">{saveError}</p>
+          )}
 
           <button
             onClick={() => navigate('/next-steps')}

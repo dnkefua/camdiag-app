@@ -80,6 +80,14 @@ export interface AppUser extends User {
   uid: string;
   role: string;
   createdAt: number;
+  photoUrl?: string;
+  about?: string;
+  symptoms?: string;
+  notificationPrefs?: {
+    scanResults: boolean;
+    medicationAlerts: boolean;
+    productUpdates: boolean;
+  };
 }
 
 export interface MedGemmaAnalysisRequest {

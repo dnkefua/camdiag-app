@@ -3,7 +3,7 @@ import {
   doc,
   getDocs,
   addDoc,
-  updateDoc,
+  setDoc,
   deleteDoc,
   query,
   orderBy,
@@ -215,9 +215,22 @@ export const getFacilities = async (type?: string): Promise<FirestoreFacility[]>
 };
 
 // ---- User Profile ----
-export const updateUserProfile = async (uid: string, data: Partial<{ name: string; role: string }>): Promise<void> => {
+export interface UserProfileUpdate {
+  name?: string;
+  role?: string;
+  photoUrl?: string;
+  about?: string;
+  symptoms?: string;
+  notificationPrefs?: {
+    scanResults: boolean;
+    medicationAlerts: boolean;
+    productUpdates: boolean;
+  };
+}
+
+export const updateUserProfile = async (uid: string, data: UserProfileUpdate): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'users', uid), data);
+    await setDoc(doc(db, 'users', uid), data, { merge: true });
   } catch (err) {
     console.error('[CamDiag] Failed to update user profile:', err);
     throw new Error('Failed to update profile. Please try again.');
