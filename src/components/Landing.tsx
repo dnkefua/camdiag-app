@@ -8,6 +8,27 @@ import { ShieldIcon, CameraIcon, ClipBoardIcon, BoltIcon, UsersIcon, MapPinIcon 
 
 const CUSTOM_EASE: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
 
+const getAuthErrorMessage = (err: unknown, fallback: string): string => {
+  const code = typeof err === 'object' && err && 'code' in err
+    ? String((err as { code?: unknown }).code)
+    : '';
+
+  if (code === 'auth/unauthorized-domain') {
+    return 'This public link is not authorized for sign-in yet. Please use the official CamDiag test link or contact NDN Analytics.';
+  }
+  if (code === 'auth/popup-blocked') {
+    return 'The Google sign-in popup was blocked. Please allow popups for this site and try again.';
+  }
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Google sign-in was closed before it finished. Please try again.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google sign-in is not enabled for this Firebase project yet.';
+  }
+
+  return err instanceof Error ? err.message : fallback;
+};
+
 const useAppearOnScroll = (delay = 0) => ({
   initial: { opacity: 0, y: 40, filter: 'blur(8px)' },
   whileInView: { opacity: 1, y: 0, filter: 'blur(0px)' },
@@ -144,7 +165,7 @@ const Landing = () => {
         await login(email, password);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
+      setError(getAuthErrorMessage(err, 'Authentication failed. Please try again.'));
     }
   };
 
@@ -162,7 +183,7 @@ const Landing = () => {
       setConfirmationResult(result);
       setOtpSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send code. Please check your phone number.');
+      setError(getAuthErrorMessage(err, 'Failed to send code. Please check your phone number.'));
     }
   };
 
@@ -173,7 +194,7 @@ const Landing = () => {
       await loginWithGoogle();
       setShowLogin(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed. Please try again.');
+      setError(getAuthErrorMessage(err, 'Google sign-in failed. Please try again.'));
     }
   };
 

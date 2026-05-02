@@ -139,6 +139,16 @@ firebase deploy --only functions,firestore:rules
 
 Make sure `.firebaserc` is configured with your Firebase project ID and App Hosting has the public web env vars configured.
 
+### Tester Google Sign-In Checklist
+
+Before sharing a public test link, confirm Firebase Console -> Authentication has:
+
+- Sign-in method -> Google enabled
+- Settings -> Authorized domains includes every test URL host users will open, such as `camdiag-c7e78.web.app`, `camdiag-c7e78.firebaseapp.com`, the Firebase App Hosting host, `ndnanalytics.com`, and `www.ndnanalytics.com`
+- Firestore rules deployed so the app can create each signed-in user's profile document
+
+If users see `auth/unauthorized-domain`, add the exact browser hostname from the shared link to Authorized domains and retry sign-in.
+
 ## Security
 
 - Content Security Policy headers are configured in `firebase.json`
