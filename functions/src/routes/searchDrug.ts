@@ -19,7 +19,7 @@ router.post('/search-drug', verifyAuth, rateLimiter(RATE_LIMIT.SEARCH), async (r
     const { medicationName, language } = parsed.data;
     const result = await searchMedication(medicationName, language);
 
-    writeAuditLog({
+    await writeAuditLog({
       uid: req.uid!,
       action: 'search_drug',
       request: { medicationName, language },
@@ -30,7 +30,7 @@ router.post('/search-drug', verifyAuth, rateLimiter(RATE_LIMIT.SEARCH), async (r
     res.json({ result });
   } catch (err) {
     if (req.uid) {
-      writeAuditLog({
+      await writeAuditLog({
         uid: req.uid,
         action: 'search_drug',
         request: { medicationName: req.body?.medicationName, language: req.body?.language },

@@ -1,7 +1,12 @@
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { v4 as uuid } from 'uuid';
 
-const db = getFirestore();
+let firestore: Firestore | null = null;
+
+const getDb = (): Firestore => {
+  firestore ??= getFirestore();
+  return firestore;
+};
 
 export interface AuditEntry {
   uid: string;
@@ -14,7 +19,7 @@ export interface AuditEntry {
 
 export async function writeAuditLog(entry: AuditEntry): Promise<void> {
   try {
-    await db.collection('audit_logs').add({
+    await getDb().collection('audit_logs').add({
       ...entry,
       id: uuid(),
       timestamp: Timestamp.now(),

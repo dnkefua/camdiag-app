@@ -19,7 +19,7 @@ router.post('/check-interactions', verifyAuth, rateLimiter(RATE_LIMIT.INTERACTIO
     const { drugs, language } = parsed.data;
     const result = await checkDrugInteractions(drugs, language);
 
-    writeAuditLog({
+    await writeAuditLog({
       uid: req.uid!,
       action: 'check_interactions',
       request: { drugs, language },
@@ -30,7 +30,7 @@ router.post('/check-interactions', verifyAuth, rateLimiter(RATE_LIMIT.INTERACTIO
     res.json({ result });
   } catch (err) {
     if (req.uid) {
-      writeAuditLog({
+      await writeAuditLog({
         uid: req.uid,
         action: 'check_interactions',
         request: { drugs: req.body?.drugs, language: req.body?.language },

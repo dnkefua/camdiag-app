@@ -14,6 +14,7 @@ import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 export interface AppUser {
+  id: string;
   uid: string;
   email: string;
   name: string;
@@ -21,6 +22,34 @@ export interface AppUser {
   role: 'patient' | 'doctor' | 'nurse' | 'admin';
   createdAt: unknown;
 }
+
+const getDisplayName = (firebaseUser: User): string => (
+  firebaseUser.displayName?.trim()
+  || firebaseUser.email?.split('@')[0]?.replace(/[._]/g, ' ')
+  || firebaseUser.phoneNumber
+  || 'User'
+);
+
+const createUserProfile = (firebaseUser: User, override?: Partial<AppUser>): AppUser => {
+  const name = override?.name || getDisplayName(firebaseUser);
+  return {
+    id: firebaseUser.uid,
+    uid: firebaseUser.uid,
+    email: override?.email ?? firebaseUser.email ?? '',
+    name,
+    initials: override?.initials ?? name.substring(0, 2).toUpperCase(),
+    role: override?.role ?? 'patient',
+    createdAt: override?.createdAt ?? serverTimestamp(),
+  };
+};
+
+const saveUserProfile = async (profile: AppUser): Promise<void> => {
+  try {
+    await setDoc(doc(db, 'users', profile.uid), profile, { merge: true });
+  } catch (err) {
+    console.error('[CamDiag] Failed to save user profile:', err);
+  }
+};
 
 export const loginWithEmail = async (email: string, password: string): Promise<AppUser> => {
   const credential = await signInWithEmailAndPassword(auth, email, password);
@@ -37,16 +66,12 @@ export const loginWithGoogle = async (): Promise<AppUser> => {
 
 export const registerWithEmail = async (email: string, password: string, name: string): Promise<AppUser> => {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
-  const initials = name.substring(0, 2).toUpperCase();
-  const appUser: AppUser = {
-    uid: credential.user.uid,
+  const appUser = createUserProfile(credential.user, {
     email,
     name,
-    initials,
-    role: 'patient',
-    createdAt: serverTimestamp(),
-  };
-  await setDoc(doc(db, 'users', credential.user.uid), appUser);
+    initials: name.substring(0, 2).toUpperCase(),
+  });
+  await saveUserProfile(appUser);
   return appUser;
 };
 
@@ -56,31 +81,39 @@ export const logout = async (): Promise<void> => {
 
 export const getUserProfile = async (firebaseUser: User): Promise<AppUser> => {
   const docRef = doc(db, 'users', firebaseUser.uid);
-  const docSnap = await getDoc(docRef);
+  const fallbackProfile = createUserProfile(firebaseUser);
 
-  if (docSnap.exists()) {
-    return docSnap.data() as AppUser;
+  try {
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data() as Partial<AppUser>;
+      return {
+        ...fallbackProfile,
+        ...data,
+        id: data.id || firebaseUser.uid,
+        uid: data.uid || firebaseUser.uid,
+      };
+    }
+
+    await saveUserProfile(fallbackProfile);
+  } catch (err) {
+    console.error('[CamDiag] Failed to load user profile:', err);
   }
 
-  const name = firebaseUser.email?.split('@')[0]?.replace(/[._]/g, ' ') || 'User';
-  const initials = name.substring(0, 2).toUpperCase();
-  const appUser: AppUser = {
-    uid: firebaseUser.uid,
-    email: firebaseUser.email || '',
-    name,
-    initials,
-    role: 'patient',
-    createdAt: serverTimestamp(),
-  };
-  await setDoc(docRef, appUser);
-  return appUser;
+  return fallbackProfile;
 };
 
 export const onAuthChange = (callback: (user: AppUser | null) => void) => {
   return onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
-      const appUser = await getUserProfile(firebaseUser);
-      callback(appUser);
+      try {
+        const appUser = await getUserProfile(firebaseUser);
+        callback(appUser);
+      } catch (err) {
+        console.error('[CamDiag] Auth profile fallback failed:', err);
+        callback(createUserProfile(firebaseUser));
+      }
     } else {
       callback(null);
     }

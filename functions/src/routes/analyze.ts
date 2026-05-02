@@ -29,8 +29,7 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
     const parsedJson = JSON.parse(jsonStr);
     const validated = AnalyzeResponse.parse(parsedJson);
 
-    // Fire-and-forget audit log
-    writeAuditLog({
+    await writeAuditLog({
       uid: req.uid!,
       action: 'analyze',
       request: { prompt, language },
@@ -42,7 +41,7 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
   } catch (err) {
     // Log failure
     if (req.uid) {
-      writeAuditLog({
+      await writeAuditLog({
         uid: req.uid,
         action: 'analyze',
         request: { prompt: req.body?.prompt, language: req.body?.language },

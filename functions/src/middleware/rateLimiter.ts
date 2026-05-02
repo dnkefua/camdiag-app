@@ -1,12 +1,17 @@
 import type { Request, Response, NextFunction } from 'express';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 
 interface RateLimitConfig {
   windowMs: number;
   max: number;
 }
 
-const db = getFirestore();
+let firestore: Firestore | null = null;
+
+const getDb = (): Firestore => {
+  firestore ??= getFirestore();
+  return firestore;
+};
 
 export const rateLimiter = (config: RateLimitConfig) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -20,6 +25,7 @@ export const rateLimiter = (config: RateLimitConfig) => {
     const windowStart = Date.now() - config.windowMs;
 
     try {
+      const db = getDb();
       const rateLimitRef = db.collection('rate_limits').doc(uid);
       const result = await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(rateLimitRef);
