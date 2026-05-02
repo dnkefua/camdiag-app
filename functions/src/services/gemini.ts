@@ -33,12 +33,68 @@ interface VertexResponse {
     content?: {
       parts?: Array<{ text?: string }>;
     };
+    finishReason?: string;
   }>;
   error?: {
     message?: string;
     status?: string;
   };
 }
+
+type VertexGenerationConfig = {
+  temperature?: number;
+  maxOutputTokens?: number;
+  responseMimeType?: string;
+  responseSchema?: Record<string, unknown>;
+};
+
+const ANALYZE_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    diagnoses: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name: { type: 'STRING' },
+          probability: { type: 'STRING' },
+          markers: { type: 'ARRAY', items: { type: 'STRING' } },
+          drugs: { type: 'ARRAY', items: { type: 'STRING' } },
+          contri: { type: 'ARRAY', items: { type: 'STRING' } },
+          reasoning: { type: 'STRING' },
+        },
+        required: ['name', 'probability', 'markers', 'drugs', 'contri', 'reasoning'],
+      },
+    },
+    markers: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          id: { type: 'STRING' },
+          label: { type: 'STRING' },
+          value: { type: 'STRING' },
+          status: { type: 'STRING' },
+          color: { type: 'STRING' },
+        },
+        required: ['id', 'label', 'value', 'status', 'color'],
+      },
+    },
+    contraindications: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          drugs: { type: 'ARRAY', items: { type: 'STRING' } },
+          risk: { type: 'STRING' },
+        },
+        required: ['drugs', 'risk'],
+      },
+    },
+    disclaimer: { type: 'STRING' },
+  },
+  required: ['diagnoses', 'markers', 'contraindications', 'disclaimer'],
+};
 
 const getProjectId = (): string => {
   const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
@@ -68,7 +124,10 @@ const getMimeType = (imageBase64: string): string => {
 
 const getBase64Data = (imageBase64: string): string => imageBase64.split(',')[1] || imageBase64;
 
-const callVertex = async (parts: Array<Record<string, unknown>>): Promise<string> => {
+const callVertex = async (
+  parts: Array<Record<string, unknown>>,
+  generationConfig: VertexGenerationConfig = {},
+): Promise<string> => {
   const projectId = getProjectId();
   const location = GEMINI_LOCATION.value();
   const model = GEMINI_MODEL.value();
@@ -86,8 +145,9 @@ const callVertex = async (parts: Array<Record<string, unknown>>): Promise<string
       contents: [{ role: 'user', parts }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 4096,
         responseMimeType: 'application/json',
+        ...generationConfig,
       },
     }),
   });
@@ -98,7 +158,10 @@ const callVertex = async (parts: Array<Record<string, unknown>>): Promise<string
   }
 
   const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim();
-  if (!text) throw new Error('Vertex AI returned an empty response.');
+  if (!text) {
+    const finishReason = data.candidates?.[0]?.finishReason;
+    throw new Error(`Vertex AI returned an empty response${finishReason ? ` (${finishReason})` : ''}.`);
+  }
   return text;
 };
 
@@ -111,9 +174,13 @@ export async function analyzeImage(imageBase64: string, prompt: string, language
       },
     },
     {
-      text: `${prompt}\n\nRespond in ${language === 'fr' ? 'French' : 'English'}. Format as JSON.`,
+      text: `${prompt}\n\nRespond in ${language === 'fr' ? 'French' : 'English'}. Return complete JSON only. Do not truncate strings.`,
     },
-  ]);
+  ], {
+    maxOutputTokens: 4096,
+    responseMimeType: 'application/json',
+    responseSchema: ANALYZE_RESPONSE_SCHEMA,
+  });
 }
 
 export async function searchMedication(medicationName: string, language: string) {
