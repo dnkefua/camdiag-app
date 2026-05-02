@@ -5,7 +5,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { useAppStore } from '../store/useAppStore';
 import { checkLocalContraindications } from '../services/api';
 import { isApiConfigured } from '../services/api';
-import { BackIcon, ArrowRightIcon, DocumentIcon, AlertIcon, RemedyIcon, DownloadIcon, UserIcon, HomeIcon } from '../components/ui/Icons';
+import { BackIcon, ArrowRightIcon, DocumentIcon, AlertIcon, DownloadIcon, UserIcon, HomeIcon } from '../components/ui/Icons';
 
 const AnalysisResults = () => {
   const navigate = useNavigate();
@@ -15,13 +15,14 @@ const AnalysisResults = () => {
 
   const safetyRisk = checkLocalContraindications(diagnoses);
   const isAiEnabled = isApiConfigured();
+  const selectedReport = diagnoses[selectedDiag];
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans screen-safe flex flex-col pb-24">
+    <div className="bg-slate-50 text-slate-900 font-sans h-[100svh] h-[100dvh] flex flex-col overflow-hidden">
       <a href="#analysis-main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-white focus:text-medical-green focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-xl focus:font-bold">
         Skip to main content
       </a>
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
+      <header className="bg-white border-b border-slate-200 shrink-0 z-10 px-4 py-3 flex items-center justify-between gap-3 shadow-sm safe-area-top">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/scanner')} aria-label="Back" className="text-slate-600 p-1 active:scale-90 transition-transform">
             <BackIcon />
@@ -48,7 +49,7 @@ const AnalysisResults = () => {
       )}
 
       {analysisError && (
-        <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 flex items-center justify-between">
+        <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <AlertIcon className="h-4 w-4 text-orange-500 shrink-0" />
             <span className="text-xs text-orange-700 font-medium">{analysisError}</span>
@@ -57,7 +58,11 @@ const AnalysisResults = () => {
         </div>
       )}
 
-      <main aria-labelledby="analysis-heading" className="p-4 sm:p-5 space-y-6 max-w-lg mx-auto w-full">
+      <main
+        id="analysis-main"
+        aria-labelledby="analysis-heading"
+        className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 pt-4 pb-10 space-y-6 max-w-lg mx-auto w-full"
+      >
         <h2 id="analysis-heading" className="sr-only">{t.analysis_title}</h2>
 
         <section className="bg-red-50 border-2 border-red-500 rounded-3xl p-4 flex items-start gap-3 shadow-lg">
@@ -142,6 +147,51 @@ const AnalysisResults = () => {
           </div>
         </section>
 
+        {selectedReport && (
+          <section className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+            <div>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Selected report</p>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">{t.prognosis}</h4>
+              <p className="text-sm text-slate-700 leading-relaxed">{selectedReport.reasoning}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-black text-blue-700 uppercase tracking-wider">Suggested medication</h4>
+              {selectedReport.drugs.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedReport.drugs.map((drug, i) => (
+                    <div key={`${drug}-${i}`} className="flex items-start gap-3 rounded-2xl bg-blue-50 border border-blue-100 p-3">
+                      <span className="mt-0.5 rounded-lg bg-blue-600 px-2 py-1 text-[10px] font-black text-white">RX</span>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{drug}</p>
+                        <p className="text-[10px] text-slate-500 font-medium italic">{t.cameroon_avail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No medication suggestion returned for this finding.</p>
+              )}
+            </div>
+
+            {selectedReport.contri.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider">Contraindications and cautions</h4>
+                <div className="space-y-2">
+                  {selectedReport.contri.map((item, i) => (
+                    <div key={`${item}-${i}`} className="rounded-2xl bg-amber-50 border border-amber-100 p-3 text-sm font-medium text-amber-900">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="space-y-4">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.clinical_markers}</h3>
           <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:gap-4">
@@ -170,55 +220,6 @@ const AnalysisResults = () => {
                 </div>
               );
             })}
-          </div>
-        </section>
-
-        <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
-          <h3 className="text-slate-900 font-black text-sm uppercase tracking-wider flex items-center gap-2">
-            <RemedyIcon className="text-medical-green" />
-            {t.remedies_title}
-          </h3>
-
-          <div className="space-y-4">
-            <div className="border border-blue-100 rounded-3xl overflow-hidden shadow-sm">
-              <div className="bg-blue-50 px-5 py-2 border-b border-blue-100 flex justify-between items-center">
-                <span className="text-[10px] font-black text-blue-800 uppercase tracking-widest">{t.prescribed}</span>
-              </div>
-              <div className="p-5 space-y-3">
-                {diagnoses[selectedDiag]?.drugs.map((drug, i) => {
-                  const isConflicting = safetyRisk?.drugs.includes(drug);
-                  return (
-                    <div key={i} className="flex items-center gap-3 group">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-[10px] shrink-0 active:scale-90 transition-transform cursor-pointer ${isConflicting ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-100 text-blue-600'}`}>RX</div>
-                      <div>
-                        <p className={`text-sm font-bold transition-colors ${isConflicting ? 'text-red-600 underline decoration-red-500 decoration-2 underline-offset-4' : 'text-slate-800 group-hover:text-blue-600'}`}>{drug}</p>
-                        <p className="text-[10px] text-slate-500 font-medium italic">{t.cameroon_avail}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="border border-emerald-100 rounded-3xl overflow-hidden shadow-sm">
-              <div className="bg-emerald-50 px-5 py-2 border-b border-emerald-100">
-                <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">{t.contri_medicine}</span>
-              </div>
-              <div className="p-4 bg-amber-50 border-b border-amber-100">
-                <p className="text-[10px] text-amber-700 font-medium">Discuss with a clinician/pharmacist before use. May interact with prescription drugs.</p>
-              </div>
-              <div className="p-5 space-y-3">
-                {diagnoses[selectedDiag]?.contri.map((herb, i) => (
-                  <div key={i} className="flex items-center gap-3 group">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 font-black text-[10px] shrink-0 active:scale-90 transition-transform cursor-pointer">HERB</div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">{herb}</p>
-                      <p className="text-[10px] text-slate-500 font-medium italic">Traditional Remedy (Cameroon)</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </section>
 
@@ -252,13 +253,13 @@ const AnalysisResults = () => {
             {t.return_dashboard}
           </button>
         </div>
-      </main>
 
-      <footer className="px-5 pb-10 text-center">
-        <p className="text-[10px] text-slate-400 max-w-[280px] mx-auto leading-relaxed">
-          {t.disclaimer_text} <span className="text-medical-green font-bold block mt-1">{t.disclaimer_consult}</span>
-        </p>
-      </footer>
+        <footer className="px-5 pb-10 text-center">
+          <p className="text-[10px] text-slate-400 max-w-[280px] mx-auto leading-relaxed">
+            {t.disclaimer_text} <span className="text-medical-green font-bold block mt-1">{t.disclaimer_consult}</span>
+          </p>
+        </footer>
+      </main>
     </div>
   );
 };
