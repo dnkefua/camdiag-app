@@ -2,6 +2,8 @@ const CACHE_NAME = 'camdiag-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/brand/camdiag-logo.png',
+  '/brand/camdiag-logo-animation.mp4',
 ];
 
 self.addEventListener('install', (event) => {

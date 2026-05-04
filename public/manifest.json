@@ -15,15 +15,15 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/brand/camdiag-logo.png",
+      "sizes": "1222x1222",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/brand/camdiag-logo.png",
+      "sizes": "1222x1222",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],

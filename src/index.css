@@ -172,20 +172,55 @@ body {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* === 3D logo === */
+/* === Brand logo === */
 .logo-3d-wrap {
   perspective: 800px;
   display: inline-block;
 }
-.logo-3d-inner {
-  transform-style: preserve-3d;
-  transform: rotateY(-18deg) rotateX(12deg);
-  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  filter: drop-shadow(0 18px 32px rgba(0, 86, 63, 0.55))
-          drop-shadow(0 0 28px rgba(252, 209, 22, 0.18));
+
+.camdiag-logo-media {
+  isolation: isolate;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: 24%;
+  background: #0A1F1A;
+  border: 1px solid rgba(252, 209, 22, 0.22);
+  box-shadow:
+    0 16px 34px rgba(0, 86, 63, 0.34),
+    0 0 26px rgba(252, 209, 22, 0.13),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
-.logo-3d-wrap:hover .logo-3d-inner {
-  transform: rotateY(18deg) rotateX(-6deg) scale(1.04);
+
+.camdiag-logo-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 42%, rgba(252, 209, 22, 0.12));
+  mix-blend-mode: screen;
+}
+
+.camdiag-logo-asset {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.camdiag-logo-media-mark .camdiag-logo-asset {
+  transform: scale(1.72);
+  transform-origin: 50% 36%;
+}
+
+.camdiag-logo-media-full {
+  border-radius: 18%;
+}
+
+.camdiag-logo-media-full .camdiag-logo-asset {
+  object-fit: contain;
+  transform: scale(1.02);
+  transform-origin: center;
 }
 
 /* === Premium scrollbar (desktop) === */

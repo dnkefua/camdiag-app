@@ -363,7 +363,7 @@ const Landing = () => {
             transition={{ duration: 1.1, delay: 0.1, ease: CUSTOM_EASE }}
             className="flex justify-center mb-8"
           >
-            <CamDiagLogo size={120} animated />
+            <CamDiagLogo size={180} animated />
           </motion.div>
 
           <motion.div
@@ -787,7 +787,7 @@ const Landing = () => {
             />
             <div className="relative z-10">
               <div className="flex justify-center mb-8">
-                <CamDiagLogo size={80} animated />
+                <CamDiagLogo size={120} animated />
               </div>
               <motion.h2
                 className="text-5xl md:text-6xl font-black mb-5 font-display"
