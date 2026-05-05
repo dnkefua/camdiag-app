@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { analyzeMedicalImage } from '../services/medgemma';
 import { isApiConfigured } from '../services/api';
 import { trackEvent } from '../services/analytics';
+import { validateImageQuality } from '../utils/imageQuality';
 import { CloseIcon, FlashIcon, CheckIcon, ImageIcon, AlertIcon } from '../components/ui/Icons';
 
 const Scanner = () => {
@@ -26,6 +27,7 @@ const Scanner = () => {
   const [flashOverlay, setFlashOverlay] = useState(false);
   const [captures, setCaptures] = useState<Array<{ dataUrl: string; blob: Blob }>>([]);
   const [showTriage, setShowTriage] = useState(false);
+  const [qualityError, setQualityError] = useState<string | null>(null);
 
     useEffect(() => {
       camera.start().catch(error => console.error('Camera start error:', error));
@@ -48,6 +50,7 @@ const Scanner = () => {
 
     if (shot) {
       setCaptures((prev) => [...prev, shot]);
+      setQualityError(null);
       trackEvent('scanner_capture', { count: captures.length + 1 });
     }
   };
@@ -65,6 +68,23 @@ const Scanner = () => {
       setShowTriage(false);
       camera.stop();
       void navigate('/analysis');
+      return;
+    }
+
+    let quality;
+    try {
+      quality = await validateImageQuality(primary.dataUrl);
+    } catch (err) {
+      setQualityError(err instanceof Error ? err.message : 'Could not inspect image quality. Retake the image.');
+      setShowTriage(false);
+      trackEvent('scanner_quality_error');
+      return;
+    }
+
+    if (!quality.ok) {
+      setQualityError(quality.issues.join(' '));
+      setShowTriage(false);
+      trackEvent('scanner_quality_blocked', { score: quality.score, issues: quality.issues.length });
       return;
     }
 
@@ -90,6 +110,7 @@ const Scanner = () => {
     }
 
      setCaptures([]);
+     setQualityError(null);
      setShowTriage(false);
      camera.stop();
      void navigate('/analysis');
@@ -108,6 +129,7 @@ const Scanner = () => {
       reader.readAsDataURL(file);
     });
     setCaptures((prev) => [...prev, { dataUrl, blob: file }]);
+    setQualityError(null);
     trackEvent('scanner_gallery_upload');
   };
 
@@ -230,6 +252,18 @@ const Scanner = () => {
               >
                 Back to hub
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {qualityError && (
+        <div className="absolute left-4 right-4 top-24 z-50 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-xl">
+          <div className="flex items-start gap-3">
+            <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-sm font-black">Retake image</p>
+              <p className="mt-1 text-xs font-semibold leading-relaxed">{qualityError}</p>
             </div>
           </div>
         </div>

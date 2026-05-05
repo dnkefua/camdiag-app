@@ -1,9 +1,13 @@
 import { test, expect } from '@playwright/test';
 
 const acceptDisclaimer = async (page: import('@playwright/test').Page) => {
-  const dialog = page.getByRole('dialog', { name: /medical notice|avis medical|medical/i });
+  const dialog = page.getByRole('dialog', { name: /clinical consent|medical notice|avis medical|medical|confidentialite/i });
   if (await dialog.isVisible().catch(() => false)) {
-    await dialog.getByRole('button', { name: /i understand|j'ai compris/i }).click();
+    const checkboxes = dialog.getByRole('checkbox');
+    for (let i = 0; i < await checkboxes.count(); i += 1) {
+      await checkboxes.nth(i).check();
+    }
+    await dialog.getByRole('button', { name: /accept|continue|compris|continue/i }).click();
   }
 };
 

@@ -158,15 +158,41 @@ Major refactoring of CamDiag: TypeScript migration, React Router, state manageme
 - [x] FacilityMap mocked at boundary in NextSteps tests (avoids loading real Maps script)
 - [x] Scanner test mocks `useCamera` hook directly
 
+### Phase 17: Clinical Production Readiness (2026-05-05)
+- [x] Backend-only structured AI request contract; frontend no longer supplies arbitrary analysis prompts
+- [x] Clinical-safe response model: `possibleFindings`, `likelihood`, `medicationSafetyNotes`, `traditionalRemedyWarnings`
+- [x] Strict backend Zod schema with enums, capped arrays, max string lengths, and required clinician review flag
+- [x] Backend-owned Vertex AI prompt construction from structured request fields
+- [x] CORS allowlist via `CORS_ALLOWED_ORIGINS`
+- [x] Firebase App Check frontend token wiring and backend verification middleware (`APP_CHECK_ENFORCED`)
+- [x] Analyze endpoint rate limiter fails closed when rate-limit storage is unavailable
+- [x] Emergency triage gate before AI analysis
+- [x] CSP cleanup: removed direct Gemini browser endpoint and added App Check endpoint
+- [x] Removed unused `@google/generative-ai` Functions dependency
+- [x] Product copy repositioned from diagnostic claims to clinical decision support
+
+### Phase 18: Consent, Privacy, Validation, and Rules Testing (2026-05-05)
+- [x] Clinical consent/privacy gate upgraded to required acknowledgements with persisted consent version
+- [x] Pre-analysis image quality gate for low resolution, dark, overexposed, low contrast, and blurry images
+- [x] Image quality utility and unit coverage (`src/utils/imageQuality.ts`, `src/test/imageQuality.test.ts`)
+- [x] Consent gate unit coverage (`src/test/MedicalDisclaimer.test.tsx`)
+- [x] Clinical validation plan document (`docs/clinical-validation.md`)
+- [x] Firestore rules test suite (`firestore/firestore.rules.test.ts`)
+- [x] `npm run test:rules` script and dedicated `vitest.rules.config.ts`
+- [x] CI Java setup and Firestore rules test step added
+- [ ] Local Firestore rules test execution requires Java installed on PATH (`spawn java ENOENT` on current Windows machine)
+
 ---
 
-## Verification Results (2026-04-28)
+## Verification Results (2026-05-05)
 
-- **TypeScript**: `tsc --noEmit` — 0 errors
-- **Build**: `vite build` — Success, all chunks <500KB (largest: firebase 363KB)
-- **Tests**: `vitest run` — **102/102 passing** across 16 files
-- **E2E**: Playwright configured (run `npm run test:e2e`)
-- **Lint**: `eslint` — 0 errors
+- **TypeScript**: `npm.cmd run typecheck` — 0 errors
+- **Build**: `npm.cmd run build` — Success
+- **Functions Build**: `npm.cmd run build` in `functions/` — Success
+- **Tests**: `npm.cmd test` — **111/111 passing** across 19 files
+- **E2E**: `npm.cmd run test:e2e` — **12/12 passing**
+- **Lint**: `npm.cmd run lint` — 0 errors, 3 existing Fast Refresh warnings
+- **Firestore Rules Tests**: `npm.cmd run test:rules` added; local execution blocked until Java is installed/on PATH
 - **Live**: https://camdiag-c7e78.web.app
 
 ## Project Structure

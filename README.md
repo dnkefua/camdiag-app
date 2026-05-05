@@ -98,6 +98,7 @@ npm run build
 npm test           # Run tests once
 npm run test:watch # Watch mode
 npm run test:coverage # With coverage
+npm run test:rules # Firestore security rules tests (requires Java for Firebase emulators)
 ```
 
 ### Linting & Type Check
