@@ -387,7 +387,7 @@ const Landing = () => {
             className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-black leading-[0.98] mb-6 sm:mb-8 font-display"
           >
             <span className="text-gradient-cameroon inline-block">
-              {language === 'fr' ? 'Diagnostic IA' : language === 'pcm' ? 'AI Diagnosis' : 'AI Diagnostics'}
+              {language === 'fr' ? 'Revue IA' : language === 'pcm' ? 'AI Review' : 'AI Clinical Review'}
             </span>
             <br />
             <span className="text-white/95">
@@ -405,7 +405,7 @@ const Landing = () => {
               ? 'Assistance diagnostique par IA pour les professionnels de santé du Cameroun. Scannez, analysez et traitez — avec ou sans internet.'
               : language === 'pcm'
               ? 'AI diagnosis support for health workers for Cameroon. Scan, check, treat — with or without internet.'
-              : 'AI-powered diagnostic support for Cameroon healthcare professionals. Scan, analyze, and treat — with or without internet.'}
+              : 'AI-assisted clinical review for Cameroon healthcare professionals. Scan documents, review possible findings, and support clinician decisions.'}
           </motion.p>
 
           <motion.div
@@ -574,7 +574,7 @@ const Landing = () => {
             {language === 'fr'
               ? 'Des outils de diagnostic conçus pour les réalités du terrain au Cameroun.'
               : language === 'pcm'
-              ? 'Diagnosis tools wey we build for Cameroon real-life work.'
+              ? 'Clinical review tools wey we build for Cameroon real-life work.'
               : 'Diagnostic tools designed for the realities of healthcare in Cameroon.'}
           </p>
         </motion.div>

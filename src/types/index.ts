@@ -13,26 +13,43 @@ export type ScreenRoute =
   | '/blog'
   | '/coming-up';
 
-export interface Diagnosis {
+export type AnalyzeDocumentType = 'lab_result' | 'xray' | 'rdt' | 'prescription' | 'medical_document' | 'other';
+export type FindingLikelihood = 'low' | 'moderate' | 'high' | 'uncertain';
+export type AnalysisUrgency = 'emergency' | 'same_day' | 'routine' | 'unknown';
+
+export interface PatientContext {
+  ageRange?: string;
+  sexAtBirth?: 'female' | 'male' | 'unknown';
+  pregnancyStatus?: 'pregnant' | 'not_pregnant' | 'unknown';
+  symptoms?: string[];
+  allergies?: string[];
+  currentMedications?: string[];
+}
+
+export interface PossibleFinding {
   name: string;
-  probability: string;
+  likelihood: FindingLikelihood;
+  observedEvidence: string[];
   markers: string[];
-  drugs: string[];
-  contri: string[];
+  medicationSafetyNotes: string[];
+  traditionalRemedyWarnings: string[];
   reasoning: string;
+  recommendedNextSteps: string[];
+  clinicianReviewRequired: true;
 }
 
 export interface ClinicalMarker {
   id: string;
   label: string;
   value: string;
-  status: string;
-  color: string;
+  status: 'normal' | 'abnormal' | 'critical' | 'review_required' | 'unknown';
+  color: 'green' | 'yellow' | 'orange' | 'red' | 'blue' | 'gray';
 }
 
 export interface Contraindication {
-  drugs: string[];
+  medications: string[];
   risk: string;
+  severity: 'low' | 'moderate' | 'high' | 'unknown';
 }
 
 export interface Facility {
@@ -92,14 +109,17 @@ export interface AppUser extends User {
 
 export interface MedGemmaAnalysisRequest {
   imageBase64?: string;
-  prompt: string;
+  documentType: AnalyzeDocumentType;
   language: Language;
+  patientContext?: PatientContext;
 }
 
 export interface MedGemmaAnalysisResponse {
-  diagnoses: Diagnosis[];
+  urgency: AnalysisUrgency;
+  possibleFindings: PossibleFinding[];
   markers: ClinicalMarker[];
   contraindications: Contraindication[];
+  limitations: string[];
   disclaimer: string;
 }
 

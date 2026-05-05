@@ -21,8 +21,8 @@ test.describe('Landing Page', () => {
   test('loads and shows hero content', async ({ page }) => {
     await gotoReady(page, '/');
     await expect(page).toHaveTitle(/camdiag/i);
-    await expect(page.getByRole('heading', { name: /AI Diagnostics/i })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/AI-powered diagnostic support/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /AI Clinical Review/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/AI-assisted clinical review/i)).toBeVisible();
   });
 
   test('shows key landing page elements', async ({ page }) => {
@@ -74,9 +74,9 @@ test.describe('Login Modal', () => {
 });
 
 test.describe('App Navigation', () => {
-  test('navigates to diagnostic hub', async ({ page }) => {
+  test('navigates to clinical support hub', async ({ page }) => {
     await gotoReady(page, '/app', true);
-    await expect(page.getByRole('heading', { name: /Diagnostic Hub/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Clinical Support Hub/i })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('button', { name: /New Scan/i })).toBeVisible();
   });
 

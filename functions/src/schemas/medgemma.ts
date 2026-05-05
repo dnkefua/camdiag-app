@@ -1,54 +1,81 @@
 import { z } from 'zod';
 
+export const BackendLanguage = z.enum(['en', 'fr']);
+
+export const DocumentType = z.enum([
+  'lab_result',
+  'xray',
+  'rdt',
+  'prescription',
+  'medical_document',
+  'other',
+]);
+
+export const PatientContext = z.object({
+  ageRange: z.string().trim().max(40).optional(),
+  sexAtBirth: z.enum(['female', 'male', 'unknown']).optional(),
+  pregnancyStatus: z.enum(['pregnant', 'not_pregnant', 'unknown']).optional(),
+  symptoms: z.array(z.string().trim().min(1).max(120)).max(12).optional(),
+  allergies: z.array(z.string().trim().min(1).max(120)).max(12).optional(),
+  currentMedications: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+}).strict();
+
 export const AnalyzeRequestBody = z.object({
-  imageBase64: z.string().min(1, 'Image data is required'),
-  prompt: z.string().min(1, 'Prompt is required'),
-  language: z.enum(['en', 'fr']).default('en'),
-});
+  imageBase64: z.string().min(1, 'Image data is required').max(9_000_000, 'Image data is too large'),
+  language: BackendLanguage.default('en'),
+  documentType: DocumentType.default('medical_document'),
+  patientContext: PatientContext.optional(),
+}).strict();
 
 export type AnalyzeRequestBody = z.infer<typeof AnalyzeRequestBody>;
 
-const Diagnosis = z.object({
-  name: z.string(),
-  probability: z.string(),
-  markers: z.array(z.string()),
-  drugs: z.array(z.string()),
-  contri: z.array(z.string()),
-  reasoning: z.string(),
-});
+const PossibleFinding = z.object({
+  name: z.string().trim().min(1).max(120),
+  likelihood: z.enum(['low', 'moderate', 'high', 'uncertain']),
+  observedEvidence: z.array(z.string().trim().min(1).max(180)).max(10),
+  markers: z.array(z.string().trim().min(1).max(80)).max(12),
+  medicationSafetyNotes: z.array(z.string().trim().min(1).max(220)).max(8),
+  traditionalRemedyWarnings: z.array(z.string().trim().min(1).max(220)).max(8),
+  reasoning: z.string().trim().min(1).max(1200),
+  recommendedNextSteps: z.array(z.string().trim().min(1).max(220)).max(8),
+  clinicianReviewRequired: z.literal(true),
+}).strict();
 
 const Marker = z.object({
-  id: z.string(),
-  label: z.string(),
-  value: z.string(),
-  status: z.string(),
-  color: z.string(),
-});
+  id: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(120),
+  value: z.string().trim().min(1).max(160),
+  status: z.enum(['normal', 'abnormal', 'critical', 'review_required', 'unknown']),
+  color: z.enum(['green', 'yellow', 'orange', 'red', 'blue', 'gray']),
+}).strict();
 
 const Contraindication = z.object({
-  drugs: z.array(z.string()),
-  risk: z.string(),
-});
+  medications: z.array(z.string().trim().min(1).max(120)).min(1).max(8),
+  risk: z.string().trim().min(1).max(300),
+  severity: z.enum(['low', 'moderate', 'high', 'unknown']),
+}).strict();
 
 export const AnalyzeResponse = z.object({
-  diagnoses: z.array(Diagnosis),
-  markers: z.array(Marker),
-  contraindications: z.array(Contraindication),
-  disclaimer: z.string(),
-});
+  urgency: z.enum(['emergency', 'same_day', 'routine', 'unknown']),
+  possibleFindings: z.array(PossibleFinding).max(5),
+  markers: z.array(Marker).max(30),
+  contraindications: z.array(Contraindication).max(10),
+  limitations: z.array(z.string().trim().min(1).max(250)).max(8),
+  disclaimer: z.string().trim().min(1).max(600),
+}).strict();
 
 export type AnalyzeResponse = z.infer<typeof AnalyzeResponse>;
 
 export const SearchDrugRequestBody = z.object({
-  medicationName: z.string().min(1, 'Medication name is required'),
-  language: z.enum(['en', 'fr']).default('en'),
-});
+  medicationName: z.string().trim().min(1, 'Medication name is required').max(120),
+  language: BackendLanguage.default('en'),
+}).strict();
 
 export type SearchDrugRequestBody = z.infer<typeof SearchDrugRequestBody>;
 
 export const CheckInteractionsRequestBody = z.object({
-  drugs: z.array(z.string()).min(1, 'At least one drug is required'),
-  language: z.enum(['en', 'fr']).default('en'),
-});
+  drugs: z.array(z.string().trim().min(1).max(120)).min(1, 'At least one drug is required').max(20),
+  language: BackendLanguage.default('en'),
+}).strict();
 
 export type CheckInteractionsRequestBody = z.infer<typeof CheckInteractionsRequestBody>;

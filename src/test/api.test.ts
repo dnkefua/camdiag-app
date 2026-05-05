@@ -1,60 +1,72 @@
 import { describe, it, expect } from 'vitest';
 import { checkLocalContraindications } from '../services/api';
-import type { Diagnosis } from '../types';
+import type { PossibleFinding } from '../types';
 
 describe('checkLocalContraindications', () => {
   it('detects Coartem + Quinine contraindication', () => {
-    const diagnoses: Diagnosis[] = [
+    const possibleFindings: PossibleFinding[] = [
       {
         name: 'Malaria',
-        probability: '94%',
+        likelihood: 'high',
+        observedEvidence: ['parasites'],
         markers: ['parasites'],
-        drugs: ['Coartem', 'Quinine'],
-        contri: [],
+        medicationSafetyNotes: ['Coartem and Quinine require interaction review'],
+        traditionalRemedyWarnings: [],
         reasoning: 'test',
+        recommendedNextSteps: ['Clinician review'],
+        clinicianReviewRequired: true,
       },
     ];
-    const result = checkLocalContraindications(diagnoses);
+    const result = checkLocalContraindications(possibleFindings);
     expect(result).not.toBeNull();
-    expect(result?.drugs).toContain('Coartem');
-    expect(result?.drugs).toContain('Quinine');
+    expect(result?.medications).toContain('Coartem');
+    expect(result?.medications).toContain('Quinine');
   });
 
   it('returns null when no contraindication exists', () => {
-    const diagnoses: Diagnosis[] = [
+    const possibleFindings: PossibleFinding[] = [
       {
         name: 'Dermatitis',
-        probability: '12%',
+        likelihood: 'low',
+        observedEvidence: [],
         markers: [],
-        drugs: ['Amoxicillin'],
-        contri: [],
+        medicationSafetyNotes: ['Amoxicillin safety review'],
+        traditionalRemedyWarnings: [],
         reasoning: 'test',
+        recommendedNextSteps: ['Clinician review'],
+        clinicianReviewRequired: true,
       },
     ];
-    const result = checkLocalContraindications(diagnoses);
+    const result = checkLocalContraindications(possibleFindings);
     expect(result).toBeNull();
   });
 
-  it('detects contraindication across multiple diagnoses', () => {
-    const diagnoses: Diagnosis[] = [
+  it('detects contraindication across multiple possible findings', () => {
+    const possibleFindings: PossibleFinding[] = [
       {
         name: 'Malaria',
-        probability: '94%',
+        likelihood: 'high',
+        observedEvidence: [],
         markers: [],
-        drugs: ['Coartem'],
-        contri: [],
+        medicationSafetyNotes: ['Coartem safety review'],
+        traditionalRemedyWarnings: [],
         reasoning: 'test',
+        recommendedNextSteps: ['Clinician review'],
+        clinicianReviewRequired: true,
       },
       {
         name: 'Dermatitis',
-        probability: '12%',
+        likelihood: 'low',
+        observedEvidence: [],
         markers: [],
-        drugs: ['Quinine'],
-        contri: [],
+        medicationSafetyNotes: ['Quinine safety review'],
+        traditionalRemedyWarnings: [],
         reasoning: 'test',
+        recommendedNextSteps: ['Clinician review'],
+        clinicianReviewRequired: true,
       },
     ];
-    const result = checkLocalContraindications(diagnoses);
+    const result = checkLocalContraindications(possibleFindings);
     expect(result).not.toBeNull();
     expect(result?.risk).toContain('arrhythmia');
   });

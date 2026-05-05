@@ -21,7 +21,7 @@ vi.mock('../hooks/useTranslation', async (importOriginal) => {
         ai_active: 'AI Active',
         questionnaire_title: 'Questionnaire',
         quest_intro: 'Complete the questionnaire',
-        diagnoses: 'Diagnoses',
+        possible_findings: 'Possible Findings',
         clinical_markers: 'Clinical Markers',
         remedies_title: 'Remedies',
         prescribed: 'Prescribed',
@@ -45,14 +45,24 @@ vi.mock('react-router-dom', async (importOriginal) => {
 // Mock store with some test data
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn(() => ({
-    diagnoses: [
-      { name: 'Dermatitis', probability: '85%', reasoning: 'Inflammatory skin condition', markers: ['m1'], drugs: ['Coartem'], contri: ['Artemisia'] },
+    possibleFindings: [
+      {
+        name: 'Dermatitis',
+        likelihood: 'high',
+        observedEvidence: ['Itching'],
+        reasoning: 'Inflammatory skin condition',
+        markers: ['m1'],
+        medicationSafetyNotes: ['Coartem safety review'],
+        traditionalRemedyWarnings: ['Artemisia'],
+        recommendedNextSteps: ['Clinician review'],
+        clinicianReviewRequired: true,
+      },
     ],
     markers: [
-      { id: 'm1', label: 'Itching', value: 'Moderate', status: 'Active', color: 'orange' },
+      { id: 'm1', label: 'Itching', value: 'Moderate', status: 'abnormal', color: 'orange' },
     ],
-    selectedDiagnosis: 0,
-    setSelectedDiagnosis: vi.fn(),
+    selectedFinding: 0,
+    setSelectedFinding: vi.fn(),
     analysisError: null,
     setAnalysisError: vi.fn(),
     isAnalyzing: false,
@@ -123,7 +133,7 @@ describe('AnalysisResults', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/questionnaire');
   });
 
-  it('renders diagnosis name', () => {
+  it('renders possible finding name', () => {
     renderWithProviders(
       <TranslationProvider>
         <AnalysisResults />
@@ -141,13 +151,13 @@ describe('AnalysisResults', () => {
     expect(screen.getByText('Moderate')).toBeInTheDocument();
   });
 
-  it('renders prescribed drug', () => {
+  it('renders medication safety note', () => {
     renderWithProviders(
       <TranslationProvider>
         <AnalysisResults />
       </TranslationProvider>
     );
-    expect(screen.getByText('Coartem')).toBeInTheDocument();
+    expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
   });
 
   it('renders traditional remedy', () => {

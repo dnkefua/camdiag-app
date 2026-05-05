@@ -39,7 +39,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn(() => ({
-    setDiagnoses: vi.fn(),
+    setPossibleFindings: vi.fn(),
     setMarkers: vi.fn(),
     setAnalyzing: vi.fn(),
     setAnalysisError: vi.fn(),

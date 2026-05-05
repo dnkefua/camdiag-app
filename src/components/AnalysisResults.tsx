@@ -13,14 +13,14 @@ const AnalysisResults = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { diagnoses, markers, selectedDiagnosis, setSelectedDiagnosis, analysisError, setAnalysisError, isAnalyzing, addPatientRecord } = useAppStore();
-  const [selectedDiag, setSelectedDiag] = useState(selectedDiagnosis);
+  const { possibleFindings, markers, selectedFinding, setSelectedFinding, analysisError, setAnalysisError, isAnalyzing, addPatientRecord } = useAppStore();
+  const [selectedReportIndex, setSelectedReportIndex] = useState(selectedFinding);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const safetyRisk = checkLocalContraindications(diagnoses);
+  const safetyRisk = checkLocalContraindications(possibleFindings);
   const isAiEnabled = isApiConfigured();
-  const selectedReport = diagnoses[selectedDiag];
+  const selectedReport = possibleFindings[selectedReportIndex];
 
   const handleSaveToRecords = async () => {
     if (!selectedReport || !user?.uid || saveState === 'saving') return;
@@ -32,8 +32,8 @@ const AnalysisResults = () => {
       userId: user.uid,
       date: new Date().toLocaleString(),
       diagnosis: selectedReport.name,
-      status: selectedReport.probability,
-      result: selectedReport.probability,
+      status: selectedReport.likelihood,
+      result: selectedReport.likelihood,
       category: 'AI Analysis',
       bodyPart: markers.map((marker) => marker.label).filter(Boolean).slice(0, 3).join(', ') || 'Medical document',
     };
@@ -146,39 +146,39 @@ const AnalysisResults = () => {
               <p className="text-red-600 text-xs font-bold leading-tight mt-1">{safetyRisk.risk}</p>
               <div className="mt-2 flex items-center gap-1">
                 <span className="text-[10px] font-black text-red-700 uppercase">{t.conflicting_with}</span>
-                <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded-full">{safetyRisk.drugs.join(' + ')}</span>
+                <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded-full">{safetyRisk.medications.join(' + ')}</span>
               </div>
             </div>
           </motion.section>
         )}
 
         <section className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.diagnoses}</h3>
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.possible_findings}</h3>
           <p className="text-[10px] text-slate-400 font-medium italic px-1">{t.ai_confidence_not_clinical}</p>
           <div className="space-y-3">
-            {diagnoses.length === 0 && !isAnalyzing && (
+            {possibleFindings.length === 0 && !isAnalyzing && (
               <div className="bg-white p-5 rounded-3xl border border-slate-100 text-center">
-                <p className="text-sm text-slate-500 font-medium">No diagnoses to display. Scan an image to get started.</p>
+                <p className="text-sm text-slate-500 font-medium">No possible findings to display. Scan an image to get started.</p>
               </div>
             )}
-            {diagnoses.map((diag, idx) => (
+            {possibleFindings.map((finding, idx) => (
               <button
-                key={diag.name}
-                onClick={() => { setSelectedDiag(idx); setSelectedDiagnosis(idx); }}
-                className={`w-full text-left p-5 rounded-3xl border-2 transition-all duration-300 transform ${selectedDiag === idx ? 'bg-white border-medical-green shadow-xl shadow-medical-green/10 scale-[1.02]' : 'bg-white border-slate-100 hover:border-slate-200'}`}
+                key={finding.name}
+                onClick={() => { setSelectedReportIndex(idx); setSelectedFinding(idx); }}
+                className={`w-full text-left p-5 rounded-3xl border-2 transition-all duration-300 transform ${selectedReportIndex === idx ? 'bg-white border-medical-green shadow-xl shadow-medical-green/10 scale-[1.02]' : 'bg-white border-slate-100 hover:border-slate-200'}`}
               >
                 <div className="flex justify-between items-center mb-1">
-                  <h4 className={`font-black ${selectedDiag === idx ? 'text-medical-green text-lg' : 'text-slate-800'}`}>{diag.name}</h4>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${selectedDiag === idx ? 'bg-medical-green text-white' : 'bg-slate-100 text-slate-500'}`}>{diag.probability}</span>
+                  <h4 className={`font-black ${selectedReportIndex === idx ? 'text-medical-green text-lg' : 'text-slate-800'}`}>{finding.name}</h4>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${selectedReportIndex === idx ? 'bg-medical-green text-white' : 'bg-slate-100 text-slate-500'}`}>{finding.likelihood}</span>
                 </div>
-                {selectedDiag === idx && (
+                {selectedReportIndex === idx && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     className="mt-2 pt-2 border-t border-slate-50"
                   >
                     <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mb-1">{t.clinical_reasoning}</p>
-                    <p className="text-xs text-slate-600 font-medium leading-relaxed italic">{diag.reasoning}</p>
+                    <p className="text-xs text-slate-600 font-medium leading-relaxed italic">{finding.reasoning}</p>
                   </motion.div>
                 )}
               </button>
@@ -198,29 +198,29 @@ const AnalysisResults = () => {
             </div>
 
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-blue-700 uppercase tracking-wider">Suggested medication</h4>
-              {selectedReport.drugs.length > 0 ? (
+              <h4 className="text-xs font-black text-blue-700 uppercase tracking-wider">Medication safety notes for clinician review</h4>
+              {selectedReport.medicationSafetyNotes.length > 0 ? (
                 <div className="space-y-2">
-                  {selectedReport.drugs.map((drug, i) => (
-                    <div key={`${drug}-${i}`} className="flex items-start gap-3 rounded-2xl bg-blue-50 border border-blue-100 p-3">
-                      <span className="mt-0.5 rounded-lg bg-blue-600 px-2 py-1 text-[10px] font-black text-white">RX</span>
+                  {selectedReport.medicationSafetyNotes.map((note, i) => (
+                    <div key={`${note}-${i}`} className="flex items-start gap-3 rounded-2xl bg-blue-50 border border-blue-100 p-3">
+                      <span className="mt-0.5 rounded-lg bg-blue-600 px-2 py-1 text-[10px] font-black text-white">SAFE</span>
                       <div>
-                        <p className="text-sm font-bold text-slate-900">{drug}</p>
-                        <p className="text-[10px] text-slate-500 font-medium italic">{t.cameroon_avail}</p>
+                        <p className="text-sm font-bold text-slate-900">{note}</p>
+                        <p className="text-[10px] text-slate-500 font-medium italic">Clinician review required</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">No medication suggestion returned for this finding.</p>
+                <p className="text-sm text-slate-500">No medication safety notes returned for this finding.</p>
               )}
             </div>
 
-            {selectedReport.contri.length > 0 && (
+            {selectedReport.traditionalRemedyWarnings.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider">Contraindications and cautions</h4>
                 <div className="space-y-2">
-                  {selectedReport.contri.map((item, i) => (
+                  {selectedReport.traditionalRemedyWarnings.map((item, i) => (
                     <div key={`${item}-${i}`} className="rounded-2xl bg-amber-50 border border-amber-100 p-3 text-sm font-medium text-amber-900">
                       {item}
                     </div>
@@ -240,7 +240,7 @@ const AnalysisResults = () => {
               </div>
             )}
             {markers.map((marker) => {
-              const isActive = diagnoses[selectedDiag]?.markers.includes(marker.id);
+              const isActive = possibleFindings[selectedReportIndex]?.markers.includes(marker.id);
               return (
                   <div key={marker.id}
                   className={`p-4 rounded-3xl border transition-all duration-500 ${isActive ? 'bg-white border-medical-green shadow-lg scale-105 z-10 ring-4 ring-medical-green/5' : 'bg-slate-50 border-slate-100 opacity-40 grayscale blur-[0.5px]'}`}

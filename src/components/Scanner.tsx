@@ -13,7 +13,7 @@ const Scanner = () => {
   const navigate = useNavigate();
   const { t, language } = useTranslation();
   const {
-    setDiagnoses,
+    setPossibleFindings,
     setMarkers,
     setAnalyzing,
     setAnalysisError,
@@ -25,6 +25,7 @@ const Scanner = () => {
   const [showError, setShowError] = useState(false);
   const [flashOverlay, setFlashOverlay] = useState(false);
   const [captures, setCaptures] = useState<Array<{ dataUrl: string; blob: Blob }>>([]);
+  const [showTriage, setShowTriage] = useState(false);
 
     useEffect(() => {
       camera.start().catch(error => console.error('Camera start error:', error));
@@ -51,10 +52,21 @@ const Scanner = () => {
     }
   };
 
-  const handleDone = async () => {
+  const completeScan = async (hasEmergencySigns: boolean) => {
     if (captures.length === 0) return;
     const primary = captures[captures.length - 1];
     if (!primary) return;
+
+    if (hasEmergencySigns) {
+      setPossibleFindings([]);
+      setMarkers([]);
+      setAnalysisError('Emergency warning signs reported. Do not use AI analysis. Seek urgent medical care now.');
+      setCaptures([]);
+      setShowTriage(false);
+      camera.stop();
+      void navigate('/analysis');
+      return;
+    }
 
     if (isApiConfigured()) {
       setAnalyzing(true);
@@ -62,13 +74,12 @@ const Scanner = () => {
       try {
         const result = await analyzeMedicalImage({
           imageBase64: primary.dataUrl,
-          prompt:
-            'Analyze this medical scan/document. Identify potential conditions, clinical markers, recommended medications available in Cameroon, drug interactions, and traditional remedies.',
+          documentType: 'medical_document',
           language,
         });
-        if (result.diagnoses.length > 0) setDiagnoses(result.diagnoses);
+        if (result.possibleFindings.length > 0) setPossibleFindings(result.possibleFindings);
         if (result.markers.length > 0) setMarkers(result.markers);
-        trackEvent('scanner_analysis_success', { diagnoses: result.diagnoses.length });
+        trackEvent('scanner_analysis_success', { possibleFindings: result.possibleFindings.length });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Analysis failed. Using local data instead.';
         setAnalysisError(message);
@@ -79,8 +90,14 @@ const Scanner = () => {
     }
 
      setCaptures([]);
+     setShowTriage(false);
      camera.stop();
      void navigate('/analysis');
+  };
+
+  const handleDone = async () => {
+    if (captures.length === 0) return;
+    setShowTriage(true);
   };
 
   const handleGalleryUpload = async (file: File) => {
@@ -124,6 +141,60 @@ const Scanner = () => {
               <p className="text-lg font-bold">{t.analyzing}</p>
               <p className="text-xs text-cameroon-yellow mt-1 tracking-widest">MedGemma AI</p>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showTriage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[250] bg-black/80 backdrop-blur-md flex items-center justify-center p-5"
+          >
+            <motion.section
+              initial={{ scale: 0.96, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 12 }}
+              className="w-full max-w-sm rounded-2xl bg-white text-slate-900 p-5 shadow-2xl border border-red-200"
+            >
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-red-100 p-2 text-red-600">
+                  <AlertIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-red-700">Emergency check</h2>
+                  <p className="mt-2 text-sm font-medium leading-relaxed text-slate-700">
+                    Is the patient having severe breathing trouble, chest pain, heavy bleeding, seizure, confusion,
+                    unconsciousness, severe allergic reaction, or another emergency warning sign?
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-3">
+                <button
+                  type="button"
+                  onClick={() => void completeScan(true)}
+                  className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white active:scale-[0.98]"
+                >
+                  Yes, seek urgent care
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void completeScan(false)}
+                  className="w-full rounded-xl bg-cameroon-green px-4 py-3 text-sm font-black text-white active:scale-[0.98]"
+                >
+                  No emergency signs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTriage(false)}
+                  className="w-full rounded-xl bg-slate-100 px-4 py-3 text-xs font-bold text-slate-600 active:scale-[0.98]"
+                >
+                  Review scan first
+                </button>
+              </div>
+            </motion.section>
           </motion.div>
         )}
       </AnimatePresence>

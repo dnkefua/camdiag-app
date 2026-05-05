@@ -1,5 +1,6 @@
 import type { MedGemmaAnalysisRequest, MedGemmaAnalysisResponse, Language } from '../types';
 import { getAuth } from 'firebase/auth';
+import { getAppCheckToken } from '../lib/firebase';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 
@@ -30,12 +31,18 @@ const callBackend = async <T>(endpoint: string, body: unknown): Promise<T> => {
     throw new Error('Please sign in to use CamDiag AI features.');
   }
 
+  const appCheckToken = await getAppCheckToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+  if (appCheckToken) {
+    headers['X-Firebase-AppCheck'] = appCheckToken;
+  }
+
   const response = await fetch(`${baseUrl}/${endpoint}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
@@ -53,8 +60,9 @@ const callBackend = async <T>(endpoint: string, body: unknown): Promise<T> => {
 export const analyzeMedicalImage = async (request: MedGemmaAnalysisRequest): Promise<MedGemmaAnalysisResponse> => {
   return callBackend<MedGemmaAnalysisResponse>('analyze', {
     imageBase64: request.imageBase64,
-    prompt: request.prompt,
-    language: request.language || 'en',
+    documentType: request.documentType,
+    patientContext: request.patientContext,
+    language: request.language === 'fr' ? 'fr' : 'en',
   });
 };
 

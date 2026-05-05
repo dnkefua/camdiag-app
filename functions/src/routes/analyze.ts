@@ -25,7 +25,8 @@ const parseAnalyzeResponse = (rawText: string, language: string): { data: Analyz
     return {
       recovered: true,
       data: {
-        diagnoses: [],
+        urgency: 'unknown',
+        possibleFindings: [],
         markers: [
           {
             id: 'ai-output-review',
@@ -38,6 +39,11 @@ const parseAnalyzeResponse = (rawText: string, language: string): { data: Analyz
           },
         ],
         contraindications: [],
+        limitations: [
+          language === 'fr'
+            ? 'La reponse IA structuree etait incomplete.'
+            : 'The structured AI response was incomplete.',
+        ],
         disclaimer: language === 'fr'
           ? "Ceci n'est PAS un diagnostic. L'analyse IA doit etre revue par un professionnel de sante qualifie."
           : 'This is NOT a diagnosis. AI-assisted analysis must be reviewed by a qualified healthcare professional.',
@@ -46,7 +52,7 @@ const parseAnalyzeResponse = (rawText: string, language: string): { data: Analyz
   }
 };
 
-router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req, res) => {
+router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE, { failOpen: false }), async (req, res) => {
   try {
     const parsed = AnalyzeRequestBody.safeParse(req.body);
     if (!parsed.success) {
@@ -54,14 +60,18 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
       return;
     }
 
-    const { imageBase64, prompt, language } = parsed.data;
-    const rawText = await analyzeImage(imageBase64, prompt, language);
+    const { language } = parsed.data;
+    const rawText = await analyzeImage(parsed.data);
     const { data: validated, recovered } = parseAnalyzeResponse(rawText, language);
 
     await writeAuditLog({
       uid: req.uid!,
       action: 'analyze',
-      request: { prompt, language },
+      request: {
+        language,
+        documentType: parsed.data.documentType,
+        hasPatientContext: Boolean(parsed.data.patientContext),
+      },
       responsePreview: JSON.stringify(validated).slice(0, 500),
       success: !recovered,
       error: recovered ? 'AI returned incomplete structured JSON; recovery response served.' : undefined,
@@ -77,7 +87,11 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
       await writeAuditLog({
         uid: req.uid,
         action: 'analyze',
-        request: { prompt: req.body?.prompt, language: req.body?.language },
+        request: {
+          language: req.body?.language,
+          documentType: req.body?.documentType,
+          hasPatientContext: Boolean(req.body?.patientContext),
+        },
         responsePreview: '',
         success: false,
         error: message,
@@ -86,9 +100,11 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE), async (req,
 
     res.status(500).json({
       error: 'AI analysis could not be completed. Please try again shortly.',
-      diagnoses: [],
+      urgency: 'unknown',
+      possibleFindings: [],
       markers: [],
       contraindications: [],
+      limitations: ['AI analysis could not be completed.'],
       disclaimer: 'AI analysis could not be completed. Please consult a healthcare professional.',
     });
   }

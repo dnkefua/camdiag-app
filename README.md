@@ -1,10 +1,10 @@
-# CamDiag - AI-Powered Medical Diagnostic Hub
+# CamDiag - AI-Assisted Clinical Decision Support for Cameroon
 
-CamDiag is an AI-powered diagnostic assistance application designed for Cameroon's healthcare system. It leverages Google's MedGemma (via the Gemini API) to provide medical image analysis, drug interaction checking, and clinical decision support.
+CamDiag is an AI-assisted clinical decision-support application designed for Cameroon's healthcare system. It uses a Firebase Functions backend to provide medical document review, possible findings for clinician review, drug interaction checking, and clinical decision support.
 
 ## Features
 
-- **AI Medical Scan Analysis** - Scan lab results, X-rays, and RDT tests using the device camera
+- **AI Medical Document Review** - Scan lab results, X-rays, and RDT tests using the device camera
 - **Drug Database** - Browse medications available in Cameroon, including traditional remedies (contri-medicine)
 - **Drug Interaction Checking** - Automatic contraindication detection across recommended medications
 - **Bilingual Support** - Full English/French interface
@@ -21,7 +21,7 @@ CamDiag is an AI-powered diagnostic assistance application designed for Cameroon
 - **Zustand** - Global state management
 - **Tailwind CSS 3** - Styling
 - **Framer Motion** - Animations
-- **Firebase Functions** - Server-side MedGemma / Gemini proxy
+- **Firebase Functions** - Server-side Vertex AI / Gemini proxy
 - **Vitest** + **React Testing Library** - Testing
 - **Firebase App Hosting** - Web deployment
 
@@ -78,7 +78,7 @@ Edit `.env`:
 VITE_API_URL=https://us-central1-<project-id>.cloudfunctions.net/api
 ```
 
-The Gemini/MedGemma API key is server-only. Configure it as `GEMINI_API_KEY` for Firebase Functions, never as a `VITE_*` browser variable.
+Gemini/Vertex credentials are server-only. The browser must never receive a Gemini API key or call Gemini / Vertex directly.
 
 ### Development
 
@@ -107,15 +107,15 @@ npm run lint       # ESLint
 npm run typecheck  # TypeScript check
 ```
 
-## MedGemma Integration
+## AI Integration
 
-CamDiag integrates with Google's MedGemma model through the Gemini API for:
+CamDiag integrates with Google Vertex AI through Firebase Functions for:
 
-1. **Medical Image Analysis** - Upload scan images and receive AI-assisted diagnostic suggestions
+1. **Medical Document Review** - Upload scan images and receive possible findings for clinician review
 2. **Drug Interaction Checking** - Query medication combinations for potential contraindications
 3. **Medication Information** - Search for detailed medication data including Cameroon availability
 
-The integration uses the `@google/generative-ai` SDK only inside Firebase Functions with the `medgemma-4b-it` launch model. Browser clients call the authenticated backend only; responses are parsed and validated server-side before returning to the app.
+The backend calls Vertex AI server-side using the runtime service account and validates structured JSON before returning it to the app. Browser clients call the authenticated backend only.
 
 **Important:** Always include medical disclaimers. CamDiag is a decision support tool, not a replacement for professional medical diagnosis.
 

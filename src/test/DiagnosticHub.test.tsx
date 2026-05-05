@@ -23,7 +23,7 @@ describe('DiagnosticHub', () => {
 
   it('renders the hub heading and greeting', () => {
     renderWithProviders(<TranslationProvider><DiagnosticHub /></TranslationProvider>);
-    expect(screen.getByRole('heading', { name: /diagnostic hub/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /clinical support hub/i })).toBeInTheDocument();
     expect(screen.getByText(/Hello, Dr\. Kamga/i)).toBeInTheDocument();
   });
 

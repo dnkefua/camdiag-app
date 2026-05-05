@@ -2,16 +2,30 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import express from 'express';
 import cors from 'cors';
-import { REQUEST_SIZE_LIMIT } from './config.js';
+import { CORS_ALLOWED_ORIGINS, REQUEST_SIZE_LIMIT } from './config.js';
 import analyzeRouter from './routes/analyze.js';
 import searchDrugRouter from './routes/searchDrug.js';
 import checkInteractionsRouter from './routes/checkInteractions.js';
+import { verifyAppCheck } from './middleware/appCheck.js';
 
 initializeApp();
 
 const app = express();
 
-app.use(cors({ origin: true }));
+const getAllowedOrigins = () => CORS_ALLOWED_ORIGINS.value()
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || getAllowedOrigins().includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error('CORS origin not allowed'));
+  },
+}));
 app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
 
 const healthCheck = (_req: express.Request, res: express.Response) => {
@@ -22,6 +36,8 @@ const healthCheck = (_req: express.Request, res: express.Response) => {
 // strips the function name from some Cloud Functions URLs.
 app.get('/health', healthCheck);
 app.get('/api/health', healthCheck);
+
+app.use(verifyAppCheck);
 
 // Routes. Keep both mount points so existing App Hosting builds that call
 // https://...cloudfunctions.net/api/analyze continue to work immediately.

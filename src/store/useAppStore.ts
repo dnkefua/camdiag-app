@@ -1,20 +1,20 @@
 import { create } from 'zustand';
-import type { Diagnosis, ClinicalMarker, PatientRecord, Drug } from '../types';
+import type { PossibleFinding, ClinicalMarker, PatientRecord, Drug } from '../types';
 
 interface AppState {
-  selectedDiagnosis: number;
+  selectedFinding: number;
   scanCount: number;
   isAnalyzing: boolean;
   analysisError: string | null;
-  diagnoses: Diagnosis[];
+  possibleFindings: PossibleFinding[];
   markers: ClinicalMarker[];
   patientRecords: PatientRecord[];
   drugDatabase: Drug[];
-  setSelectedDiagnosis: (idx: number) => void;
+  setSelectedFinding: (idx: number) => void;
   setScanCount: (count: number) => void;
   incrementScanCount: () => void;
   resetScanCount: () => void;
-  setDiagnoses: (diagnoses: Diagnosis[]) => void;
+  setPossibleFindings: (possibleFindings: PossibleFinding[]) => void;
   setMarkers: (markers: ClinicalMarker[]) => void;
   setPatientRecords: (records: PatientRecord[]) => void;
   addPatientRecord: (record: PatientRecord) => void;
@@ -24,19 +24,19 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  selectedDiagnosis: 0,
+  selectedFinding: 0,
   scanCount: 0,
   isAnalyzing: false,
   analysisError: null,
-  diagnoses: [],
+  possibleFindings: [],
   markers: [],
   patientRecords: [],
   drugDatabase: [],
-  setSelectedDiagnosis: (idx) => set({ selectedDiagnosis: idx }),
+  setSelectedFinding: (idx) => set({ selectedFinding: idx }),
   setScanCount: (count) => set({ scanCount: count }),
   incrementScanCount: () => set((s) => ({ scanCount: s.scanCount + 1 })),
   resetScanCount: () => set({ scanCount: 0 }),
-  setDiagnoses: (diagnoses) => set({ diagnoses }),
+  setPossibleFindings: (possibleFindings) => set({ possibleFindings }),
   setMarkers: (markers) => set({ markers }),
   setPatientRecords: (records) => set({ patientRecords: records }),
   addPatientRecord: (record) => set((s) => ({ patientRecords: [record, ...s.patientRecords] })),

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken, type AppCheck } from 'firebase/app-check';
 
 const required = (key: string) => {
   const value = import.meta.env[key];
@@ -32,6 +33,38 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+let appCheckInstance: AppCheck | null = null;
+
+export const initializeCamDiagAppCheck = (): AppCheck | null => {
+  if (appCheckInstance) return appCheckInstance;
+  if (typeof window === 'undefined') return null;
+
+  const siteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY;
+  if (!siteKey) {
+    console.warn('[CamDiag] App Check site key missing; App Check token refresh is disabled.');
+    return null;
+  }
+
+  appCheckInstance = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+  return appCheckInstance;
+};
+
+export const getAppCheckToken = async (): Promise<string | null> => {
+  const appCheck = initializeCamDiagAppCheck();
+  if (!appCheck) return null;
+
+  try {
+    const token = await getToken(appCheck, false);
+    return token.token;
+  } catch (err) {
+    console.error('[CamDiag] App Check token retrieval failed:', err);
+    return null;
+  }
+};
+
 let analyticsInstance: Analytics | null = null;
 let analyticsPromise: Promise<Analytics | null> | null = null;
 
@@ -51,6 +84,7 @@ export const getAnalyticsInstance = (): Promise<Analytics | null> => {
 
 // Eagerly warm analytics for production (browser-only)
 if (typeof window !== 'undefined') {
+  initializeCamDiagAppCheck();
   void getAnalyticsInstance();
 }
 

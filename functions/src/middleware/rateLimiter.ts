@@ -6,6 +6,10 @@ interface RateLimitConfig {
   max: number;
 }
 
+interface RateLimiterOptions {
+  failOpen?: boolean;
+}
+
 let firestore: Firestore | null = null;
 
 const getDb = (): Firestore => {
@@ -13,7 +17,9 @@ const getDb = (): Firestore => {
   return firestore;
 };
 
-export const rateLimiter = (config: RateLimitConfig) => {
+export const rateLimiter = (config: RateLimitConfig, options: RateLimiterOptions = {}) => {
+  const failOpen = options.failOpen ?? true;
+
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const uid = req.uid;
     if (!uid) {
@@ -70,8 +76,16 @@ export const rateLimiter = (config: RateLimitConfig) => {
       res.setHeader('X-RateLimit-Remaining', result.remaining);
       next();
     } catch (err) {
-      console.error('[CamDiag] Rate limit check failed; allowing request:', err);
+      console.error('[CamDiag] Rate limit check failed:', err);
       res.setHeader('X-RateLimit-Status', 'unavailable');
+
+      if (!failOpen) {
+        res.status(503).json({
+          error: 'AI service is temporarily unavailable. Please try again shortly.',
+        });
+        return;
+      }
+
       next();
     }
   };

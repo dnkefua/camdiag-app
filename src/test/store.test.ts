@@ -2,15 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { useAppStore } from '../store/useAppStore';
 
 describe('useAppStore', () => {
-  it('starts with empty diagnoses', () => {
+  it('starts with empty possible findings', () => {
     const state = useAppStore.getState();
-    expect(state.diagnoses).toHaveLength(0);
+    expect(state.possibleFindings).toHaveLength(0);
   });
 
-  it('sets selected diagnosis', () => {
-    useAppStore.getState().setSelectedDiagnosis(1);
-    expect(useAppStore.getState().selectedDiagnosis).toBe(1);
-    useAppStore.getState().setSelectedDiagnosis(0);
+  it('sets selected finding', () => {
+    useAppStore.getState().setSelectedFinding(1);
+    expect(useAppStore.getState().selectedFinding).toBe(1);
+    useAppStore.getState().setSelectedFinding(0);
   });
 
   it('increments scan count', () => {
@@ -35,13 +35,23 @@ describe('useAppStore', () => {
     expect(state.patientRecords).toHaveLength(0);
   });
 
-  it('can set diagnoses', () => {
-    const mockDiagnoses = [
-      { name: 'Malaria (P. Falciparum)', probability: '94%', markers: ['parasites'], drugs: ['Coartem'], contri: ['Artemisia Tea'], reasoning: 'Test' },
+  it('can set possible findings', () => {
+    const mockFindings = [
+      {
+        name: 'Malaria (P. Falciparum)',
+        likelihood: 'high' as const,
+        observedEvidence: ['parasites'],
+        markers: ['parasites'],
+        medicationSafetyNotes: ['Coartem safety review'],
+        traditionalRemedyWarnings: ['Artemisia Tea'],
+        reasoning: 'Test',
+        recommendedNextSteps: ['Clinician review'],
+        clinicianReviewRequired: true as const,
+      },
     ];
-    useAppStore.getState().setDiagnoses(mockDiagnoses);
-    expect(useAppStore.getState().diagnoses).toHaveLength(1);
-    expect(useAppStore.getState().diagnoses[0]?.name).toBe('Malaria (P. Falciparum)');
-    useAppStore.getState().setDiagnoses([]);
+    useAppStore.getState().setPossibleFindings(mockFindings);
+    expect(useAppStore.getState().possibleFindings).toHaveLength(1);
+    expect(useAppStore.getState().possibleFindings[0]?.name).toBe('Malaria (P. Falciparum)');
+    useAppStore.getState().setPossibleFindings([]);
   });
 });

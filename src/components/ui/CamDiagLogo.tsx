@@ -67,7 +67,7 @@ export const CamDiagLogo = ({
             <span className="text-gradient-gold">Diag</span>
           </span>
           <span className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.25em] text-cameroon-green/60">
-            AI Diagnostics for Africa
+            AI Clinical Support for Africa
           </span>
         </div>
       )}
