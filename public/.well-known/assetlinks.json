@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.ndnanalytics.camdiag",
+        "sha256_cert_fingerprints": ["91:BF:23:8A:25:33:DC:D8:FA:0E:FA:7C:32:AA:45:05:EB:AF:3C:26:AE:16:94:2D:5D:13:A2:8E:60:64:3E:6E"]
+      }
+    }]

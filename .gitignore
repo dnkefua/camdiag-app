@@ -24,6 +24,16 @@ functions/.env*
 # Firebase service account (admin credentials)
 firebase-service-account.json
 
+# Android / Google Play local build outputs and signing material
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.keystore
+android/*.aab
+android/*.apk
+android/*.idsig
+
 # Local deployment helpers / review notes that should not ship with App Hosting
 DEPLOY.bat
 FIX_DEPLOY.bat

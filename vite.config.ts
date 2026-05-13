@@ -1,9 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
+
+const removeLocalReviewNotes = () => ({
+  name: 'remove-local-review-notes',
+  closeBundle() {
+    fs.rmSync(path.resolve(__dirname, 'dist/Recommendations.md'), { force: true });
+  },
+});
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), removeLocalReviewNotes()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

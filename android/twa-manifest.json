@@ -1,0 +1,59 @@
+{
+  "packageId": "com.ndnanalytics.camdiag",
+  "host": "camdiag-c7e78.web.app",
+  "name": "CamDiag",
+  "launcherName": "CamDiag",
+  "display": "standalone",
+  "themeColor": "#007A5E",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#FFF7E6",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://camdiag-c7e78.web.app/brand/camdiag-logo.png",
+  "maskableIconUrl": "https://camdiag-c7e78.web.app/brand/camdiag-logo.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "android.keystore",
+    "alias": "camdiag"
+  },
+  "appVersionName": "2",
+  "appVersionCode": 2,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://camdiag-c7e78.web.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://camdiag-c7e78.web.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait-primary",
+  "fingerprints": [
+    {
+      "name": "upload-key",
+      "value": "91:BF:23:8A:25:33:DC:D8:FA:0E:FA:7C:32:AA:45:05:EB:AF:3C:26:AE:16:94:2D:5D:13:A2:8E:60:64:3E:6E"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "appVersion": "2"
+}

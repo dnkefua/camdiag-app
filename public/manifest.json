@@ -1,7 +1,7 @@
 {
-  "name": "CamDiag — Medical AI Diagnostics for Cameroon",
+  "name": "CamDiag - Clinical Decision Support",
   "short_name": "CamDiag",
-  "description": "AI-powered medical diagnostic assistant for Cameroon healthcare",
+  "description": "AI-assisted clinical review and medication safety support for Cameroon healthcare workers.",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
