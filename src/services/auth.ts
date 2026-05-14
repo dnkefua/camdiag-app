@@ -40,6 +40,7 @@ const getDisplayName = (firebaseUser: User): string => (
 
 const createUserProfile = (firebaseUser: User, override?: Partial<AppUser>): AppUser => {
   const name = override?.name || getDisplayName(firebaseUser);
+  const photoUrl = override?.photoUrl ?? firebaseUser.photoURL ?? undefined;
   return {
     id: firebaseUser.uid,
     uid: firebaseUser.uid,
@@ -48,7 +49,7 @@ const createUserProfile = (firebaseUser: User, override?: Partial<AppUser>): App
     initials: override?.initials ?? name.substring(0, 2).toUpperCase(),
     role: override?.role ?? 'patient',
     createdAt: override?.createdAt ?? serverTimestamp(),
-    photoUrl: override?.photoUrl ?? firebaseUser.photoURL ?? undefined,
+    ...(photoUrl ? { photoUrl } : {}),
     about: override?.about ?? '',
     symptoms: override?.symptoms ?? '',
     notificationPrefs: override?.notificationPrefs ?? {
