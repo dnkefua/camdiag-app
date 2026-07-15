@@ -84,7 +84,7 @@ const DrugDatabase = () => {
         </button>
         <h1 className="text-xl font-bold text-cameroon-green">{t.drugs}</h1>
         {apiReady && (
-          <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold ml-auto">MedGemma AI</span>
+          <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold ml-auto">Google Cloud AI</span>
         )}
       </header>
 

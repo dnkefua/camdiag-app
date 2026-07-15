@@ -72,7 +72,7 @@ const AnalysisResults = () => {
           <span className="flex h-2 w-2 rounded-full bg-medical-green animate-pulse"></span>
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.ai_active}</span>
           {isAiEnabled && (
-            <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">MedGemma</span>
+            <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">Google Cloud AI</span>
           )}
         </div>
       </header>
@@ -82,7 +82,7 @@ const AnalysisResults = () => {
           <div className="w-16 h-16 border-2 border-slate-600 border-t-medical-green rounded-full animate-spin" />
           <div className="text-center text-white">
             <p className="text-lg font-bold">{t.analyzing}</p>
-            <p className="text-xs text-slate-400 mt-1">MedGemma AI</p>
+            <p className="text-xs text-slate-400 mt-1">Verified document analysis</p>
           </div>
         </div>
       )}

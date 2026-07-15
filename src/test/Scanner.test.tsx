@@ -43,6 +43,9 @@ vi.mock('../store/useAppStore', () => ({
     setMarkers: vi.fn(),
     setAnalyzing: vi.fn(),
     setAnalysisError: vi.fn(),
+    setTranscription: vi.fn(),
+    setPendingPages: vi.fn(),
+    setPendingDocumentType: vi.fn(),
     isAnalyzing: false,
   })),
 }));
@@ -94,5 +97,14 @@ describe('Scanner', () => {
     renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
     // Gallery is now a <label> wrapping a hidden file input
     expect(screen.getByLabelText(/open gallery/i)).toBeInTheDocument();
+    const input = document.querySelector('input[type="file"]');
+    expect(input).toHaveAttribute('multiple');
+    expect(input).toHaveAttribute('accept', expect.stringContaining('application/pdf'));
+  });
+
+  it('allows the clinician to classify a prescription before OCR', () => {
+    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
+    expect(screen.getByRole('combobox', { name: /document type/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /prescription/i })).toBeInTheDocument();
   });
 });

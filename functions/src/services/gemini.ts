@@ -12,6 +12,8 @@ IMPORTANT RULES:
 - Check for drug interactions and contraindications across medication safety notes and patient-reported current medications.
 - Respond in the language specified (en or fr).
 - NEVER recommend traditional/herbal remedies as treatment alternatives.
+- Never silently correct uncertain transcription. Preserve ambiguity and require clinician review for uncertain medication names, decimal doses, units, allergies, pregnancy, and pediatric instructions.
+- Every extracted claim must identify its page in observedEvidence. If it cannot be grounded in the supplied document or confirmed transcription, omit it.
 - If traditional remedies are visible or mentioned, warn that they must be discussed with a clinician/pharmacist because they may interact with prescription drugs.
 
 When analyzing a medical image or document:
@@ -245,6 +247,9 @@ Language: ${languageName}
 Patient context:
 ${summarizePatientContext(request.patientContext)}
 
+Clinician-confirmed transcription:
+${request.confirmedTranscription || 'Not provided. Treat uncertain document text as unresolved.'}
+
 Return JSON with this exact top-level shape:
 {
   "urgency": "emergency | same_day | routine | unknown",
@@ -259,13 +264,11 @@ Use only marker ids in each possibleFinding.markers that also appear in the top-
 };
 
 export async function analyzeImage(request: AnalyzeRequestBody) {
+  const documentParts = request.pages?.map((page) => ({
+    inlineData: { mimeType: page.mimeType, data: getBase64Data(page.contentBase64) },
+  })) ?? [{ inlineData: { mimeType: getMimeType(request.imageBase64 ?? ''), data: getBase64Data(request.imageBase64 ?? '') } }];
   return callVertex([
-    {
-      inlineData: {
-        mimeType: getMimeType(request.imageBase64),
-        data: getBase64Data(request.imageBase64),
-      },
-    },
+    ...documentParts,
     {
       text: buildAnalyzeInstruction(request),
     },

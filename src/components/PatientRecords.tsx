@@ -53,9 +53,9 @@ const PatientRecords = () => {
         <h2 id="patients-heading" className="sr-only">{t.patients}</h2>
         <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{t.active_users}</h3>
-            <p className="text-3xl font-black text-cameroon-green mt-1">12,842</p>
-            <p className="text-xs text-slate-400 mt-1">{t.total_active}</p>
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Your saved records</h3>
+            <p className="text-3xl font-black text-cameroon-green mt-1">{patientRecords.length}</p>
+            <p className="text-xs text-slate-400 mt-1">Records visible to this account</p>
           </div>
           <div className="bg-medical-green/10 p-4 rounded-full">
             <UsersIcon className="h-10 w-10 text-cameroon-green" />

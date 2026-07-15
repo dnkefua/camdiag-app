@@ -95,7 +95,7 @@ describe('PatientRecords', () => {
       </TranslationProvider>
     );
     await waitFor(() => {
-      expect(screen.getByText('12,842')).toBeInTheDocument();
+      expect(screen.getByText('Your saved records')).toBeInTheDocument();
     });
   });
 

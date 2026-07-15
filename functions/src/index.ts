@@ -6,6 +6,7 @@ import { CORS_ALLOWED_ORIGINS, REQUEST_SIZE_LIMIT } from './config.js';
 import analyzeRouter from './routes/analyze.js';
 import searchDrugRouter from './routes/searchDrug.js';
 import checkInteractionsRouter from './routes/checkInteractions.js';
+import transcribeRouter from './routes/transcribe.js';
 import { verifyAppCheck } from './middleware/appCheck.js';
 
 initializeApp();
@@ -44,9 +45,11 @@ app.use(verifyAppCheck);
 app.use('/', analyzeRouter);
 app.use('/', searchDrugRouter);
 app.use('/', checkInteractionsRouter);
+app.use('/', transcribeRouter);
 app.use('/api', analyzeRouter);
 app.use('/api', searchDrugRouter);
 app.use('/api', checkInteractionsRouter);
+app.use('/api', transcribeRouter);
 
 // 404 handler
 app.use('*', (_req, res) => {

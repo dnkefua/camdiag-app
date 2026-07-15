@@ -21,13 +21,33 @@ export const PatientContext = z.object({
 }).strict();
 
 export const AnalyzeRequestBody = z.object({
-  imageBase64: z.string().min(1, 'Image data is required').max(9_000_000, 'Image data is too large'),
+  imageBase64: z.string().min(1).max(9_000_000).optional(),
+  pages: z.array(z.object({
+    id: z.string().trim().min(1).max(80),
+    fileName: z.string().trim().min(1).max(180),
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/tiff']),
+    contentBase64: z.string().min(1).max(14_000_000),
+  }).strict()).min(1).max(15).optional(),
+  confirmedTranscription: z.string().trim().min(1).max(60_000).optional(),
   language: BackendLanguage.default('en'),
   documentType: DocumentType.default('medical_document'),
   patientContext: PatientContext.optional(),
-}).strict();
+}).strict().refine((value) => Boolean(value.imageBase64 || value.pages?.length), 'Document data is required');
 
 export type AnalyzeRequestBody = z.infer<typeof AnalyzeRequestBody>;
+
+export const TranscribeRequestBody = z.object({
+  pages: z.array(z.object({
+    id: z.string().trim().min(1).max(80),
+    fileName: z.string().trim().min(1).max(180),
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/tiff']),
+    contentBase64: z.string().min(1).max(14_000_000),
+  }).strict()).min(1).max(15),
+  language: BackendLanguage.default('en'),
+  handwritingHint: z.boolean().default(true),
+}).strict();
+
+export type TranscribeRequestBody = z.infer<typeof TranscribeRequestBody>;
 
 const PossibleFinding = z.object({
   name: z.string().trim().min(1).max(120),
@@ -62,6 +82,13 @@ export const AnalyzeResponse = z.object({
   contraindications: z.array(Contraindication).max(10),
   limitations: z.array(z.string().trim().min(1).max(250)).max(8),
   disclaimer: z.string().trim().min(1).max(600),
+  provenance: z.object({
+    model: z.string().max(120),
+    modelVersion: z.string().max(120).optional(),
+    promptVersion: z.string().max(80),
+    ocrProcessorVersion: z.string().max(120).optional(),
+    analyzedAt: z.string().datetime(),
+  }).optional(),
 }).strict();
 
 export type AnalyzeResponse = z.infer<typeof AnalyzeResponse>;

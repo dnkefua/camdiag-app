@@ -214,10 +214,10 @@ const Landing = () => {
       icon: <ClipBoardIcon className="h-8 w-8" />,
       title: language === 'fr' ? 'Base de Données Médicamenteuse' : language === 'pcm' ? 'Drug Database' : 'Drug Database',
       desc: language === 'fr'
-        ? 'Recherchez des médicaments disponibles au Cameroun. Vérifiez les interactions médicamenteuses avec MedGemma AI.'
+        ? 'Recherchez des médicaments disponibles au Cameroun. Examinez les informations assistées par IA.'
         : language === 'pcm'
-        ? 'Find drugs wey dey for Cameroon. Check drug interaction with MedGemma AI.'
-        : 'Search medications available in Cameroon. Check drug interactions with MedGemma AI.',
+        ? 'Find drugs wey dey for Cameroon. Review AI-assisted interaction information.'
+        : 'Search medications available in Cameroon. Review AI-assisted interaction information.',
       gradient: 'from-cameroon-red to-cameroon-red-light',
       glow: 'shadow-red-glow',
     },
@@ -234,7 +234,7 @@ const Landing = () => {
     },
     {
       icon: <BoltIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Fonctionne Hors Ligne' : language === 'pcm' ? 'E Work Without Net' : 'Works Offline',
+      title: language === 'fr' ? 'Conçu pour faible débit' : language === 'pcm' ? 'E Manage Small Network' : 'Low-bandwidth aware',
       desc: language === 'fr'
         ? 'Conçu pour les zones à faible bande passante. Les analyses locales fonctionnent sans internet.'
         : language === 'pcm'
@@ -268,10 +268,10 @@ const Landing = () => {
   ];
 
   const stats = [
-    { value: '12,842', label: language === 'fr' ? 'Utilisateurs Actifs' : 'Active Users' },
-    { value: '94%', label: language === 'fr' ? 'Précision du Scan' : 'Scan Accuracy' },
-    { value: '<1s', label: language === 'fr' ? 'Temps de Réponse' : 'Response Time' },
-    { value: '24/7', label: language === 'fr' ? 'Disponibilité' : 'Uptime' },
+    { value: 'EN/FR', label: language === 'fr' ? 'Langues prises en charge' : 'Supported languages' },
+    { value: '15', label: language === 'fr' ? 'Pages par document' : 'Pages per document' },
+    { value: 'OCR', label: language === 'fr' ? 'Vérification du texte' : 'Text verification' },
+    { value: 'Human', label: language === 'fr' ? 'Validation requise' : 'Review required' },
   ];
 
   const testimonials = [
@@ -328,7 +328,7 @@ const Landing = () => {
           {[
             { label: language === 'fr' ? 'Fonctionnalités' : 'Features', href: '#features' },
             { label: language === 'fr' ? 'Témoignages' : 'Testimonials', href: '#testimonials' },
-            { label: 'MedGemma AI', href: '#ai' },
+            { label: 'Document AI', href: '#ai' },
           ].map((link) => (
             <motion.a key={link.href} href={link.href} className="hover:text-cameroon-yellow transition-colors" whileHover={{ y: -1 }}>
               {link.label}
@@ -377,7 +377,7 @@ const Landing = () => {
               animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            <span className="text-white/70">{language === 'fr' ? 'Propulsé par Google MedGemma' : language === 'pcm' ? 'Powered by Google MedGemma' : 'Powered by Google MedGemma'}</span>
+            <span className="text-white/70">Google Cloud document processing</span>
           </motion.div>
 
           <motion.h1
@@ -453,7 +453,7 @@ const Landing = () => {
                     <div className="w-3 h-3 rounded-full bg-cameroon-green/70" />
                   </div>
                   <span className="text-xs text-white/30 font-mono">camdiag.app</span>
-                  <span className="ml-auto text-[9px] bg-cameroon-yellow/20 text-cameroon-yellow px-2 py-0.5 rounded-full font-black uppercase tracking-wider">MedGemma</span>
+                  <span className="ml-auto text-[9px] bg-cameroon-yellow/20 text-cameroon-yellow px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Demo data</span>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-2 space-y-4">
@@ -469,7 +469,7 @@ const Landing = () => {
                       </div>
                       <p className="text-white font-black text-lg">Malaria (P. Falciparum)</p>
                       <div className="flex gap-2 mt-2">
-                        <span className="bg-cameroon-red/20 text-cameroon-red-light text-[10px] font-black px-2 py-0.5 rounded">94% Match</span>
+                        <span className="bg-cameroon-red/20 text-cameroon-red-light text-[10px] font-black px-2 py-0.5 rounded">Illustrative</span>
                         <span className="bg-cameroon-yellow/20 text-cameroon-yellow text-[10px] font-black px-2 py-0.5 rounded">Low Hematocrit</span>
                       </div>
                     </motion.div>
@@ -620,7 +620,7 @@ const Landing = () => {
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              Google MedGemma
+              Google Cloud AI
             </motion.p>
             <h2 id="ai-heading" className="text-5xl md:text-6xl font-black mb-6 font-display">
               {language === 'fr' ? 'IA de' : language === 'pcm' ? 'Medical' : 'Medical-Grade'}{' '}
@@ -633,7 +633,7 @@ const Landing = () => {
                 ? "Intégré avec MedGemma de Google, CamDiag fournit une analyse d'image médicale, une vérification des interactions médicamenteuses et des informations sur les médicaments — le tout par IA."
                 : language === 'pcm'
                 ? "We use Google MedGemma. CamDiag fit check medical picture, drug interaction, and drug info — all with AI."
-                : "Integrated with Google's MedGemma, CamDiag delivers medical image analysis, drug interaction checking, and medication info — all AI-powered."}
+                : "CamDiag combines document OCR and AI-assisted review. Every transcription and finding requires confirmation by a qualified clinician."}
             </p>
             <StaggerContainer className="space-y-5">
               {[
@@ -667,7 +667,7 @@ const Landing = () => {
               <div className="bg-gradient-to-br from-cameroon-red/[0.10] to-cameroon-yellow/[0.06] border border-cameroon-yellow/20 rounded-3xl p-8 backdrop-blur-md shadow-premium">
                 <div className="flex items-center gap-3 mb-8">
                   <motion.div className="w-3 h-3 rounded-full bg-cameroon-yellow" animate={{ opacity: [1, 0.3, 1], scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                  <span className="text-xs font-black text-cameroon-yellow uppercase tracking-[0.2em]">MedGemma AI</span>
+                  <span className="text-xs font-black text-cameroon-yellow uppercase tracking-[0.2em]">Illustrative demo</span>
                 </div>
                 <div className="space-y-5">
                   <motion.div
@@ -693,7 +693,7 @@ const Landing = () => {
                     <p className="text-[10px] text-cameroon-yellow mb-3 font-black uppercase tracking-widest">Response</p>
                     <div className="space-y-3">
                       {[
-                        { badge: '94%', tone: 'bg-cameroon-green/20 text-cameroon-green-light', text: 'Malaria (P. Falciparum)' },
+                        { badge: 'Demo', tone: 'bg-cameroon-green/20 text-cameroon-green-light', text: 'Possible finding for clinician review' },
                         { badge: 'RX', tone: 'bg-cameroon-yellow/20 text-cameroon-yellow', text: 'Coartem recommended' },
                         { badge: '!', tone: 'bg-cameroon-red/25 text-cameroon-red-light', text: 'Coartem + Quinine conflict' },
                       ].map((item, i) => (
@@ -731,7 +731,7 @@ const Landing = () => {
               {language === 'fr' ? 'Témoignages' : language === 'pcm' ? 'Wetin Doctor Dem Talk' : 'Testimonials'}
             </p>
             <h2 id="testimonials-heading" className="text-5xl md:text-6xl font-black font-display">
-              {language === 'fr' ? 'Approuvé par les soignants' : language === 'pcm' ? 'Doctor Dem Trust Am' : 'Trusted by clinicians'}
+              {language === 'fr' ? 'Conçu avec les cliniciens en tête' : language === 'pcm' ? 'Built for Health Worker' : 'Designed for clinician review'}
             </h2>
           </motion.div>
 
@@ -801,7 +801,7 @@ const Landing = () => {
                   ? 'Rejoignez des milliers de professionnels de santé qui utilisent CamDiag au Cameroun.'
                   : language === 'pcm'
                   ? 'Join plenty health workers wey dey use CamDiag for Cameroon.'
-                  : 'Join thousands of healthcare professionals using CamDiag in Cameroon.'}
+                  : 'Evaluate CamDiag as an AI-assisted clinical document review tool for Cameroon.'}
               </p>
               <MagneticButton
                 onClick={() => setShowLogin(true)}
@@ -828,8 +828,8 @@ const Landing = () => {
               : '© 2026 CamDiag by NDN Analytics. This is NOT a real diagnosis. Always consult a doctor.'}
           </p>
           <div className="flex items-center gap-6 text-sm text-white/35">
-            <a href="#" className="hover:text-cameroon-yellow transition-colors">{language === 'fr' ? 'Confidentialité' : 'Privacy'}</a>
-            <a href="#" className="hover:text-cameroon-yellow transition-colors">{language === 'fr' ? 'Conditions' : 'Terms'}</a>
+            <a href="/privacy.html" className="hover:text-cameroon-yellow transition-colors">{language === 'fr' ? 'Confidentialité' : 'Privacy'}</a>
+            <a href="/terms.html" className="hover:text-cameroon-yellow transition-colors">{language === 'fr' ? 'Conditions' : 'Terms'}</a>
           </div>
         </div>
       </footer>

@@ -21,7 +21,7 @@ export interface UseCameraResult {
 /**
  * Real-camera hook backed by getUserMedia + canvas snapshot.
  * Captures a high-quality JPEG frame from the active stream and returns
- * both a Blob (for upload) and a data URL (for preview / base64 to MedGemma).
+ * both a Blob (for secure upload) and a data URL (for local preview).
  *
  * Why: scanner page previously rendered a fake viewfinder. This wires
  * real device hardware into the existing UI shell.
@@ -116,7 +116,9 @@ export const useCamera = (): UseCameraResult => {
     const h = video.videoHeight;
     if (!w || !h) return null;
 
-    const MAX_DIM = 800;
+    // Preserve document detail for OCR. 2400px is typically sufficient for an
+    // A4/letter page while keeping mobile memory use bounded.
+    const MAX_DIM = 2400;
     let scale = 1;
     if (w > MAX_DIM || h > MAX_DIM) {
       scale = MAX_DIM / Math.max(w, h);
@@ -129,8 +131,8 @@ export const useCamera = (): UseCameraResult => {
     if (!ctx) return null;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.7));
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92));
     if (!blob) return null;
     return { blob, dataUrl };
   }, [isReady]);

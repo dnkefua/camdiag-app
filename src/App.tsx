@@ -13,6 +13,7 @@ const Landing = lazy(() => import('./components/Landing'));
 const DemoScanner = lazy(() => import('./components/DemoScanner'));
 const DiagnosticHub = lazy(() => import('./components/DiagnosticHub'));
 const Scanner = lazy(() => import('./components/Scanner'));
+const TranscriptionReview = lazy(() => import('./components/TranscriptionReview'));
 const AnalysisResults = lazy(() => import('./components/AnalysisResults'));
 const NextSteps = lazy(() => import('./components/NextSteps'));
 const DrugDatabase = lazy(() => import('./components/DrugDatabase'));
@@ -65,6 +66,7 @@ const App = () => {
             <Route path="/demo" element={<ErrorBoundary><DemoScanner /></ErrorBoundary>} />
             <Route path="/app" element={<ProtectedRoute><ErrorBoundary><DiagnosticHub /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/scanner" element={<ProtectedRoute><ErrorBoundary><Scanner /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/transcription-review" element={<ProtectedRoute><ErrorBoundary><TranscriptionReview /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/analysis" element={<ProtectedRoute><ErrorBoundary><AnalysisResults /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/next-steps" element={<ProtectedRoute><ErrorBoundary><NextSteps /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/drugs" element={<ProtectedRoute><ErrorBoundary><DrugDatabase /></ErrorBoundary></ProtectedRoute>} />

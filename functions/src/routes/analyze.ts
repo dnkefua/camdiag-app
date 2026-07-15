@@ -62,7 +62,16 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE, { failOpen: 
 
     const { language } = parsed.data;
     const rawText = await analyzeImage(parsed.data);
-    const { data: validated, recovered } = parseAnalyzeResponse(rawText, language);
+    const { data: parsedResponse, recovered } = parseAnalyzeResponse(rawText, language);
+    const validated = {
+      ...parsedResponse,
+      provenance: {
+        model: 'Vertex AI Gemini',
+        modelVersion: process.env.GEMINI_MODEL || 'configured-runtime-model',
+        promptVersion: 'clinical-document-v2',
+        analyzedAt: new Date().toISOString(),
+      },
+    };
 
     await writeAuditLog({
       uid: req.uid!,
@@ -70,9 +79,11 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE, { failOpen: 
       request: {
         language,
         documentType: parsed.data.documentType,
+        pageCount: parsed.data.pages?.length ?? 1,
+        hasConfirmedTranscription: Boolean(parsed.data.confirmedTranscription),
         hasPatientContext: Boolean(parsed.data.patientContext),
       },
-      responsePreview: JSON.stringify(validated).slice(0, 500),
+      responsePreview: JSON.stringify({ urgency: validated.urgency, findingCount: validated.possibleFindings.length, markerCount: validated.markers.length, limitationCount: validated.limitations.length }),
       success: !recovered,
       error: recovered ? 'AI returned incomplete structured JSON; recovery response served.' : undefined,
     });

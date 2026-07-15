@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PossibleFinding, ClinicalMarker, PatientRecord, Drug } from '../types';
+import type { PossibleFinding, ClinicalMarker, PatientRecord, Drug, DocumentTranscription, DocumentPageInput, AnalyzeDocumentType } from '../types';
 
 interface AppState {
   selectedFinding: number;
@@ -8,6 +8,9 @@ interface AppState {
   analysisError: string | null;
   possibleFindings: PossibleFinding[];
   markers: ClinicalMarker[];
+  transcription: DocumentTranscription | null;
+  pendingPages: DocumentPageInput[];
+  pendingDocumentType: AnalyzeDocumentType;
   patientRecords: PatientRecord[];
   drugDatabase: Drug[];
   setSelectedFinding: (idx: number) => void;
@@ -16,6 +19,9 @@ interface AppState {
   resetScanCount: () => void;
   setPossibleFindings: (possibleFindings: PossibleFinding[]) => void;
   setMarkers: (markers: ClinicalMarker[]) => void;
+  setTranscription: (transcription: DocumentTranscription | null) => void;
+  setPendingPages: (pages: DocumentPageInput[]) => void;
+  setPendingDocumentType: (documentType: AnalyzeDocumentType) => void;
   setPatientRecords: (records: PatientRecord[]) => void;
   addPatientRecord: (record: PatientRecord) => void;
   setDrugDatabase: (drugs: Drug[]) => void;
@@ -30,6 +36,9 @@ export const useAppStore = create<AppState>((set) => ({
   analysisError: null,
   possibleFindings: [],
   markers: [],
+  transcription: null,
+  pendingPages: [],
+  pendingDocumentType: 'medical_document',
   patientRecords: [],
   drugDatabase: [],
   setSelectedFinding: (idx) => set({ selectedFinding: idx }),
@@ -38,6 +47,9 @@ export const useAppStore = create<AppState>((set) => ({
   resetScanCount: () => set({ scanCount: 0 }),
   setPossibleFindings: (possibleFindings) => set({ possibleFindings }),
   setMarkers: (markers) => set({ markers }),
+  setTranscription: (transcription) => set({ transcription }),
+  setPendingPages: (pendingPages) => set({ pendingPages }),
+  setPendingDocumentType: (pendingDocumentType) => set({ pendingDocumentType }),
   setPatientRecords: (records) => set({ patientRecords: records }),
   addPatientRecord: (record) => set((s) => ({ patientRecords: [record, ...s.patientRecords] })),
   setDrugDatabase: (drugs) => set({ drugDatabase: drugs }),

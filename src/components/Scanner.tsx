@@ -4,11 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { useCamera } from '../hooks/useCamera';
 import { useAppStore } from '../store/useAppStore';
-import { analyzeMedicalImage } from '../services/medgemma';
+import { transcribeMedicalDocument } from '../services/medgemma';
 import { isApiConfigured } from '../services/api';
 import { trackEvent } from '../services/analytics';
 import { validateImageQuality } from '../utils/imageQuality';
 import { CloseIcon, FlashIcon, CheckIcon, ImageIcon, AlertIcon } from '../components/ui/Icons';
+import type { AnalyzeDocumentType, DocumentPageInput } from '../types';
+
+type Capture = { id: string; dataUrl: string; blob: Blob; fileName: string; mimeType: string };
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/tiff'];
+const MAX_PAGES = 15;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
 
 const Scanner = () => {
   const navigate = useNavigate();
@@ -18,6 +25,9 @@ const Scanner = () => {
     setMarkers,
     setAnalyzing,
     setAnalysisError,
+    setTranscription,
+    setPendingPages,
+    setPendingDocumentType,
     isAnalyzing,
   } = useAppStore();
   const camera = useCamera();
@@ -25,7 +35,9 @@ const Scanner = () => {
   const [scanMode, setScanMode] = useState<'document' | 'body'>('document');
   const [showError, setShowError] = useState(false);
   const [flashOverlay, setFlashOverlay] = useState(false);
-  const [captures, setCaptures] = useState<Array<{ dataUrl: string; blob: Blob }>>([]);
+  const [captures, setCaptures] = useState<Capture[]>([]);
+  const [documentType, setDocumentType] = useState<AnalyzeDocumentType>('medical_document');
+  const [processingStage, setProcessingStage] = useState<string | null>(null);
   const [showTriage, setShowTriage] = useState(false);
   const [qualityError, setQualityError] = useState<string | null>(null);
 
@@ -49,7 +61,7 @@ const Scanner = () => {
     setTimeout(() => setFlashOverlay(false), 180);
 
     if (shot) {
-      setCaptures((prev) => [...prev, shot]);
+      setCaptures((prev) => [...prev, { ...shot, id: crypto.randomUUID(), fileName: `camera-page-${prev.length + 1}.jpg`, mimeType: 'image/jpeg' }]);
       setQualityError(null);
       trackEvent('scanner_capture', { count: captures.length + 1 });
     }
@@ -57,8 +69,6 @@ const Scanner = () => {
 
   const completeScan = async (hasEmergencySigns: boolean) => {
     if (captures.length === 0) return;
-    const primary = captures[captures.length - 1];
-    if (!primary) return;
 
     if (hasEmergencySigns) {
       setPossibleFindings([]);
@@ -71,49 +81,55 @@ const Scanner = () => {
       return;
     }
 
-    let quality;
-    try {
-      quality = await validateImageQuality(primary.dataUrl);
-    } catch (err) {
-      setQualityError(err instanceof Error ? err.message : 'Could not inspect image quality. Retake the image.');
-      setShowTriage(false);
-      trackEvent('scanner_quality_error');
-      return;
-    }
-
-    if (!quality.ok) {
-      setQualityError(quality.issues.join(' '));
-      setShowTriage(false);
-      trackEvent('scanner_quality_blocked', { score: quality.score, issues: quality.issues.length });
-      return;
+    for (const capture of captures.filter((item) => item.mimeType.startsWith('image/'))) {
+      try {
+        const quality = await validateImageQuality(capture.dataUrl);
+        if (!quality.ok) {
+          setQualityError(`${capture.fileName}: ${quality.issues.join(' ')}`);
+          setShowTriage(false);
+          trackEvent('scanner_quality_blocked', { score: quality.score, issues: quality.issues.length });
+          return;
+        }
+      } catch (err) {
+        setQualityError(err instanceof Error ? err.message : 'Could not inspect image quality.');
+        setShowTriage(false);
+        return;
+      }
     }
 
     if (isApiConfigured()) {
       setAnalyzing(true);
       setAnalysisError(null);
+      let ocrCompleted = false;
       try {
-        const result = await analyzeMedicalImage({
-          imageBase64: primary.dataUrl,
-          documentType: 'medical_document',
-          language,
-        });
-        if (result.possibleFindings.length > 0) setPossibleFindings(result.possibleFindings);
-        if (result.markers.length > 0) setMarkers(result.markers);
-        trackEvent('scanner_analysis_success', { possibleFindings: result.possibleFindings.length });
+        setProcessingStage('Extracting document text and handwriting...');
+        const pages: DocumentPageInput[] = captures.map((capture) => ({ id: capture.id, fileName: capture.fileName, mimeType: capture.mimeType, contentBase64: capture.dataUrl }));
+        const result = await transcribeMedicalDocument(pages, language);
+        setTranscription(result);
+        setPendingPages(pages);
+        setPendingDocumentType(documentType);
+        ocrCompleted = true;
+        trackEvent('scanner_ocr_success', { pages: pages.length, requiresReview: result.requiresReview });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Analysis failed. Using local data instead.';
         setAnalysisError(message);
         trackEvent('scanner_analysis_error', { message });
       } finally {
         setAnalyzing(false);
+        setProcessingStage(null);
       }
+      if (!ocrCompleted) { setShowTriage(false); return; }
+    } else {
+      setAnalysisError('The secure OCR backend is not configured. Your document was not uploaded.');
+      setShowTriage(false);
+      return;
     }
 
      setCaptures([]);
      setQualityError(null);
      setShowTriage(false);
      camera.stop();
-     void navigate('/analysis');
+     void navigate('/transcription-review');
   };
 
   const handleDone = async () => {
@@ -122,13 +138,15 @@ const Scanner = () => {
   };
 
   const handleGalleryUpload = async (file: File) => {
+    if (!ACCEPTED_TYPES.includes(file.type)) throw new Error(`${file.name}: unsupported file type.`);
+    if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name}: file is larger than 10 MB.`);
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsDataURL(file);
     });
-    setCaptures((prev) => [...prev, { dataUrl, blob: file }]);
+    setCaptures((prev) => [...prev, { id: crypto.randomUUID(), dataUrl, blob: file, fileName: file.name, mimeType: file.type }]);
     setQualityError(null);
     trackEvent('scanner_gallery_upload');
   };
@@ -161,7 +179,7 @@ const Scanner = () => {
             </div>
             <div className="text-center">
               <p className="text-lg font-bold">{t.analyzing}</p>
-              <p className="text-xs text-cameroon-yellow mt-1 tracking-widest">MedGemma AI</p>
+              <p className="text-xs text-cameroon-yellow mt-1 tracking-widest">{processingStage || 'Secure document processing'}</p>
             </div>
           </motion.div>
         )}
@@ -268,6 +286,27 @@ const Scanner = () => {
           </div>
         </div>
       )}
+
+      {captures.length > 0 && (
+        <aside className="absolute left-4 right-4 top-36 z-40 rounded-2xl bg-black/75 p-3 backdrop-blur-md" aria-label="Selected document pages">
+          <div className="mb-2 flex items-center justify-between text-xs font-bold"><span>{captures.length} page{captures.length === 1 ? '' : 's'} selected</span><button type="button" onClick={() => setCaptures([])} className="text-cameroon-yellow">Clear</button></div>
+          <div className="flex gap-2 overflow-x-auto">
+            {captures.map((capture, index) => <button type="button" key={capture.id} onClick={() => setCaptures((items) => items.filter((item) => item.id !== capture.id))} className="min-w-20 rounded-lg bg-white/10 p-2 text-left text-[10px]" aria-label={`Remove ${capture.fileName}`}><span className="block font-black">Page {index + 1}</span><span className="block truncate text-white/60">{capture.fileName}</span></button>)}
+          </div>
+        </aside>
+      )}
+
+      <label className="absolute left-4 top-24 z-40 rounded-xl bg-black/70 px-3 py-2 text-[10px] font-bold backdrop-blur-md">
+        Document type
+        <select value={documentType} onChange={(event) => setDocumentType(event.target.value as AnalyzeDocumentType)} className="ml-2 rounded-lg bg-white px-2 py-1 text-slate-900" aria-label="Document type">
+          <option value="medical_document">General medical document</option>
+          <option value="prescription">Prescription</option>
+          <option value="lab_result">Lab result</option>
+          <option value="rdt">Rapid diagnostic test</option>
+          <option value="xray">X-ray</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
 
       {/* Starting state */}
       {camera.isStarting && !camera.error && (
@@ -383,13 +422,14 @@ const Scanner = () => {
           <span className="text-[10px] text-white/60 font-bold uppercase tracking-wider">{t.gallery}</span>
            <input
              type="file"
-             accept="image/*"
+             accept="image/jpeg,image/png,image/webp,image/tiff,application/pdf,.pdf,.tif,.tiff"
+             multiple
              className="hidden"
              onChange={async (e) => {
-               const file = e.target.files?.[0];
-               if (file) {
-                 await handleGalleryUpload(file);
-               }
+               const files = Array.from(e.target.files ?? []);
+               if (captures.length + files.length > MAX_PAGES) { setQualityError(`A maximum of ${MAX_PAGES} pages can be processed at once.`); e.target.value = ''; return; }
+               if (captures.reduce((sum, item) => sum + item.blob.size, 0) + files.reduce((sum, file) => sum + file.size, 0) > MAX_TOTAL_BYTES) { setQualityError('The combined document is larger than 24 MB. Split it into smaller uploads.'); e.target.value = ''; return; }
+               try { for (const file of files) await handleGalleryUpload(file); } catch (error) { setQualityError(error instanceof Error ? error.message : 'Could not add document.'); }
                e.target.value = '';
              }}
            />

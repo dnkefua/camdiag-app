@@ -35,6 +35,19 @@ describe('useAppStore', () => {
     expect(state.patientRecords).toHaveLength(0);
   });
 
+  it('stores OCR transcription and pending document pages', () => {
+    const transcription = { documentId: 'doc-1', processorVersion: 'ocr-v2.1', requiresReview: true, pages: [] };
+    const pages = [{ id: 'page-1', fileName: 'rx.pdf', mimeType: 'application/pdf', contentBase64: 'data:application/pdf;base64,AA==' }];
+    useAppStore.getState().setTranscription(transcription);
+    useAppStore.getState().setPendingPages(pages);
+    useAppStore.getState().setPendingDocumentType('prescription');
+    expect(useAppStore.getState().transcription?.requiresReview).toBe(true);
+    expect(useAppStore.getState().pendingPages).toHaveLength(1);
+    expect(useAppStore.getState().pendingDocumentType).toBe('prescription');
+    useAppStore.getState().setTranscription(null);
+    useAppStore.getState().setPendingPages([]);
+  });
+
   it('can set possible findings', () => {
     const mockFindings = [
       {

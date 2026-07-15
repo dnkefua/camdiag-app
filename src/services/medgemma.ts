@@ -1,4 +1,4 @@
-import type { MedGemmaAnalysisRequest, MedGemmaAnalysisResponse, Language } from '../types';
+import type { DocumentPageInput, DocumentTranscription, MedGemmaAnalysisRequest, MedGemmaAnalysisResponse, Language } from '../types';
 import { getAuth } from 'firebase/auth';
 import { getAppCheckToken } from '../lib/firebase';
 
@@ -60,11 +60,22 @@ const callBackend = async <T>(endpoint: string, body: unknown): Promise<T> => {
 export const analyzeMedicalImage = async (request: MedGemmaAnalysisRequest): Promise<MedGemmaAnalysisResponse> => {
   return callBackend<MedGemmaAnalysisResponse>('analyze', {
     imageBase64: request.imageBase64,
+    pages: request.pages,
+    confirmedTranscription: request.confirmedTranscription,
     documentType: request.documentType,
     patientContext: request.patientContext,
     language: request.language === 'fr' ? 'fr' : 'en',
   });
 };
+
+export const transcribeMedicalDocument = async (
+  pages: DocumentPageInput[],
+  language: Language,
+): Promise<DocumentTranscription> => callBackend<DocumentTranscription>('transcribe', {
+  pages,
+  language: language === 'fr' ? 'fr' : 'en',
+  handwritingHint: true,
+});
 
 export const checkDrugInteractions = async (drugs: string[], language: Language): Promise<string> => {
   const backendResult = await callBackend<{ result: string }>('check-interactions', { drugs, language });
