@@ -74,9 +74,11 @@ Use a curated, de-identified dataset with documented source, quality, and clinic
 
 ## Pilot Readiness Checklist
 
-- [ ] Firebase App Check enabled in Firebase Console.
-- [ ] `APP_CHECK_ENFORCED=true` set for production Functions.
-- [ ] `CORS_ALLOWED_ORIGINS` matches final deployment domains.
+- [x] Firebase App Check registered and enforced for Firestore, Authentication, and Storage (2026-07-15).
+- [x] `APP_CHECK_ENFORCED=true` deployed to production Functions (2026-07-15).
+- [x] `CORS_ALLOWED_ORIGINS` matches current deployment domains.
+- [x] Enterprise Document OCR v2.1 processor created and runtime IAM granted.
+- [x] Firestore TTL is active for `audit_logs.expiresAt`.
 - [ ] Clinical consent copy approved by legal/clinical reviewer.
 - [ ] De-identified validation dataset prepared.
 - [ ] At least two licensed clinicians review validation outputs.
@@ -92,3 +94,5 @@ Record validation runs in this format:
 | Date | Build/Commit | Dataset Version | Reviewer | Result | Blocking Issues |
 | --- | --- | --- | --- | --- | --- |
 | TBD | TBD | TBD | TBD | TBD | TBD |
+
+No clinical accuracy result may be entered without a frozen, de-identified dataset manifest and signed reviewer records. Synthetic documents may be used for engineering tests but cannot satisfy clinical validation.
