@@ -56,4 +56,8 @@ app.use('*', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-export const api = onRequest({ maxInstances: 10 }, app);
+export const api = onRequest({
+  maxInstances: 10,
+  memory: '1GiB',
+  timeoutSeconds: 120,
+}, app);

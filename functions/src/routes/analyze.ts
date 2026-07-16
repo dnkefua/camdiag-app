@@ -79,7 +79,7 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE, { failOpen: 
       request: {
         language,
         documentType: parsed.data.documentType,
-        pageCount: parsed.data.pages?.length ?? 1,
+        pageCount: parsed.data.pages?.length ?? 0,
         hasConfirmedTranscription: Boolean(parsed.data.confirmedTranscription),
         hasPatientContext: Boolean(parsed.data.patientContext),
       },

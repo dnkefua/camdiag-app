@@ -23,8 +23,8 @@ const DiagnosticHub = () => {
   };
 
   return (
-    <motion.div key="hub" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }}>
-      <div className="bg-cameroon-ivory text-cameroon-night font-sans h-[100svh] h-[100dvh] flex flex-col overflow-hidden">
+    <motion.div key="hub" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3 }} className="h-[100svh] h-[100dvh] overflow-hidden">
+      <div className="bg-cameroon-ivory text-cameroon-night font-sans flex h-full min-h-0 flex-col overflow-hidden">
         {/* Cameroon flag accent strip */}
         <div className="h-1 bg-cameroon-flag" />
 
@@ -55,7 +55,7 @@ const DiagnosticHub = () => {
           </div>
         )}
 
-        <main aria-labelledby="hub-heading" className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-6 sm:space-y-8 pb-32">
+        <main aria-labelledby="hub-heading" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-5 space-y-6 sm:space-y-8 pb-32">
           <section className="space-y-1">
             <p className="text-cameroon-green/70 font-semibold uppercase tracking-wider text-xs">{t.hub_greeting}</p>
             <h2 id="hub-heading" className="text-3xl font-black text-cameroon-night font-display">{t.hub_title}</h2>

@@ -32,7 +32,11 @@ export const AnalyzeRequestBody = z.object({
   language: BackendLanguage.default('en'),
   documentType: DocumentType.default('medical_document'),
   patientContext: PatientContext.optional(),
-}).strict().refine((value) => Boolean(value.imageBase64 || value.pages?.length), 'Document data is required');
+}).strict().refine((value) => Boolean(
+  value.imageBase64 ||
+  value.pages?.length ||
+  value.confirmedTranscription?.trim(),
+), 'Document data or confirmed transcription is required');
 
 export type AnalyzeRequestBody = z.infer<typeof AnalyzeRequestBody>;
 

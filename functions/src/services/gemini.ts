@@ -264,9 +264,15 @@ Use only marker ids in each possibleFinding.markers that also appear in the top-
 };
 
 export async function analyzeImage(request: AnalyzeRequestBody) {
-  const documentParts = request.pages?.map((page) => ({
-    inlineData: { mimeType: page.mimeType, data: getBase64Data(page.contentBase64) },
-  })) ?? [{ inlineData: { mimeType: getMimeType(request.imageBase64 ?? ''), data: getBase64Data(request.imageBase64 ?? '') } }];
+  const documentParts = [
+    ...(request.pages?.map((page) => ({
+      inlineData: { mimeType: page.mimeType, data: getBase64Data(page.contentBase64) },
+    })) ?? []),
+    ...(request.imageBase64
+      ? [{ inlineData: { mimeType: getMimeType(request.imageBase64), data: getBase64Data(request.imageBase64) } }]
+      : []),
+  ];
+
   return callVertex([
     ...documentParts,
     {

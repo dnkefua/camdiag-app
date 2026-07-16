@@ -68,7 +68,7 @@ const Scanner = () => {
   };
 
   const completeScan = async (hasEmergencySigns: boolean) => {
-    if (captures.length === 0) return;
+    if (captures.length === 0 || isAnalyzing || processingStage) return;
 
     if (hasEmergencySigns) {
       setPossibleFindings([]);
@@ -215,16 +215,18 @@ const Scanner = () => {
                 <button
                   type="button"
                   onClick={() => void completeScan(true)}
-                  className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white active:scale-[0.98]"
+                  disabled={isAnalyzing || Boolean(processingStage)}
+                  className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white active:scale-[0.98] disabled:opacity-50"
                 >
                   Yes, seek urgent care
                 </button>
                 <button
                   type="button"
                   onClick={() => void completeScan(false)}
-                  className="w-full rounded-xl bg-cameroon-green px-4 py-3 text-sm font-black text-white active:scale-[0.98]"
+                  disabled={isAnalyzing || Boolean(processingStage)}
+                  className="w-full rounded-xl bg-cameroon-green px-4 py-3 text-sm font-black text-white active:scale-[0.98] disabled:opacity-50"
                 >
-                  No emergency signs
+                  {isAnalyzing || processingStage ? 'Processing document...' : 'No emergency signs'}
                 </button>
                 <button
                   type="button"
