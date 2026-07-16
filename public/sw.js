@@ -1,6 +1,5 @@
-const CACHE_NAME = 'camdiag-v1';
+const CACHE_NAME = 'camdiag-shell-v2';
 const STATIC_ASSETS = [
-  '/',
   '/index.html',
   '/brand/camdiag-logo.png',
   '/brand/camdiag-logo-animation.mp4',
@@ -15,11 +14,19 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+    (async () => {
+      const keys = await caches.keys();
+      const isUpgrade = keys.some((key) => key.startsWith('camdiag-') && key !== CACHE_NAME);
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      await self.clients.claim();
+
+      // Existing v1 clients cannot hear the new update event, so refresh them once.
+      if (isUpgrade) {
+        const clients = await self.clients.matchAll({ type: 'window' });
+        await Promise.allSettled(clients.map((client) => client.navigate(client.url)));
+      }
+    })()
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -28,27 +35,46 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (url.origin !== self.location.origin) return;
+  if (url.pathname === '/sw.js') return;
 
-  if (url.pathname.startsWith('/api') || url.hostname.includes('googleapis')) {
+  if (url.pathname.startsWith('/api')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
+      (async () => {
+        try {
+          const response = await fetch(event.request, { cache: 'no-store' });
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put('/index.html', response.clone());
+          }
+          return response;
+        } catch {
+          return (await caches.match('/index.html')) || new Response('Offline', { status: 503 });
+        }
+      })()
     );
     return;
   }
 
+  const fetched = fetch(event.request).then(async (response) => {
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(event.request, response.clone());
+    }
+    return response;
+  });
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const fetched = fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached || new Response('Offline', { status: 503 }));
-
-      return cached || fetched;
+      if (cached) {
+        event.waitUntil(fetched.catch(() => undefined));
+        return cached;
+      }
+      return fetched.catch(() => new Response('Offline', { status: 503 }));
     })
   );
 });
