@@ -1,4 +1,4 @@
-const CACHE_NAME = 'camdiag-shell-v2';
+const CACHE_NAME = 'camdiag-shell-v3';
 const STATIC_ASSETS = [
   '/index.html',
   '/brand/camdiag-logo.png',
@@ -23,7 +23,9 @@ self.addEventListener('activate', (event) => {
       // Existing v1 clients cannot hear the new update event, so refresh them once.
       if (isUpgrade) {
         const clients = await self.clients.matchAll({ type: 'window' });
-        await Promise.allSettled(clients.map((client) => client.navigate(client.url)));
+        clients.forEach((client) => {
+          client.navigate(client.url).catch(() => undefined);
+        });
       }
     })()
   );
