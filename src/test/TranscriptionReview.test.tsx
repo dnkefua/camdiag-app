@@ -1,30 +1,59 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { TranslationProvider } from '../hooks/useTranslation';
+import { useAppStore } from '../store/useAppStore';
 import TranscriptionReview from '../components/TranscriptionReview';
 
 const mocks = vi.hoisted(() => ({
   analyze: vi.fn(),
-  navigate: vi.fn(),
-  setAnalysisResult: vi.fn(),
-  setAnalysisError: vi.fn(),
-  setAnalyzing: vi.fn(),
-  setPendingPages: vi.fn(),
-  setTranscription: vi.fn(),
+  saveScanResult: vi.fn(),
 }));
-
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>();
-  return { ...actual, useNavigate: () => mocks.navigate };
-});
 
 vi.mock('../services/medgemma', () => ({
   analyzeMedicalImage: mocks.analyze,
 }));
 
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
+vi.mock('../services/firestore', () => ({
+  saveScanResult: mocks.saveScanResult,
+}));
+
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { uid: 'user-1' } }),
+}));
+
+const result = {
+  urgency: 'same_day' as const,
+  possibleFindings: [{
+    name: 'Anaemia pattern',
+    likelihood: 'moderate' as const,
+    observedEvidence: ['Haemoglobin 8.2 g/dL'],
+    markers: ['haemoglobin'],
+    medicationSafetyNotes: ['Treatment depends on confirmation of the cause.'],
+    traditionalRemedyWarnings: [],
+    reasoning: 'The haemoglobin result is below the stated reference range.',
+    recommendedNextSteps: ['Arrange clinician review.'],
+    clinicianReviewRequired: true as const,
+  }],
+  markers: [{
+    id: 'haemoglobin',
+    label: 'Haemoglobin',
+    value: '8.2 g/dL',
+    status: 'abnormal' as const,
+    color: 'orange' as const,
+  }],
+  contraindications: [],
+  limitations: ['Symptoms were not provided.'],
+  disclaimer: 'This is not a diagnosis or prescription.',
+  provenance: {
+    model: 'Vertex AI Gemini',
+    promptVersion: 'clinical-document-v3',
+    analyzedAt: '2026-07-17T05:47:43.000Z',
+  },
+};
+
+const setLongReport = () => {
+  useAppStore.setState({
     transcription: {
       documentId: 'long-lab-report',
       processorVersion: 'ocr-v2.1',
@@ -45,43 +74,29 @@ vi.mock('../store/useAppStore', () => ({
     }],
     pendingDocumentType: 'lab_result',
     analysisError: null,
-    setAnalysisResult: mocks.setAnalysisResult,
-    setAnalysisError: mocks.setAnalysisError,
-    setAnalyzing: mocks.setAnalyzing,
-    setPendingPages: mocks.setPendingPages,
-    setTranscription: mocks.setTranscription,
-  }),
-}));
-
-const result = {
-  urgency: 'same_day',
-  possibleFindings: [{
-    name: 'Anaemia pattern',
-    likelihood: 'moderate',
-    observedEvidence: ['Haemoglobin 8.2 g/dL'],
-    markers: ['haemoglobin'],
-    medicationSafetyNotes: ['Treatment depends on confirmation of the cause.'],
-    traditionalRemedyWarnings: [],
-    reasoning: 'The haemoglobin result is below the stated reference range.',
-    recommendedNextSteps: ['Arrange clinician review.'],
-    clinicianReviewRequired: true,
-  }],
-  markers: [{ id: 'haemoglobin', label: 'Haemoglobin', value: '8.2 g/dL', status: 'abnormal', color: 'orange' }],
-  contraindications: [],
-  limitations: ['Symptoms were not provided.'],
-  disclaimer: 'This is not a diagnosis or prescription.',
+  });
 };
 
 const renderReview = () => render(
-  <MemoryRouter>
-    <TranslationProvider><TranscriptionReview /></TranslationProvider>
+  <MemoryRouter initialEntries={['/transcription-review']}>
+    <TranslationProvider>
+      <Routes>
+        <Route path="/transcription-review" element={<TranscriptionReview />} />
+        <Route path="/analysis" element={<div>Interpretation screen</div>} />
+        <Route path="/scanner" element={<div>Scanner screen</div>} />
+      </Routes>
+    </TranslationProvider>
   </MemoryRouter>,
 );
 
 describe('TranscriptionReview', () => {
   beforeEach(() => {
-    Object.values(mocks).forEach((mock) => mock.mockClear());
+    mocks.analyze.mockReset();
+    mocks.saveScanResult.mockReset();
     mocks.analyze.mockResolvedValue(result);
+    mocks.saveScanResult.mockResolvedValue('user-1_long-lab-report');
+    useAppStore.getState().resetAnalysis();
+    setLongReport();
   });
 
   it('keeps the interpretation action outside the long scrolling report', () => {
@@ -94,16 +109,25 @@ describe('TranscriptionReview', () => {
     expect(button).toBeEnabled();
   });
 
-  it('submits the confirmed transcription and opens the interpretation', async () => {
+  it('opens the interpretation without its guard redirecting back to Scanner', async () => {
     renderReview();
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /interpret report now/i }));
 
-    await waitFor(() => expect(mocks.setAnalysisResult).toHaveBeenCalledWith(result));
+    expect(await screen.findByText('Interpretation screen')).toBeInTheDocument();
+    expect(screen.queryByText('Scanner screen')).not.toBeInTheDocument();
+    expect(useAppStore.getState().possibleFindings[0]?.name).toBe('Anaemia pattern');
     expect(mocks.analyze).toHaveBeenCalledWith(expect.objectContaining({
       documentType: 'lab_result',
       confirmedTranscription: expect.stringContaining('Haemoglobin 8.2 g/dL'),
     }));
-    expect(mocks.navigate).toHaveBeenCalledWith('/analysis');
+    await waitFor(() => expect(mocks.saveScanResult).toHaveBeenCalledWith(
+      'user-1_long-lab-report',
+      expect.objectContaining({
+        title: 'Anaemia pattern',
+        type: 'lab_result',
+        aiResponse: expect.stringContaining('Anaemia pattern'),
+      }),
+    ));
   });
 });

@@ -190,5 +190,12 @@ test.describe('Mobile clinical interpretation', () => {
     });
     await page.goto('/analysis');
     await expect(page.getByText('Anaemia pattern').first()).toBeVisible();
+
+    await page.goto('/app');
+    const recentResult = page.getByRole('button', { name: /Anaemia pattern/i });
+    await expect(recentResult).toBeVisible();
+    await recentResult.click();
+    await expect(page).toHaveURL(/\/analysis$/);
+    await expect(page.getByText('Anaemia pattern').first()).toBeVisible();
   });
 });

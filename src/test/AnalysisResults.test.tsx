@@ -73,6 +73,8 @@ vi.mock('../store/useAppStore', () => ({
     setAnalysisError: vi.fn(),
     isAnalyzing: false,
     addPatientRecord: vi.fn(),
+    setPendingPages: vi.fn(),
+    setTranscription: vi.fn(),
   })),
 }));
 

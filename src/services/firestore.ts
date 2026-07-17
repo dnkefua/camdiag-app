@@ -96,9 +96,9 @@ export interface FirestoreScanResult {
 }
 
 export const getScanResults = async (userId: string): Promise<FirestoreScanResult[]> => {
-  const q = query(collection(db, 'scans'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'scans'), where('userId', '==', userId));
   const snapshot = await safeGetDocs(q);
-  return snapshot.docs.map((d) => {
+  const results = snapshot.docs.map((d) => {
     const data = d.data() as Record<string, unknown>;
     return {
       id: d.id,
@@ -112,10 +112,34 @@ export const getScanResults = async (userId: string): Promise<FirestoreScanResul
       createdAt: data.createdAt,
     } as FirestoreScanResult;
   });
+
+  return results.sort((left, right) => {
+    const toMillis = (value: unknown): number => {
+      if (value && typeof value === 'object' && 'toMillis' in value) {
+        const candidate = (value as { toMillis?: unknown }).toMillis;
+        if (typeof candidate === 'function') return candidate.call(value) as number;
+      }
+      return 0;
+    };
+    return toMillis(right.createdAt) - toMillis(left.createdAt);
+  });
 };
 
 export const addScanResult = async (scan: Omit<FirestoreScanResult, 'id' | 'createdAt'>): Promise<string> => {
   return safeAddDoc(collection(db, 'scans'), { ...scan, createdAt: serverTimestamp() } as unknown as Record<string, unknown>);
+};
+
+export const saveScanResult = async (
+  scanId: string,
+  scan: Omit<FirestoreScanResult, 'id' | 'createdAt'>,
+): Promise<string> => {
+  try {
+    await setDoc(doc(db, 'scans', scanId), { ...scan, createdAt: serverTimestamp() });
+    return scanId;
+  } catch (err) {
+    console.error('[CamDiag] Firestore scan save failed:', err);
+    throw new Error('Failed to save analysis history.');
+  }
 };
 
 // ---- Blog Posts ----

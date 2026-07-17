@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
@@ -53,6 +53,8 @@ const AnalysisResults = () => {
     setAnalysisError,
     isAnalyzing,
     addPatientRecord,
+    setPendingPages,
+    setTranscription,
   } = useAppStore();
   const [selectedReportIndex, setSelectedReportIndex] = useState(selectedFinding);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -62,6 +64,11 @@ const AnalysisResults = () => {
   const isAiEnabled = isApiConfigured();
   const selectedReport = possibleFindings[selectedReportIndex];
   const urgencyContent = URGENCY_CONTENT[analysisUrgency];
+
+  useEffect(() => {
+    setPendingPages([]);
+    setTranscription(null);
+  }, [setPendingPages, setTranscription]);
 
   const handleSaveToRecords = async () => {
     if (!selectedReport || !user?.uid || saveState === 'saving') return;

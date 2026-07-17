@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { analyzeMedicalImage } from '../services/medgemma';
+import { saveScanResult } from '../services/firestore';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../contexts/AuthContext';
 import { AlertIcon, BackIcon, CheckIcon } from './ui/Icons';
 
 const TranscriptionReview = () => {
   const navigate = useNavigate();
   const { language } = useTranslation();
+  const { user } = useAuth();
   const {
     transcription,
     pendingPages,
@@ -16,8 +19,6 @@ const TranscriptionReview = () => {
     analysisError,
     setAnalysisError,
     setAnalyzing,
-    setPendingPages,
-    setTranscription,
   } = useAppStore();
   const [texts, setTexts] = useState(() => transcription?.pages.map((page) => page.text) ?? []);
   const [confirmed, setConfirmed] = useState(false);
@@ -38,9 +39,30 @@ const TranscriptionReview = () => {
       const confirmedTranscription = texts.map((text, index) => `[Page ${index + 1}]\n${text}`).join('\n\n');
       const result = await analyzeMedicalImage({ confirmedTranscription, documentType: pendingDocumentType, language });
       setAnalysisResult(result);
-      setPendingPages([]);
-      setTranscription(null);
       void navigate('/analysis');
+
+      if (user?.uid) {
+        const analyzedAt = result.provenance?.analyzedAt ?? new Date().toISOString();
+        const scanId = `${user.uid}_${transcription.documentId}`
+          .replace(/[^a-zA-Z0-9_-]/g, '_')
+          .slice(0, 500);
+        void saveScanResult(scanId, {
+          userId: user.uid,
+          title: result.possibleFindings[0]?.name ?? 'Clinical interpretation',
+          date: new Date(analyzedAt).toLocaleString(),
+          match: result.urgency === 'same_day'
+            ? 'Same-day review'
+            : result.urgency === 'emergency'
+              ? 'Emergency review'
+              : result.urgency === 'routine'
+                ? 'Routine review'
+                : 'Clinical review',
+          type: pendingDocumentType,
+          aiResponse: JSON.stringify(result),
+        }).catch((error) => {
+          console.error('[CamDiag] Analysis history save failed:', error);
+        });
+      }
     } catch (error) {
       setAnalysisError(error instanceof Error ? error.message : 'Clinical analysis failed.');
     } finally {
