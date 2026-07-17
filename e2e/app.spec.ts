@@ -108,3 +108,87 @@ test.describe('Accessibility', () => {
     await expect(headings.first()).toBeVisible({ timeout: 10000 });
   });
 });
+
+test.describe('Mobile clinical interpretation', () => {
+  test.use({ viewport: { width: 360, height: 800 } });
+
+  test('keeps long-report interpretation controls visible and preserves the result on reload', async ({ page }) => {
+    await gotoReady(page, '/app', true);
+    await page.evaluate(async () => {
+      const moduleUrl = '/src/store/useAppStore.ts';
+      const { useAppStore } = await import(moduleUrl);
+      useAppStore.setState({
+        transcription: {
+          documentId: 'mobile-long-report',
+          processorVersion: 'ocr-v2.1',
+          requiresReview: true,
+          pages: [{
+            pageNumber: 1,
+            text: 'Haemoglobin 8.2 g/dL\n'.repeat(300),
+            confidence: 0.82,
+            qualityReasons: ['low confidence text'],
+            tokens: [{ pageNumber: 1, text: '8.2', confidence: 0.72, handwritten: false }],
+          }],
+        },
+        pendingPages: [{
+          id: 'page-1',
+          fileName: 'lab-report.pdf',
+          mimeType: 'application/pdf',
+          contentBase64: 'data:application/pdf;base64,AA==',
+        }],
+        pendingDocumentType: 'lab_result',
+      });
+      window.history.pushState({}, '', '/transcription-review');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    const interpretButton = page.getByRole('button', { name: /interpret report now/i });
+    await expect(interpretButton).toBeVisible();
+    const layout = await page.locator('main, footer').evaluateAll((elements) => {
+      const [main, footer] = elements;
+      const footerBox = footer.getBoundingClientRect();
+      return {
+        mainScrolls: main.scrollHeight > main.clientHeight,
+        footerTop: footerBox.top,
+        footerBottom: footerBox.bottom,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(layout.mainScrolls).toBe(true);
+    expect(layout.footerTop).toBeGreaterThan(0);
+    expect(layout.footerBottom).toBeLessThanOrEqual(layout.viewportHeight);
+    await page.getByRole('checkbox', { name: /I reviewed the transcription/i }).check();
+    await expect(interpretButton).toBeEnabled();
+
+    await page.evaluate(async () => {
+      const moduleUrl = '/src/store/useAppStore.ts';
+      const { useAppStore } = await import(moduleUrl);
+      useAppStore.getState().setAnalysisResult({
+        urgency: 'same_day',
+        possibleFindings: [{
+          name: 'Anaemia pattern',
+          likelihood: 'moderate',
+          observedEvidence: ['Haemoglobin 8.2 g/dL'],
+          markers: ['haemoglobin'],
+          medicationSafetyNotes: ['Treatment depends on confirmation of the cause.'],
+          traditionalRemedyWarnings: [],
+          reasoning: 'The haemoglobin result is below the stated reference range.',
+          recommendedNextSteps: ['Arrange clinician review.'],
+          clinicianReviewRequired: true,
+        }],
+        markers: [{
+          id: 'haemoglobin',
+          label: 'Haemoglobin',
+          value: '8.2 g/dL',
+          status: 'abnormal',
+          color: 'orange',
+        }],
+        contraindications: [],
+        limitations: ['Symptoms were not provided.'],
+        disclaimer: 'This is not a diagnosis or prescription.',
+      });
+    });
+    await page.goto('/analysis');
+    await expect(page.getByText('Anaemia pattern').first()).toBeVisible();
+  });
+});

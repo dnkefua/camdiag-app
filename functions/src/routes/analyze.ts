@@ -227,6 +227,15 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE, { failOpen: 
         analyzedAt: new Date().toISOString(),
       },
     };
+    const hasInterpretation = validated.possibleFindings.length > 0 || validated.markers.length > 0;
+    const medicationNoteCount = validated.possibleFindings.reduce(
+      (total, finding) => total + finding.medicationSafetyNotes.length,
+      0,
+    );
+    const nextStepCount = validated.possibleFindings.reduce(
+      (total, finding) => total + finding.recommendedNextSteps.length,
+      0,
+    );
 
     await writeAuditLog({
       uid: req.uid!,
@@ -238,9 +247,20 @@ router.post('/analyze', verifyAuth, rateLimiter(RATE_LIMIT.ANALYZE, { failOpen: 
         hasConfirmedTranscription: Boolean(parsed.data.confirmedTranscription),
         hasPatientContext: Boolean(parsed.data.patientContext),
       },
-      responsePreview: JSON.stringify({ urgency: validated.urgency, findingCount: validated.possibleFindings.length, markerCount: validated.markers.length, limitationCount: validated.limitations.length }),
-      success: !recovered,
-      error: recovered ? 'AI returned incomplete structured JSON; recovery response served.' : undefined,
+      responsePreview: JSON.stringify({
+        urgency: validated.urgency,
+        findingCount: validated.possibleFindings.length,
+        markerCount: validated.markers.length,
+        medicationNoteCount,
+        contraindicationCount: validated.contraindications.length,
+        nextStepCount,
+        limitationCount: validated.limitations.length,
+        normalized: recovered,
+      }),
+      success: hasInterpretation,
+      error: hasInterpretation
+        ? undefined
+        : 'AI output could not be converted into a clinical interpretation.',
     });
 
     res.json(validated);

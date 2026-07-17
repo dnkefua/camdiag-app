@@ -13,6 +13,49 @@ import type {
   MedGemmaAnalysisResponse,
 } from '../types';
 
+const ACTIVE_ANALYSIS_KEY = 'camdiag_active_analysis_v1';
+
+const readActiveAnalysis = (): MedGemmaAnalysisResponse | undefined => {
+  if (typeof window === 'undefined') return undefined;
+
+  try {
+    const raw = window.sessionStorage.getItem(ACTIVE_ANALYSIS_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Partial<MedGemmaAnalysisResponse>;
+    if (
+      !['emergency', 'same_day', 'routine', 'unknown'].includes(parsed.urgency ?? '')
+      || !Array.isArray(parsed.possibleFindings)
+      || !Array.isArray(parsed.markers)
+      || !Array.isArray(parsed.contraindications)
+      || !Array.isArray(parsed.limitations)
+      || typeof parsed.disclaimer !== 'string'
+    ) return undefined;
+    return parsed as MedGemmaAnalysisResponse;
+  } catch {
+    return undefined;
+  }
+};
+
+const saveActiveAnalysis = (result: MedGemmaAnalysisResponse): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(ACTIVE_ANALYSIS_KEY, JSON.stringify(result));
+  } catch {
+    // The in-memory result remains available when browser storage is unavailable.
+  }
+};
+
+const clearActiveAnalysis = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(ACTIVE_ANALYSIS_KEY);
+  } catch {
+    // Ignore restricted browser storage.
+  }
+};
+
+const initialAnalysis = readActiveAnalysis();
+
 interface AppState {
   selectedFinding: number;
   scanCount: number;
@@ -53,13 +96,13 @@ export const useAppStore = create<AppState>((set) => ({
   scanCount: 0,
   isAnalyzing: false,
   analysisError: null,
-  analysisUrgency: 'unknown',
-  contraindications: [],
-  analysisLimitations: [],
-  analysisDisclaimer: '',
-  analysisProvenance: undefined,
-  possibleFindings: [],
-  markers: [],
+  analysisUrgency: initialAnalysis?.urgency ?? 'unknown',
+  contraindications: initialAnalysis?.contraindications ?? [],
+  analysisLimitations: initialAnalysis?.limitations ?? [],
+  analysisDisclaimer: initialAnalysis?.disclaimer ?? '',
+  analysisProvenance: initialAnalysis?.provenance,
+  possibleFindings: initialAnalysis?.possibleFindings ?? [],
+  markers: initialAnalysis?.markers ?? [],
   transcription: null,
   pendingPages: [],
   pendingDocumentType: 'medical_document',
@@ -71,28 +114,34 @@ export const useAppStore = create<AppState>((set) => ({
   resetScanCount: () => set({ scanCount: 0 }),
   setPossibleFindings: (possibleFindings) => set({ possibleFindings }),
   setMarkers: (markers) => set({ markers }),
-  setAnalysisResult: (result) => set({
-    possibleFindings: result.possibleFindings,
-    markers: result.markers,
-    analysisUrgency: result.urgency,
-    contraindications: result.contraindications,
-    analysisLimitations: result.limitations,
-    analysisDisclaimer: result.disclaimer,
-    analysisProvenance: result.provenance,
-    analysisError: null,
-    selectedFinding: 0,
-  }),
-  resetAnalysis: () => set({
-    possibleFindings: [],
-    markers: [],
-    analysisUrgency: 'unknown',
-    contraindications: [],
-    analysisLimitations: [],
-    analysisDisclaimer: '',
-    analysisProvenance: undefined,
-    analysisError: null,
-    selectedFinding: 0,
-  }),
+  setAnalysisResult: (result) => {
+    saveActiveAnalysis(result);
+    set({
+      possibleFindings: result.possibleFindings,
+      markers: result.markers,
+      analysisUrgency: result.urgency,
+      contraindications: result.contraindications,
+      analysisLimitations: result.limitations,
+      analysisDisclaimer: result.disclaimer,
+      analysisProvenance: result.provenance,
+      analysisError: null,
+      selectedFinding: 0,
+    });
+  },
+  resetAnalysis: () => {
+    clearActiveAnalysis();
+    set({
+      possibleFindings: [],
+      markers: [],
+      analysisUrgency: 'unknown',
+      contraindications: [],
+      analysisLimitations: [],
+      analysisDisclaimer: '',
+      analysisProvenance: undefined,
+      analysisError: null,
+      selectedFinding: 0,
+    });
+  },
   setTranscription: (transcription) => set({ transcription }),
   setPendingPages: (pendingPages) => set({ pendingPages }),
   setPendingDocumentType: (pendingDocumentType) => set({ pendingDocumentType }),

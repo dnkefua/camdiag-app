@@ -11,6 +11,7 @@ import {
   confirmPhoneCode as firebaseConfirmPhoneCode,
   onAuthChange,
 } from '../services/auth';
+import { useAppStore } from '../store/useAppStore';
 
 interface AuthContextValue {
   user: AppUser | null;
@@ -93,6 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await firebaseLogout();
+    useAppStore.getState().resetAnalysis();
     setUser(null);
   };
 

@@ -66,7 +66,7 @@ const TranscriptionReview = () => {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-4 pb-8 sm:px-4">
+      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-4 sm:px-4">
         <div className="mx-auto w-full max-w-2xl space-y-4">
           <section className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex min-w-0 items-start gap-3">
@@ -128,44 +128,43 @@ const TranscriptionReview = () => {
             </section>
           ))}
 
-          <label className="flex w-full items-start gap-3 rounded-2xl border-2 border-cameroon-green bg-green-50 p-4">
-            <input
-              type="checkbox"
-              checked={confirmed}
-              onChange={(event) => setConfirmed(event.target.checked)}
-              className="mt-1 h-5 w-5 shrink-0"
-            />
-            <span className="min-w-0 break-words text-sm font-bold leading-relaxed text-green-900">
-              I compared the transcription with the source and corrected or marked all clinically important uncertain text.
-            </span>
-          </label>
-
-          {analysisError && (
-            <section role="alert" className="w-full rounded-xl border border-red-300 bg-red-50 p-4">
-              <div className="flex items-start gap-3">
-                <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
-                <div className="min-w-0">
-                  <h2 className="font-black text-red-900">Clinical interpretation did not complete</h2>
-                  <p className="mt-1 break-words text-sm leading-relaxed text-red-800">{analysisError}</p>
-                  <p className="mt-2 text-xs font-semibold text-red-700">Your verified transcription is still here. Tap the button below to retry.</p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <button
-            type="button"
-            disabled={!confirmed || submitting}
-            onClick={() => void submit()}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-cameroon-green px-4 py-4 font-black text-white disabled:opacity-40"
-          >
-            <CheckIcon />
-            <span className="min-w-0 break-words">
-              {submitting ? 'Analyzing verified document...' : 'Confirm and run clinical analysis'}
-            </span>
-          </button>
         </div>
       </main>
+
+      <footer className="safe-area-bottom z-20 shrink-0 border-t border-slate-200 bg-white px-3 py-3 shadow-[0_-6px_18px_rgba(15,23,42,0.08)] sm:px-4">
+        <div className="mx-auto w-full max-w-2xl space-y-2">
+          {analysisError && (
+            <div role="alert" className="max-h-24 overflow-y-auto rounded-lg border border-red-300 bg-red-50 px-3 py-2">
+              <p className="text-xs font-black text-red-900">Interpretation did not complete</p>
+              <p className="mt-0.5 break-words text-xs leading-relaxed text-red-800">{analysisError} Your transcription is still available to retry.</p>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg border border-cameroon-green bg-green-50 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0"
+              />
+              <span className="min-w-0 break-words text-xs font-bold leading-relaxed text-green-900">
+                I reviewed the transcription and corrected or marked clinically important uncertain text.
+              </span>
+            </label>
+
+            <button
+              type="button"
+              disabled={!confirmed || submitting}
+              onClick={() => void submit()}
+              className="flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-cameroon-green px-5 py-3 text-sm font-black text-white shadow-sm disabled:bg-slate-300 disabled:text-slate-600 sm:w-auto"
+            >
+              <CheckIcon />
+              <span>{submitting ? 'Interpreting report...' : 'Interpret report now'}</span>
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
