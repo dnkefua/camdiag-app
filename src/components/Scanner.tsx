@@ -21,8 +21,7 @@ const Scanner = () => {
   const navigate = useNavigate();
   const { t, language } = useTranslation();
   const {
-    setPossibleFindings,
-    setMarkers,
+    resetAnalysis,
     setAnalyzing,
     setAnalysisError,
     setTranscription,
@@ -71,8 +70,7 @@ const Scanner = () => {
     if (captures.length === 0 || isAnalyzing || processingStage) return;
 
     if (hasEmergencySigns) {
-      setPossibleFindings([]);
-      setMarkers([]);
+      resetAnalysis();
       setAnalysisError('Emergency warning signs reported. Do not use AI analysis. Seek urgent medical care now.');
       setCaptures([]);
       setShowTriage(false);
@@ -98,8 +96,8 @@ const Scanner = () => {
     }
 
     if (isApiConfigured()) {
+      resetAnalysis();
       setAnalyzing(true);
-      setAnalysisError(null);
       let ocrCompleted = false;
       try {
         setProcessingStage('Extracting document text and handwriting...');

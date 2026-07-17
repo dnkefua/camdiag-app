@@ -7,13 +7,53 @@ import { checkLocalContraindications } from '../services/api';
 import { isApiConfigured } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { addPatientRecord as savePatientRecord } from '../services/firestore';
-import { BackIcon, ArrowRightIcon, DocumentIcon, AlertIcon, DownloadIcon, UserIcon, HomeIcon } from '../components/ui/Icons';
+import { BackIcon, ArrowRightIcon, DocumentIcon, AlertIcon, DownloadIcon, UserIcon, HomeIcon, MapPinIcon, RemedyIcon } from '../components/ui/Icons';
+
+const URGENCY_CONTENT = {
+  emergency: {
+    title: 'Emergency review recommended',
+    message: 'The report may contain a critical finding. Seek emergency medical assessment now, especially if severe symptoms are present.',
+    className: 'border-red-500 bg-red-50 text-red-800',
+    iconClassName: 'bg-red-600',
+  },
+  same_day: {
+    title: 'Same-day clinical review recommended',
+    message: 'Arrange review by a qualified healthcare professional today and take the original report with you.',
+    className: 'border-amber-400 bg-amber-50 text-amber-900',
+    iconClassName: 'bg-amber-600',
+  },
+  routine: {
+    title: 'Routine clinical follow-up',
+    message: 'Discuss these findings with a qualified healthcare professional who can relate them to symptoms and medical history.',
+    className: 'border-emerald-400 bg-emerald-50 text-emerald-900',
+    iconClassName: 'bg-emerald-700',
+  },
+  unknown: {
+    title: 'Clinical review required',
+    message: 'Urgency could not be established from the report alone. Seek prompt care if symptoms are worsening or severe.',
+    className: 'border-slate-300 bg-white text-slate-800',
+    iconClassName: 'bg-slate-700',
+  },
+} as const;
 
 const AnalysisResults = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { possibleFindings, markers, selectedFinding, setSelectedFinding, analysisError, setAnalysisError, isAnalyzing, addPatientRecord } = useAppStore();
+  const {
+    possibleFindings,
+    markers,
+    analysisUrgency,
+    contraindications,
+    analysisLimitations,
+    analysisDisclaimer,
+    selectedFinding,
+    setSelectedFinding,
+    analysisError,
+    setAnalysisError,
+    isAnalyzing,
+    addPatientRecord,
+  } = useAppStore();
   const [selectedReportIndex, setSelectedReportIndex] = useState(selectedFinding);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -21,6 +61,7 @@ const AnalysisResults = () => {
   const safetyRisk = checkLocalContraindications(possibleFindings);
   const isAiEnabled = isApiConfigured();
   const selectedReport = possibleFindings[selectedReportIndex];
+  const urgencyContent = URGENCY_CONTENT[analysisUrgency];
 
   const handleSaveToRecords = async () => {
     if (!selectedReport || !user?.uid || saveState === 'saving') return;
@@ -104,13 +145,13 @@ const AnalysisResults = () => {
       >
         <h2 id="analysis-heading" className="sr-only">{t.analysis_title}</h2>
 
-        <section className="bg-red-50 border-2 border-red-500 rounded-3xl p-4 flex items-start gap-3 shadow-lg">
-          <div className="bg-red-500 text-white p-2 rounded-full shrink-0">
+        <section className={`border-2 rounded-xl p-4 flex items-start gap-3 shadow-sm ${urgencyContent.className}`}>
+          <div className={`${urgencyContent.iconClassName} text-white p-2 rounded-full shrink-0`}>
             <AlertIcon />
           </div>
-          <div>
-            <h3 className="text-red-700 font-black text-sm">{t.red_flag_warning}</h3>
-            <p className="text-red-600 text-xs mt-1 font-medium">{t.red_flag_emergency}</p>
+          <div className="min-w-0">
+            <h3 className="font-black text-sm">{urgencyContent.title}</h3>
+            <p className="text-xs mt-1 font-medium leading-relaxed">{urgencyContent.message}</p>
           </div>
         </section>
 
@@ -173,8 +214,8 @@ const AnalysisResults = () => {
                 </div>
                 {selectedReportIndex === idx && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     className="mt-2 pt-2 border-t border-slate-50"
                   >
                     <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mb-1">{t.clinical_reasoning}</p>
@@ -187,26 +228,41 @@ const AnalysisResults = () => {
         </section>
 
         {selectedReport && (
-          <section className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+          <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
             <div>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Selected report</p>
+              <h3 className="mt-1 text-lg font-black text-slate-900">{selectedReport.name}</h3>
             </div>
 
+            {selectedReport.observedEvidence.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Evidence from the report</h4>
+                <ul className="space-y-2">
+                  {selectedReport.observedEvidence.map((evidence, index) => (
+                    <li key={`${evidence}-${index}`} className="border-l-4 border-slate-300 pl-3 text-sm leading-relaxed text-slate-700">
+                      {evidence}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">{t.prognosis}</h4>
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Clinical interpretation</h4>
               <p className="text-sm text-slate-700 leading-relaxed">{selectedReport.reasoning}</p>
             </div>
 
             <div className="space-y-2">
-              <h4 className="text-xs font-black text-blue-700 uppercase tracking-wider">Medication safety notes for clinician review</h4>
+              <h4 className="text-xs font-black text-blue-700 uppercase tracking-wider">Medication options and safety notes</h4>
+              <p className="text-xs leading-relaxed text-slate-500">These are considerations for a licensed clinician or pharmacist, not a prescription. Do not start, stop, or change medication from this report.</p>
               {selectedReport.medicationSafetyNotes.length > 0 ? (
                 <div className="space-y-2">
                   {selectedReport.medicationSafetyNotes.map((note, i) => (
-                    <div key={`${note}-${i}`} className="flex items-start gap-3 rounded-2xl bg-blue-50 border border-blue-100 p-3">
-                      <span className="mt-0.5 rounded-lg bg-blue-600 px-2 py-1 text-[10px] font-black text-white">SAFE</span>
-                      <div>
+                    <div key={`${note}-${i}`} className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-100 p-3">
+                      <span className="mt-0.5 rounded bg-blue-700 px-2 py-1 text-[10px] font-black text-white">REVIEW</span>
+                      <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-900">{note}</p>
-                        <p className="text-[10px] text-slate-500 font-medium italic">Clinician review required</p>
+                        <p className="mt-1 text-[10px] text-slate-500 font-medium">Confirm diagnosis, allergies, pregnancy status, current medicines, and kidney/liver function as applicable.</p>
                       </div>
                     </div>
                   ))}
@@ -218,16 +274,48 @@ const AnalysisResults = () => {
 
             {selectedReport.traditionalRemedyWarnings.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider">Contraindications and cautions</h4>
+                <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider">Remedy and self-medication cautions</h4>
                 <div className="space-y-2">
                   {selectedReport.traditionalRemedyWarnings.map((item, i) => (
-                    <div key={`${item}-${i}`} className="rounded-2xl bg-amber-50 border border-amber-100 p-3 text-sm font-medium text-amber-900">
+                    <div key={`${item}-${i}`} className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm font-medium text-amber-900">
                       {item}
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            {selectedReport.recommendedNextSteps.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider">Recommended next steps</h4>
+                <ol className="space-y-2">
+                  {selectedReport.recommendedNextSteps.map((step, index) => (
+                    <li key={`${step}-${index}`} className="flex items-start gap-3 text-sm leading-relaxed text-slate-700">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-800">{index + 1}</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </section>
+        )}
+
+        {contraindications.length > 0 && (
+          <section className="space-y-3" aria-labelledby="contraindications-heading">
+            <div>
+              <h3 id="contraindications-heading" className="text-sm font-black uppercase tracking-wider text-red-800">Contraindications and interactions</h3>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">Potential safety conflicts from the report and supplied patient context. A clinician or pharmacist must verify them.</p>
+            </div>
+            {contraindications.map((item, index) => (
+              <div key={`${item.risk}-${index}`} className="rounded-xl border border-red-200 bg-red-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded bg-red-700 px-2 py-1 text-[10px] font-black uppercase text-white">{item.severity}</span>
+                  <span className="text-xs font-black text-red-900">{item.medications.join(' + ')}</span>
+                </div>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-red-900">{item.risk}</p>
+              </div>
+            ))}
           </section>
         )}
 
@@ -262,6 +350,20 @@ const AnalysisResults = () => {
           </div>
         </section>
 
+        {analysisLimitations.length > 0 && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-600">Important limitations</h3>
+            <ul className="mt-3 space-y-2">
+              {analysisLimitations.map((limitation, index) => (
+                <li key={`${limitation}-${index}`} className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+                  <span>{limitation}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="pt-2 pb-8 space-y-3">
           <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3">
             <button className="w-full min-w-0 bg-slate-900 justify-center text-white text-xs font-bold py-3 px-2 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1">
@@ -292,12 +394,22 @@ const AnalysisResults = () => {
             <p className="text-xs font-medium text-red-600 text-center">{saveError}</p>
           )}
 
-          <button
-            onClick={() => navigate('/next-steps')}
-            className="w-full bg-white text-medical-green border-2 border-medical-green font-bold py-3 rounded-xl active:bg-medical-green/5 transition-all"
-          >
-            {t.find_clinic}
-          </button>
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate('/next-steps?tab=hospitals')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-medical-green bg-white px-3 py-3 text-sm font-bold text-medical-green active:bg-medical-green/5"
+            >
+              <MapPinIcon className="h-5 w-5" />
+              Nearby hospitals
+            </button>
+            <button
+              onClick={() => navigate('/next-steps?tab=pharmacies')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-medical-blue bg-white px-3 py-3 text-sm font-bold text-medical-blue active:bg-blue-50"
+            >
+              <RemedyIcon className="h-5 w-5" />
+              Nearby pharmacies
+            </button>
+          </div>
 
           <button
             onClick={() => navigate('/app')}
@@ -310,7 +422,7 @@ const AnalysisResults = () => {
 
         <footer className="px-5 pb-10 text-center">
           <p className="text-[10px] text-slate-400 max-w-[280px] mx-auto leading-relaxed">
-            {t.disclaimer_text} <span className="text-medical-green font-bold block mt-1">{t.disclaimer_consult}</span>
+            {analysisDisclaimer || t.disclaimer_text} <span className="text-medical-green font-bold block mt-1">{t.disclaimer_consult}</span>
           </p>
         </footer>
       </main>

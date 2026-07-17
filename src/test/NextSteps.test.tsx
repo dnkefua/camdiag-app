@@ -13,73 +13,71 @@ vi.mock('../components/ui/FacilityMap', () => ({
   FacilityMap: () => <div data-testid="facility-map">Map</div>,
 }));
 
+vi.mock('../hooks/useGoogleMaps', () => ({
+  useGoogleMaps: () => ({ ready: false, error: 'Interactive map unavailable.' }),
+}));
+
+vi.mock('../store/useAppStore', () => ({
+  useAppStore: () => ({
+    possibleFindings: [{ name: 'Lab values requiring review' }],
+    selectedFinding: 0,
+    analysisUrgency: 'same_day',
+  }),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const renderWithProviders = (ui: React.ReactElement) =>
-  render(<MemoryRouter>{ui}</MemoryRouter>);
+const renderWithProviders = (entry = '/next-steps') => render(
+  <MemoryRouter initialEntries={[entry]}>
+    <TranslationProvider><NextSteps /></TranslationProvider>
+  </MemoryRouter>,
+);
 
 describe('NextSteps', () => {
   beforeEach(() => mockNavigate.mockClear());
 
-  it('renders page heading', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    expect(screen.getByRole('heading', { name: /next steps/i })).toBeInTheDocument();
+  it('renders the analysis follow-up heading', () => {
+    renderWithProviders();
+    expect(screen.getByRole('heading', { name: /lab values requiring review/i })).toBeInTheDocument();
   });
 
-  it('renders back button', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
-  });
-
-  it('navigates to /app when back is clicked', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
+  it('navigates back to the analysis', () => {
+    renderWithProviders();
     fireEvent.click(screen.getByRole('button', { name: /back/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/app');
+    expect(mockNavigate).toHaveBeenCalledWith('/analysis');
   });
 
-  it('renders facility tabs (clinics, hospitals, pharmacies, telehealth)', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    expect(screen.getByRole('button', { name: /^clinics$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^hospitals$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^pharmacies$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^telehealth$/i })).toBeInTheDocument();
+  it('renders real nearby-care categories without fictional providers', () => {
+    renderWithProviders();
+    expect(screen.getByRole('tab', { name: /^clinics$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^hospitals$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^pharmacies$/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Yaound/i)).not.toBeInTheDocument();
   });
 
-  it('renders facility list for default tab', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    expect(screen.getByText('City General Dermatology')).toBeInTheDocument();
-    expect(screen.getByText('Hope Skin & Laser Center')).toBeInTheDocument();
+  it('honors a pharmacy deep link from the analysis page', () => {
+    renderWithProviders('/next-steps?tab=pharmacies');
+    expect(screen.getByRole('tab', { name: /^pharmacies$/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('link', { name: /search pharmacies in google maps/i })).toHaveAttribute('href', expect.stringContaining('pharmacies'));
   });
 
-  it('switches to hospitals tab and shows hospitals', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /^hospitals$/i }));
-    expect(screen.getByText(/Yaound. Central Hospital/i)).toBeInTheDocument();
+  it('switches care categories and keeps a Google Maps fallback', () => {
+    renderWithProviders();
+    fireEvent.click(screen.getByRole('tab', { name: /^hospitals$/i }));
+    expect(screen.getByRole('link', { name: /search hospitals in google maps/i })).toHaveAttribute('target', '_blank');
   });
 
-  it('switches to pharmacies tab and shows pharmacies', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /^pharmacies$/i }));
-    expect(screen.getByText('MedPlus Pharmacy')).toBeInTheDocument();
+  it('offers a retryable location action', () => {
+    renderWithProviders();
+    expect(screen.getByRole('button', { name: /use my location/i })).toBeInTheDocument();
   });
 
-  it('switches to telehealth tab and shows telehealth options', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /^telehealth$/i }));
-    expect(screen.getByText('Waspito Virtual Care')).toBeInTheDocument();
-  });
-
-  it('renders map toggle button', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
-    expect(screen.getByRole('button', { name: /view map/i })).toBeInTheDocument();
-  });
-
-  it('toggles map view when map button is clicked', () => {
-    renderWithProviders(<TranslationProvider><NextSteps /></TranslationProvider>);
+  it('toggles the embedded map view', () => {
+    renderWithProviders();
     fireEvent.click(screen.getByRole('button', { name: /view map/i }));
     expect(screen.getByTestId('facility-map')).toBeInTheDocument();
   });

@@ -11,6 +11,7 @@ export interface MappedFacility {
 
 interface FacilityMapProps {
   facilities: MappedFacility[];
+  userLocation?: { lat: number; lng: number } | null;
   height?: string;
   className?: string;
 }
@@ -23,42 +24,29 @@ const PIN_COLORS: Record<MappedFacility['category'], string> = {
 };
 
 // Default center: Yaoundé, Cameroon
-const DEFAULT_CENTER = { lat: 3.848, lng: 11.502 };
+const DEFAULT_CENTER = { lat: 0, lng: 0 };
 
-export const FacilityMap = ({ facilities, height = '420px', className = '' }: FacilityMapProps) => {
+export const FacilityMap = ({ facilities, userLocation = null, height = '420px', className = '' }: FacilityMapProps) => {
   const { ready, error } = useGoogleMaps();
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-
-  // Geolocation
-  useEffect(() => {
-    if (!('geolocation' in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (geoErr) => {
-        console.warn('[CamDiag] Geolocation failed:', geoErr.message);
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-    );
-  }, []);
 
   // Init map
   useEffect(() => {
     if (!ready || !mapRef.current || mapInstance.current) return;
-    const center = userLocation || DEFAULT_CENTER;
+    const center = userLocation || facilities[0]?.position || DEFAULT_CENTER;
     mapInstance.current = new google.maps.Map(mapRef.current, {
       center,
-      zoom: 12,
+      zoom: userLocation || facilities.length > 0 ? 12 : 2,
       disableDefaultUI: true,
       zoomControl: true,
       gestureHandling: 'greedy',
-      styles: CAMEROON_MAP_STYLE,
+      styles: CARE_MAP_STYLE,
     });
-  }, [ready, userLocation]);
+  }, [facilities, ready, userLocation]);
 
   // Pan to user location once obtained
   useEffect(() => {
@@ -104,7 +92,7 @@ export const FacilityMap = ({ facilities, height = '420px', className = '' }: Fa
           <div style="font-family: Inter, sans-serif; padding: 4px 6px; max-width: 220px;">
             <div style="font-weight: 800; color: #00563F; font-size: 13px; margin-bottom: 2px;">${escapeHtml(facility.name)}</div>
             <div style="font-size: 11px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">${facility.category}</div>
-            <div style="font-size: 12px; color: #FCD116; font-weight: 700; margin-top: 4px;">★ ${facility.rating.toFixed(1)}</div>
+            ${facility.rating > 0 ? `<div style="font-size: 12px; color: #9A6700; font-weight: 700; margin-top: 4px;">Rating ${facility.rating.toFixed(1)}</div>` : ''}
             ${facility.address ? `<div style="font-size: 11px; color: #4B5563; margin-top: 4px;">${escapeHtml(facility.address)}</div>` : ''}
           </div>
         `,
@@ -130,7 +118,7 @@ export const FacilityMap = ({ facilities, height = '420px', className = '' }: Fa
   if (error) {
     return (
       <div
-        className={`flex items-center justify-center bg-cameroon-ivory border-2 border-dashed border-cameroon-yellow/40 rounded-3xl p-8 text-center ${className}`}
+        className={`flex items-center justify-center rounded-lg border-2 border-dashed border-cameroon-yellow/40 bg-white p-8 text-center ${className}`}
         style={{ height }}
       >
         <div>
@@ -142,7 +130,7 @@ export const FacilityMap = ({ facilities, height = '420px', className = '' }: Fa
   }
 
   return (
-    <div className={`relative rounded-3xl overflow-hidden shadow-premium ${className}`} style={{ height }}>
+    <div className={`relative overflow-hidden rounded-lg border border-slate-200 shadow-sm ${className}`} style={{ height }}>
       <div ref={mapRef} className="absolute inset-0" />
       {!ready && (
         <div className="absolute inset-0 flex items-center justify-center bg-cameroon-ivory">
@@ -208,7 +196,7 @@ const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // Subtle map style — desaturated land, gentle warm bias to hint at Cameroon
-const CAMEROON_MAP_STYLE: google.maps.MapTypeStyle[] = [
+const CARE_MAP_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: 'geometry', stylers: [{ color: '#f5efe0' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#5d4d36' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#fff7e6' }] },

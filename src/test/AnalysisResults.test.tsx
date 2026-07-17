@@ -61,11 +61,18 @@ vi.mock('../store/useAppStore', () => ({
     markers: [
       { id: 'm1', label: 'Itching', value: 'Moderate', status: 'abnormal', color: 'orange' },
     ],
+    analysisUrgency: 'same_day',
+    contraindications: [
+      { medications: ['Example medicine'], risk: 'Avoid with a documented severe allergy.', severity: 'high' },
+    ],
+    analysisLimitations: ['Symptoms and medical history were not supplied.'],
+    analysisDisclaimer: 'This is not a diagnosis or prescription.',
     selectedFinding: 0,
     setSelectedFinding: vi.fn(),
     analysisError: null,
     setAnalysisError: vi.fn(),
     isAnalyzing: false,
+    addPatientRecord: vi.fn(),
   })),
 }));
 
@@ -139,7 +146,7 @@ describe('AnalysisResults', () => {
         <AnalysisResults />
       </TranslationProvider>
     );
-    expect(screen.getByText('Dermatitis')).toBeInTheDocument();
+    expect(screen.getAllByText('Dermatitis').length).toBeGreaterThan(0);
   });
 
   it('renders clinical marker', () => {
@@ -167,5 +174,27 @@ describe('AnalysisResults', () => {
       </TranslationProvider>
     );
     expect(screen.getByText('Artemisia')).toBeInTheDocument();
+  });
+
+  it('renders interpretation, contraindications, and next steps', () => {
+    renderWithProviders(
+      <TranslationProvider>
+        <AnalysisResults />
+      </TranslationProvider>
+    );
+    expect(screen.getByText('Clinical interpretation')).toBeInTheDocument();
+    expect(screen.getByText(/Avoid with a documented severe allergy/i)).toBeInTheDocument();
+    expect(screen.getByText('Clinician review')).toBeInTheDocument();
+    expect(screen.getByText(/Symptoms and medical history/i)).toBeInTheDocument();
+  });
+
+  it('opens the nearby care page on the requested tab', () => {
+    renderWithProviders(
+      <TranslationProvider>
+        <AnalysisResults />
+      </TranslationProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /nearby pharmacies/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/next-steps?tab=pharmacies');
   });
 });

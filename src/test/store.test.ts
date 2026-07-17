@@ -67,4 +67,32 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().possibleFindings[0]?.name).toBe('Malaria (P. Falciparum)');
     useAppStore.getState().setPossibleFindings([]);
   });
+
+  it('stores the complete clinical analysis response', () => {
+    useAppStore.getState().setAnalysisResult({
+      urgency: 'same_day',
+      possibleFindings: [{
+        name: 'Anaemia pattern',
+        likelihood: 'moderate',
+        observedEvidence: ['[Page 1] Haemoglobin below reference range'],
+        markers: ['haemoglobin'],
+        medicationSafetyNotes: ['A clinician may consider iron only after confirming iron deficiency.'],
+        traditionalRemedyWarnings: [],
+        reasoning: 'Low haemoglobin can be consistent with anaemia but does not establish the cause.',
+        recommendedNextSteps: ['Review ferritin and iron studies with a clinician.'],
+        clinicianReviewRequired: true,
+      }],
+      markers: [{ id: 'haemoglobin', label: 'Haemoglobin', value: 'Low', status: 'abnormal', color: 'orange' }],
+      contraindications: [{ medications: ['Iron'], risk: 'Avoid empiric use when iron overload is suspected.', severity: 'moderate' }],
+      limitations: ['The report does not include symptoms.'],
+      disclaimer: 'This is not a diagnosis or prescription.',
+    });
+
+    const state = useAppStore.getState();
+    expect(state.analysisUrgency).toBe('same_day');
+    expect(state.contraindications).toHaveLength(1);
+    expect(state.analysisLimitations).toContain('The report does not include symptoms.');
+    expect(state.analysisDisclaimer).toMatch(/not a diagnosis/i);
+    state.resetAnalysis();
+  });
 });

@@ -12,8 +12,8 @@ const TranscriptionReview = () => {
     transcription,
     pendingPages,
     pendingDocumentType,
-    setPossibleFindings,
-    setMarkers,
+    setAnalysisResult,
+    analysisError,
     setAnalysisError,
     setAnalyzing,
     setPendingPages,
@@ -37,8 +37,7 @@ const TranscriptionReview = () => {
     try {
       const confirmedTranscription = texts.map((text, index) => `[Page ${index + 1}]\n${text}`).join('\n\n');
       const result = await analyzeMedicalImage({ confirmedTranscription, documentType: pendingDocumentType, language });
-      setPossibleFindings(result.possibleFindings);
-      setMarkers(result.markers);
+      setAnalysisResult(result);
       setPendingPages([]);
       setTranscription(null);
       void navigate('/analysis');
@@ -140,6 +139,19 @@ const TranscriptionReview = () => {
               I compared the transcription with the source and corrected or marked all clinically important uncertain text.
             </span>
           </label>
+
+          {analysisError && (
+            <section role="alert" className="w-full rounded-xl border border-red-300 bg-red-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+                <div className="min-w-0">
+                  <h2 className="font-black text-red-900">Clinical interpretation did not complete</h2>
+                  <p className="mt-1 break-words text-sm leading-relaxed text-red-800">{analysisError}</p>
+                  <p className="mt-2 text-xs font-semibold text-red-700">Your verified transcription is still here. Tap the button below to retry.</p>
+                </div>
+              </div>
+            </section>
+          )}
 
           <button
             type="button"

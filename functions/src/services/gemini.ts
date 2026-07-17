@@ -1,15 +1,19 @@
 import { GEMINI_LOCATION, GEMINI_MODEL } from '../config.js';
 import type { AnalyzeRequestBody } from '../schemas/medgemma.js';
 
-const SYSTEM_PROMPT = `You are MedGemma, a medical AI assistant integrated into CamDiag, a clinical decision-support app for Cameroon healthcare workers.
+const SYSTEM_PROMPT = `You are the medical document interpretation assistant integrated into CamDiag, a clinical decision-support app.
 
 IMPORTANT RULES:
 - You are NOT providing a diagnosis. You provide possible findings for clinician review.
 - All findings must be reviewed and confirmed by a qualified clinician before treatment decisions.
 - Always include strong medical disclaimers.
 - Use likelihood labels only: low, moderate, high, uncertain. Do not provide percentages.
-- Include medication safety notes for clinician review when relevant, limited to medicines commonly available in Cameroon. Do not present medication notes as patient instructions.
+- Interpret abnormal, critical, and review-required laboratory values in plain language. Do not stop at transcription or merely repeat the report.
+- When the evidence supports a possible finding, include generic medication classes or medicines that a licensed clinician may consider, the indication, and the checks required before use. Never provide doses, schedules, or patient treatment instructions.
+- Do not recommend antibiotics, antimalarials, anticoagulants, steroids, or other prescription treatment from a nonspecific abnormal value alone. State what diagnosis or confirmatory information is required first.
+- If allergies, pregnancy status, kidney/liver function, age, or current medicines are missing, explicitly state that medication safety cannot be confirmed from the document alone.
 - Check for drug interactions and contraindications across medication safety notes and patient-reported current medications.
+- Whenever medicationSafetyNotes names a medicine or medicine class, add a matching top-level contraindications entry for important known or conditional risks. Use severity unknown when patient context is missing, and never invent a patient-specific contraindication.
 - Respond in the language specified (en or fr).
 - NEVER recommend traditional/herbal remedies as treatment alternatives.
 - Never silently correct uncertain transcription. Preserve ambiguity and require clinician review for uncertain medication names, decimal doses, units, allergies, pregnancy, and pediatric instructions.
@@ -17,12 +21,13 @@ IMPORTANT RULES:
 - If traditional remedies are visible or mentioned, warn that they must be discussed with a clinician/pharmacist because they may interact with prescription drugs.
 
 When analyzing a medical image or document:
-1. Identify possible findings with observational evidence.
-2. List clinical markers detected in the document or image.
-3. Include medication safety notes only for clinician review.
-4. Check for drug interactions and contraindications.
-5. Flag traditional remedies and self-medication risks.
-6. Provide concise reasoning, limitations, urgency, and next steps.
+1. Identify possible findings and ground each one in page-labeled observational evidence.
+2. List important normal and abnormal clinical markers, preserving values, units, and reference ranges where present.
+3. Explain the clinical significance of abnormal values without claiming a confirmed diagnosis.
+4. Include medication options and safety notes only for licensed-clinician review when clinically supportable.
+5. Check for drug interactions, allergy risks, pregnancy risks, and kidney/liver contraindications using only the supplied context.
+6. Flag traditional remedies and self-medication risks.
+7. Provide concise reasoning, limitations, urgency, and actionable next steps.
 
 Return complete JSON only.`;
 
@@ -55,7 +60,6 @@ const ANALYZE_RESPONSE_SCHEMA = {
     },
     possibleFindings: {
       type: 'ARRAY',
-      maxItems: 5,
       items: {
         type: 'OBJECT',
         properties: {
@@ -66,28 +70,23 @@ const ANALYZE_RESPONSE_SCHEMA = {
           },
           observedEvidence: {
             type: 'ARRAY',
-            maxItems: 10,
             items: { type: 'STRING' },
           },
           markers: {
             type: 'ARRAY',
-            maxItems: 12,
             items: { type: 'STRING' },
           },
           medicationSafetyNotes: {
             type: 'ARRAY',
-            maxItems: 8,
             items: { type: 'STRING' },
           },
           traditionalRemedyWarnings: {
             type: 'ARRAY',
-            maxItems: 8,
             items: { type: 'STRING' },
           },
           reasoning: { type: 'STRING' },
           recommendedNextSteps: {
             type: 'ARRAY',
-            maxItems: 8,
             items: { type: 'STRING' },
           },
           clinicianReviewRequired: { type: 'BOOLEAN' },
@@ -107,7 +106,6 @@ const ANALYZE_RESPONSE_SCHEMA = {
     },
     markers: {
       type: 'ARRAY',
-      maxItems: 30,
       items: {
         type: 'OBJECT',
         properties: {
@@ -128,13 +126,11 @@ const ANALYZE_RESPONSE_SCHEMA = {
     },
     contraindications: {
       type: 'ARRAY',
-      maxItems: 10,
       items: {
         type: 'OBJECT',
         properties: {
           medications: {
             type: 'ARRAY',
-            maxItems: 8,
             items: { type: 'STRING' },
           },
           risk: { type: 'STRING' },
@@ -148,7 +144,6 @@ const ANALYZE_RESPONSE_SCHEMA = {
     },
     limitations: {
       type: 'ARRAY',
-      maxItems: 8,
       items: { type: 'STRING' },
     },
     disclaimer: { type: 'STRING' },
@@ -241,7 +236,7 @@ const summarizePatientContext = (context: AnalyzeRequestBody['patientContext']):
 const buildAnalyzeInstruction = (request: AnalyzeRequestBody): string => {
   const languageName = request.language === 'fr' ? 'French' : 'English';
 
-  return `Analyze this ${request.documentType.replace(/_/g, ' ')} for possible findings and clinical markers.
+  return `Interpret this ${request.documentType.replace(/_/g, ' ')} for possible findings, clinical significance, medication considerations, contraindications, and next steps.
 
 Language: ${languageName}
 Patient context:
@@ -260,7 +255,7 @@ Return JSON with this exact top-level shape:
   "disclaimer": ""
 }
 
-Use only marker ids in each possibleFinding.markers that also appear in the top-level markers array. clinicianReviewRequired must always be true.`;
+Use only marker ids in each possibleFinding.markers that also appear in the top-level markers array. clinicianReviewRequired must always be true. If a medication option is named, include its important contraindications or required safety exclusions in the top-level contraindications array.`;
 };
 
 export async function analyzeImage(request: AnalyzeRequestBody) {

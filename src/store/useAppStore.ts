@@ -1,11 +1,28 @@
 import { create } from 'zustand';
-import type { PossibleFinding, ClinicalMarker, PatientRecord, Drug, DocumentTranscription, DocumentPageInput, AnalyzeDocumentType } from '../types';
+import type {
+  PossibleFinding,
+  ClinicalMarker,
+  PatientRecord,
+  Drug,
+  DocumentTranscription,
+  DocumentPageInput,
+  AnalyzeDocumentType,
+  AnalysisUrgency,
+  Contraindication,
+  AnalysisProvenance,
+  MedGemmaAnalysisResponse,
+} from '../types';
 
 interface AppState {
   selectedFinding: number;
   scanCount: number;
   isAnalyzing: boolean;
   analysisError: string | null;
+  analysisUrgency: AnalysisUrgency;
+  contraindications: Contraindication[];
+  analysisLimitations: string[];
+  analysisDisclaimer: string;
+  analysisProvenance?: AnalysisProvenance;
   possibleFindings: PossibleFinding[];
   markers: ClinicalMarker[];
   transcription: DocumentTranscription | null;
@@ -19,6 +36,8 @@ interface AppState {
   resetScanCount: () => void;
   setPossibleFindings: (possibleFindings: PossibleFinding[]) => void;
   setMarkers: (markers: ClinicalMarker[]) => void;
+  setAnalysisResult: (result: MedGemmaAnalysisResponse) => void;
+  resetAnalysis: () => void;
   setTranscription: (transcription: DocumentTranscription | null) => void;
   setPendingPages: (pages: DocumentPageInput[]) => void;
   setPendingDocumentType: (documentType: AnalyzeDocumentType) => void;
@@ -34,6 +53,11 @@ export const useAppStore = create<AppState>((set) => ({
   scanCount: 0,
   isAnalyzing: false,
   analysisError: null,
+  analysisUrgency: 'unknown',
+  contraindications: [],
+  analysisLimitations: [],
+  analysisDisclaimer: '',
+  analysisProvenance: undefined,
   possibleFindings: [],
   markers: [],
   transcription: null,
@@ -47,6 +71,28 @@ export const useAppStore = create<AppState>((set) => ({
   resetScanCount: () => set({ scanCount: 0 }),
   setPossibleFindings: (possibleFindings) => set({ possibleFindings }),
   setMarkers: (markers) => set({ markers }),
+  setAnalysisResult: (result) => set({
+    possibleFindings: result.possibleFindings,
+    markers: result.markers,
+    analysisUrgency: result.urgency,
+    contraindications: result.contraindications,
+    analysisLimitations: result.limitations,
+    analysisDisclaimer: result.disclaimer,
+    analysisProvenance: result.provenance,
+    analysisError: null,
+    selectedFinding: 0,
+  }),
+  resetAnalysis: () => set({
+    possibleFindings: [],
+    markers: [],
+    analysisUrgency: 'unknown',
+    contraindications: [],
+    analysisLimitations: [],
+    analysisDisclaimer: '',
+    analysisProvenance: undefined,
+    analysisError: null,
+    selectedFinding: 0,
+  }),
   setTranscription: (transcription) => set({ transcription }),
   setPendingPages: (pendingPages) => set({ pendingPages }),
   setPendingDocumentType: (pendingDocumentType) => set({ pendingDocumentType }),

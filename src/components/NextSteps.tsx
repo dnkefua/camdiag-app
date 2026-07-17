@@ -1,219 +1,347 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
+import { useGoogleMaps } from '../hooks/useGoogleMaps';
+import { useAppStore } from '../store/useAppStore';
 import { FacilityMap, type MappedFacility } from './ui/FacilityMap';
-import { BackIcon, HomeIcon, PlusIcon, UsersIcon, MapPinIcon, ShareIcon, WarningIcon } from '../components/ui/Icons';
+import { BackIcon, HomeIcon, PlusIcon, UsersIcon, MapPinIcon, WarningIcon, RemedyIcon } from './ui/Icons';
 
-type Tab = 'clinics' | 'hospitals' | 'pharmacies' | 'telehealth';
+type CareTab = 'clinics' | 'hospitals' | 'pharmacies';
+type LocationStatus = 'idle' | 'requesting' | 'ready' | 'error';
 
-interface FacilityRecord {
-  name: string;
-  distance: string;
-  rating: number;
-  type: string;
-  position?: { lat: number; lng: number };
-  category: MappedFacility['category'];
-  address?: string;
+interface FacilityRecord extends MappedFacility {
+  placeId?: string;
+  distanceKm: number;
+  openNow?: boolean;
 }
+
+const CARE_TABS: CareTab[] = ['clinics', 'hospitals', 'pharmacies'];
+
+const PLACE_CONFIG: Record<CareTab, { type: string; keyword: string; category: MappedFacility['category'] }> = {
+  clinics: { type: 'doctor', keyword: 'medical clinic', category: 'clinic' },
+  hospitals: { type: 'hospital', keyword: 'hospital', category: 'hospital' },
+  pharmacies: { type: 'pharmacy', keyword: 'pharmacy', category: 'pharmacy' },
+};
+
+const EMPTY_RESULTS: Record<CareTab, FacilityRecord[]> = {
+  clinics: [],
+  hospitals: [],
+  pharmacies: [],
+};
+
+const distanceInKm = (from: { lat: number; lng: number }, to: { lat: number; lng: number }): number => {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const earthRadiusKm = 6371;
+  const deltaLat = radians(to.lat - from.lat);
+  const deltaLng = radians(to.lng - from.lng);
+  const lat1 = radians(from.lat);
+  const lat2 = radians(to.lat);
+  const haversine = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
+const mapsSearchUrl = (tab: CareTab): string => {
+  const label = tab === 'clinics' ? 'medical clinics' : tab;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${label} near me`)}`;
+};
 
 const NextSteps = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<Tab>('clinics');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<CareTab>(
+    CARE_TABS.includes(initialTab as CareTab) ? initialTab as CareTab : 'clinics',
+  );
   const [showMap, setShowMap] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [facilityResults, setFacilityResults] = useState<Record<CareTab, FacilityRecord[]>>(EMPTY_RESULTS);
+  const [searching, setSearching] = useState(false);
+  const [placesError, setPlacesError] = useState<string | null>(null);
+  const { ready: mapsReady, error: mapsError } = useGoogleMaps();
+  const { possibleFindings, selectedFinding, analysisUrgency } = useAppStore();
+  const selectedReport = possibleFindings[selectedFinding] ?? possibleFindings[0];
 
-  // Real Yaoundé / Douala-area coords for demo facilities. Once Firestore
-  // facilities collection has lat/lng, swap this static map out.
-  const facilityData: Record<Tab, FacilityRecord[]> = {
-    clinics: [
-      { name: 'City General Dermatology', distance: '1.2 km', rating: 4.8, type: 'Open',
-        category: 'clinic', position: { lat: 3.866, lng: 11.519 }, address: 'Bastos, Yaoundé' },
-      { name: 'Hope Skin & Laser Center', distance: '2.5 km', rating: 4.5, type: 'Closes 5PM',
-        category: 'clinic', position: { lat: 3.852, lng: 11.504 }, address: 'Centre-ville, Yaoundé' },
-      { name: 'Elite Care Specialists', distance: '3.1 km', rating: 4.9, type: 'Insurance',
-        category: 'clinic', position: { lat: 3.879, lng: 11.498 }, address: 'Mvan, Yaoundé' },
-    ],
-    hospitals: [
-      { name: 'Yaoundé Central Hospital', distance: '4.5 km', rating: 4.2, type: '24/7',
-        category: 'hospital', position: { lat: 3.864, lng: 11.521 }, address: 'Avenue Henri Dunant' },
-      { name: 'General Hospital Annex', distance: '5.8 km', rating: 4.0, type: '24/7',
-        category: 'hospital', position: { lat: 3.892, lng: 11.541 }, address: 'Ngousso, Yaoundé' },
-    ],
-    pharmacies: [
-      { name: 'MedPlus Pharmacy', distance: '0.8 km', rating: 4.7, type: 'Open',
-        category: 'pharmacy', position: { lat: 3.857, lng: 11.512 } },
-      { name: 'Green Cross Pharma', distance: '1.5 km', rating: 4.6, type: 'Open',
-        category: 'pharmacy', position: { lat: 3.842, lng: 11.515 } },
-    ],
-    telehealth: [
-      { name: 'Waspito Virtual Care', distance: 'Online', rating: 4.9, type: 'Instant',
-        category: 'telehealth', position: { lat: 3.848, lng: 11.502 } },
-      { name: 'TeleMed Direct', distance: 'Online', rating: 4.4, type: 'On-demand',
-        category: 'telehealth', position: { lat: 3.848, lng: 11.502 } },
-    ],
-  };
+  const requestLocation = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setLocationStatus('error');
+      setLocationError('Location is not available in this browser.');
+      return;
+    }
 
-  const allMappedFacilities = useMemo<MappedFacility[]>(() => {
-    return (Object.keys(facilityData) as Tab[]).flatMap((key) =>
-      facilityData[key]
-        .filter((f) => f.position)
-        .map((f) => ({
-          name: f.name,
-          rating: f.rating,
-          category: f.category,
-          position: f.position!,
-          address: f.address,
-        })),
+    setLocationStatus('requesting');
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setLocationStatus('ready');
+      },
+      (error) => {
+        setLocationStatus('error');
+        setLocationError(error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. Enable it in the browser to sort care by distance.'
+          : 'Your location could not be determined.');
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 120000 },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <div className="bg-cameroon-ivory text-cameroon-night font-sans screen-safe flex flex-col pb-24">
-      {/* Cameroon flag accent strip */}
-      <div className="h-1 bg-cameroon-flag" />
+  useEffect(() => {
+    const timer = window.setTimeout(requestLocation, 0);
+    return () => window.clearTimeout(timer);
+  }, [requestLocation]);
 
-      <header className="bg-white/95 backdrop-blur-md border-b border-cameroon-green/10 sticky top-0 z-20 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/app')} aria-label="Back" className="text-cameroon-green p-1 active:scale-95 transition-transform">
+  useEffect(() => {
+    if (!mapsReady || !userLocation) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      const config = PLACE_CONFIG[activeTab];
+      const service = new google.maps.places.PlacesService(document.createElement('div'));
+      setSearching(true);
+      setPlacesError(null);
+
+      service.nearbySearch({
+        location: userLocation,
+        radius: 25000,
+        type: config.type,
+        keyword: config.keyword,
+      }, (results, status) => {
+        if (cancelled) return;
+        setSearching(false);
+
+        if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+          setFacilityResults((current) => ({ ...current, [activeTab]: [] }));
+          return;
+        }
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !results) {
+          setPlacesError('Nearby search is temporarily unavailable. Open Google Maps below to continue.');
+          return;
+        }
+
+        const facilities = results.flatMap<FacilityRecord>((place) => {
+          const location = place.geometry?.location;
+          if (!location || !place.name) return [];
+          const position = { lat: location.lat(), lng: location.lng() };
+          const openingHours = place.opening_hours as (google.maps.places.PlaceOpeningHours & { open_now?: boolean }) | undefined;
+          const openNow = openingHours?.isOpen?.() ?? openingHours?.open_now;
+          return [{
+            name: place.name,
+            category: config.category,
+            rating: place.rating ?? 0,
+            position,
+            address: place.vicinity,
+            placeId: place.place_id,
+            distanceKm: distanceInKm(userLocation, position),
+            openNow,
+          }];
+        }).sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 10);
+
+        setFacilityResults((current) => ({ ...current, [activeTab]: facilities }));
+      });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeTab, mapsReady, userLocation]);
+
+  const facilities = facilityResults[activeTab];
+  const mappedFacilities = useMemo<MappedFacility[]>(() => facilities.map((facility) => ({
+    name: facility.name,
+    category: facility.category,
+    rating: facility.rating,
+    position: facility.position,
+    address: facility.address,
+  })), [facilities]);
+
+  const selectTab = (tab: CareTab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  return (
+    <div className="flex h-[100svh] h-[100dvh] flex-col overflow-hidden bg-slate-50 text-slate-950">
+      <div className="h-1 shrink-0 bg-cameroon-flag" />
+
+      <header className="safe-area-top z-20 flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex min-w-0 items-center gap-2">
+          <button onClick={() => navigate('/analysis')} aria-label="Back" className="shrink-0 p-1 text-cameroon-green active:scale-95">
             <BackIcon />
           </button>
-          <h1 className="text-xl font-black text-cameroon-green-deep">{t.next_steps}</h1>
+          <h1 className="truncate text-xl font-black text-cameroon-green-deep">{t.next_steps}</h1>
         </div>
         <button
-          onClick={() => setShowMap(!showMap)}
-          className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-            showMap
-              ? 'bg-cameroon-green text-white shadow-cameroon'
-              : 'bg-cameroon-yellow text-cameroon-night shadow-sunset-glow'
-          }`}
+          type="button"
+          onClick={() => setShowMap((current) => !current)}
+          className="shrink-0 rounded-lg bg-cameroon-green px-3 py-2 text-xs font-black text-white"
         >
           {showMap ? t.list : t.view_map}
         </button>
       </header>
 
-      <main aria-labelledby="nextsteps-heading" className="flex-grow p-4 sm:p-5 space-y-6 max-w-lg mx-auto w-full">
-        {showMap ? (
-          <section className="space-y-3">
-            <FacilityMap facilities={allMappedFacilities} height="520px" />
-            <p className="text-[10px] text-cameroon-green/60 uppercase tracking-widest text-center font-bold">
-              {t.map_radius}
-            </p>
+      <main aria-labelledby="nextsteps-heading" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 pb-8">
+        <div className="mx-auto w-full max-w-lg space-y-6">
+          <section className="border-l-4 border-cameroon-green bg-white px-4 py-4 shadow-sm">
+            <p className="text-xs font-black uppercase text-cameroon-green">Analysis follow-up</p>
+            <h2 id="nextsteps-heading" className="mt-1 break-words text-lg font-black text-slate-950">
+              {selectedReport?.name ?? 'Find qualified care near you'}
+            </h2>
+            <p className="mt-1 text-sm font-semibold capitalize text-slate-600">Urgency: {analysisUrgency.replace('_', ' ')}</p>
           </section>
-        ) : (
-          <>
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-jungle text-white p-6 rounded-3xl shadow-premium relative overflow-hidden"
-            >
-              <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-cameroon-yellow/20 blur-2xl" />
-              <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-cameroon-red/20 blur-2xl" />
-              <div className="relative">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 id="nextsteps-heading" className="text-lg font-black opacity-90">{t.scan_summary}</h2>
-                    <p className="text-xs opacity-70 font-medium">{t.scanned_time}</p>
-                  </div>
-                  <span className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] font-black tracking-widest uppercase">ID: 8829</span>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-cameroon-yellow/40 bg-white/10 shrink-0 flex items-center justify-center">
-                      <ShareIcon className="text-cameroon-yellow" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-cameroon-yellow font-bold uppercase tracking-wider">{t.primary_found}</p>
-                      <h3 className="text-xl font-black">Stage 1 Suspected</h3>
-                    </div>
-                  </div>
-                  <button className="w-full bg-cameroon-yellow text-cameroon-night font-black py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-sunset-glow">
-                    <ShareIcon />
-                    {t.share_report}
-                  </button>
-                </div>
-              </div>
-            </motion.section>
 
-            <section className="space-y-4">
-              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                {(['clinics', 'hospitals', 'pharmacies', 'telehealth'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all ${
-                      activeTab === tab
-                        ? 'bg-cameroon-green text-white shadow-cameroon'
-                        : 'bg-white text-cameroon-green/70 border border-cameroon-green/15'
-                    }`}
-                  >
-                    {t[tab] || tab}
-                  </button>
-                ))}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Nearby care</h3>
+                <p className="text-xs text-slate-500">
+                  {locationStatus === 'ready' ? 'Sorted from your current location.' : 'Location is needed for distance-sorted results.'}
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={requestLocation}
+                disabled={locationStatus === 'requesting'}
+                className="flex items-center gap-2 rounded-lg border border-cameroon-green px-3 py-2 text-xs font-black text-cameroon-green disabled:opacity-50"
+              >
+                <MapPinIcon className="h-4 w-4" />
+                {locationStatus === 'requesting' ? 'Locating...' : 'Use my location'}
+              </button>
+            </div>
 
-              <div className="space-y-3">
-                {facilityData[activeTab].map((facility, idx) => (
-                  <motion.article
-                    key={`${activeTab}-${idx}`}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.06 }}
-                    className="bg-white p-3 rounded-2xl border border-cameroon-green/10 flex items-center gap-4 shadow-sm active:bg-cameroon-green/5 transition-colors"
-                  >
-                    <div className={`w-12 h-12 rounded-xl shrink-0 flex items-center justify-center ${
-                      activeTab === 'telehealth'
-                        ? 'bg-medical-blue/10 text-medical-blue'
-                        : activeTab === 'hospitals'
-                        ? 'bg-cameroon-red/10 text-cameroon-red'
-                        : activeTab === 'pharmacies'
-                        ? 'bg-cameroon-yellow/15 text-cameroon-yellow-deep'
-                        : 'bg-cameroon-green/10 text-cameroon-green'
-                    }`}>
-                      {activeTab === 'telehealth' ? <UsersIcon className="h-6 w-6" /> : <MapPinIcon className="w-6 h-6" />}
-                    </div>
-                    <div className="flex-grow">
-                      <h4 className="text-sm font-black text-cameroon-night leading-tight">{facility.name}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-slate-500 font-medium">{facility.distance}</span>
-                        <span className="text-[10px] font-black text-cameroon-yellow-deep">★ {facility.rating}</span>
-                        <span className="text-[10px] text-cameroon-red font-bold">· {facility.type}</span>
-                      </div>
-                    </div>
-                    {facility.position && (
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${facility.position.lat},${facility.position.lng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] font-black uppercase text-cameroon-green tracking-wider px-2.5 py-1.5 rounded-full bg-cameroon-green/10"
-                      >
-                        Go
-                      </a>
-                    )}
-                  </motion.article>
-                ))}
+            {(locationError || mapsError || placesError) && (
+              <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-900">
+                {locationError || placesError || mapsError}
               </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Nearby care type">
+              {CARE_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  onClick={() => selectTab(tab)}
+                  className={`min-w-0 rounded-lg px-2 py-2.5 text-xs font-black capitalize ${
+                    activeTab === tab
+                      ? 'bg-cameroon-green text-white'
+                      : 'border border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {showMap ? (
+            <section className="space-y-3">
+              <FacilityMap facilities={mappedFacilities} userLocation={userLocation} height="min(58dvh, 520px)" />
+              <a
+                href={mapsSearchUrl(activeTab)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-black text-white"
+              >
+                <MapPinIcon className="h-5 w-5" />
+                Open {activeTab} in Google Maps
+              </a>
             </section>
-          </>
-        )}
+          ) : (
+            <section className="space-y-3" aria-live="polite">
+              {searching && (
+                <div className="flex items-center justify-center gap-3 py-8 text-sm font-bold text-slate-600">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-cameroon-green" />
+                  Searching nearby {activeTab}...
+                </div>
+              )}
 
-        <section className="mt-8 mb-6 p-6 rounded-2xl bg-cameroon-red/5 border-2 border-cameroon-red/30 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-cameroon-red/15 text-cameroon-red mb-4">
-            <WarningIcon />
-          </div>
-          <h4 className="text-cameroon-red-deep font-black text-lg mb-2 leading-tight">{t.disclaimer_title}</h4>
-          <p className="text-cameroon-red-deep/85 font-semibold text-sm mb-4">{t.disclaimer_text}</p>
-          <p className="text-cameroon-red/80 text-xs leading-relaxed uppercase tracking-wider font-bold">{t.disclaimer_consult}</p>
-        </section>
+              {!searching && facilities.map((facility, index) => (
+                <motion.article
+                  key={facility.placeId ?? `${facility.name}-${index}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.04 }}
+                  className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+                >
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
+                    activeTab === 'hospitals'
+                      ? 'bg-red-50 text-red-700'
+                      : activeTab === 'pharmacies'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-emerald-50 text-emerald-700'
+                  }`}>
+                    {activeTab === 'pharmacies' ? <RemedyIcon className="h-5 w-5" /> : <MapPinIcon className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="break-words text-sm font-black leading-tight text-slate-950">{facility.name}</h4>
+                    <p className="mt-1 break-words text-xs text-slate-500">{facility.address || 'Address available in Google Maps'}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-slate-600">
+                      <span>{facility.distanceKm < 1 ? `${Math.round(facility.distanceKm * 1000)} m` : `${facility.distanceKm.toFixed(1)} km`}</span>
+                      {facility.rating > 0 && <span className="text-amber-700">Rating {facility.rating.toFixed(1)}</span>}
+                      {facility.openNow !== undefined && (
+                        <span className={facility.openNow ? 'text-emerald-700' : 'text-red-700'}>{facility.openNow ? 'Open now' : 'Closed now'}</span>
+                      )}
+                    </div>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${facility.position.lat},${facility.position.lng}${facility.placeId ? `&destination_place_id=${encodeURIComponent(facility.placeId)}` : ''}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Directions to ${facility.name}`}
+                    className="shrink-0 rounded-lg bg-cameroon-green px-3 py-2 text-xs font-black text-white"
+                  >
+                    Go
+                  </a>
+                </motion.article>
+              ))}
+
+              {!searching && facilities.length === 0 && (
+                <div className="rounded-lg border border-slate-200 bg-white p-5 text-center">
+                  <p className="text-sm font-bold text-slate-700">
+                    {locationStatus === 'ready' && mapsReady
+                      ? `No ${activeTab} were returned in the search radius.`
+                      : `Open Google Maps to find ${activeTab} near you.`}
+                  </p>
+                </div>
+              )}
+
+              <a
+                href={mapsSearchUrl(activeTab)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-slate-900 bg-white px-4 py-3 text-sm font-black text-slate-900"
+              >
+                <MapPinIcon className="h-5 w-5" />
+                Search {activeTab} in Google Maps
+              </a>
+            </section>
+          )}
+
+          <section className="border-t border-red-200 pt-5 text-center">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-700">
+              <WarningIcon />
+            </div>
+            <h4 className="font-black text-red-900">{t.disclaimer_title}</h4>
+            <p className="mt-2 text-xs font-semibold leading-relaxed text-red-800">{t.disclaimer_text}</p>
+            <p className="mt-2 text-xs font-black text-red-700">{t.disclaimer_consult}</p>
+          </section>
+        </div>
       </main>
 
-      <nav aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 glass-effect border-t border-cameroon-green/10 px-6 sm:px-8 py-3 flex justify-between items-center mobile-bottom-nav z-30">
-        <button onClick={() => navigate('/app')} aria-label="Home" className="text-cameroon-green/60 active:scale-90 transition-transform"><HomeIcon /></button>
-        <button onClick={() => navigate('/scanner')} aria-label="New scan" className="bg-cameroon-green w-14 h-14 rounded-2xl shadow-cameroon flex items-center justify-center text-white active:scale-95 transition-all -mt-12 border-4 border-cameroon-ivory">
+      <nav aria-label="Main navigation" className="mobile-bottom-nav z-30 flex shrink-0 items-center justify-between border-t border-slate-200 bg-white/95 px-8 py-3 backdrop-blur">
+        <button onClick={() => navigate('/app')} aria-label="Home" className="text-cameroon-green/70"><HomeIcon /></button>
+        <button onClick={() => navigate('/scanner')} aria-label="New scan" className="flex h-12 w-12 items-center justify-center rounded-lg bg-cameroon-green text-white shadow-md">
           <PlusIcon />
         </button>
-        <button onClick={() => navigate('/patients')} aria-label="Patients" className="text-cameroon-green/60 active:scale-90 transition-transform"><UsersIcon /></button>
+        <button onClick={() => navigate('/patients')} aria-label="Patients" className="text-cameroon-green/70"><UsersIcon /></button>
       </nav>
     </div>
   );
