@@ -9,6 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
+    include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', 'firestore/**', 'node_modules/**', 'functions/**'],
   },
   resolve: {

@@ -11,6 +11,7 @@ const removeLocalReviewNotes = () => ({
 });
 
 export default defineConfig({
+  server: process.env.CAMDIAG_E2E === 'true' ? { hmr: false, watch: null } : undefined,
   plugins: [react(), removeLocalReviewNotes()],
   resolve: {
     alias: {
