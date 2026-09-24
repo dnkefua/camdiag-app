@@ -17,14 +17,16 @@ export const CORS_ALLOWED_ORIGINS = defineString('CORS_ALLOWED_ORIGINS', {
     'http://localhost:5173',
   ].join(','),
 });
-export const APP_CHECK_ENFORCED = defineString('APP_CHECK_ENFORCED', { default: 'false' });
+export const APP_CHECK_ENFORCED = defineString('APP_CHECK_ENFORCED', { default: 'true' });
+export const DAILY_USER_JOB_LIMIT = defineString('DAILY_USER_JOB_LIMIT', { default: '40' });
+export const DAILY_ORG_JOB_LIMIT = defineString('DAILY_ORG_JOB_LIMIT', { default: '400' });
 export const AUDIT_LOG_RETENTION_DAYS = defineString('AUDIT_LOG_RETENTION_DAYS', { default: '90' });
 
 export const RATE_LIMIT = {
   ANALYZE: { windowMs: 60_000, max: 30 },
   TRANSCRIBE: { windowMs: 60_000, max: 20 },
   SEARCH: { windowMs: 60_000, max: 60 },
-  INTERACTIONS: { windowMs: 60_000, max: 60 },
+  INTERACTIONS: { windowMs: 60_000, max: 6 },
 } as const;
 
-export const REQUEST_SIZE_LIMIT = '28mb';
+export const REQUEST_SIZE_LIMIT = '256kb';

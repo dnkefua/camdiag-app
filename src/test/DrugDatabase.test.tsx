@@ -1,172 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TranslationProvider } from '../hooks/useTranslation';
 import DrugDatabase from '../components/DrugDatabase';
-
-// Mock framer-motion to skip animation initial states
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  },
-}));
-
-// Mock react-router-dom navigate
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>();
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-// Mock Firestore service
-const mockDrugData = [
-  { id: '1', name: 'Coartem (Artemether/Lumefantrine)', type: 'Antimalarial', dosage: '20mg/120mg', availability: 'High', description: 'First-line treatment for uncomplicated malaria in Cameroon.' },
-  { id: '2', name: 'Paracetamol (Efferalgan)', type: 'Analgesic', dosage: '500mg/1g', availability: 'High', description: 'Used for fever and pain relief.' },
-  { id: '3', name: 'Amoxicillin', type: 'Antibiotic', dosage: '250mg/500mg', availability: 'High', description: 'Broad-spectrum antibiotic for bacterial infections.' },
-];
-vi.mock('../services/firestore', () => ({
-  getDrugs: vi.fn(() => Promise.resolve(mockDrugData)),
-}));
-
-// Reactive store mock: allows setDrugDatabase to update drugDatabase for re-renders
-let storeDrugs: typeof mockDrugData = [];
-const setDrugDatabase = (drugs: typeof mockDrugData) => { storeDrugs = drugs; };
-
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({ drugDatabase: storeDrugs, setDrugDatabase }),
-}));
-
-// Mock api service (API not configured in tests)
-vi.mock('../services/api', () => ({
-  isApiConfigured: () => false,
-}));
-
-// Mock medgemma service
-vi.mock('../services/medgemma', () => ({
-  searchMedicationInfo: vi.fn(),
-  checkDrugInteractions: vi.fn(),
-}));
-
-const renderWithProviders = (ui: React.ReactElement) => {
-  return render(<MemoryRouter>{ui}</MemoryRouter>);
-};
-
-describe('DrugDatabase', () => {
-  beforeEach(() => {
-    mockNavigate.mockClear();
-    storeDrugs = [];
-  });
-
-  it('renders the Drugs page heading', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
-    });
-  });
-
-  it('renders the search input', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/search medications/i)).toBeInTheDocument();
-    });
-  });
-
-  it('renders all drugs from the store', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    });
-    expect(screen.getByText(/Paracetamol/i)).toBeInTheDocument();
-    expect(screen.getByText(/Amoxicillin/i)).toBeInTheDocument();
-  });
-
-  it('filters drugs by name when typing in search', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    });
-    const searchInput = screen.getByPlaceholderText(/search medications/i);
-    fireEvent.change(searchInput, { target: { value: 'Coartem' } });
-    expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Paracetamol/i)).not.toBeInTheDocument();
-  });
-
-  it('filters drugs by type when typing in search', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    });
-    const searchInput = screen.getByPlaceholderText(/search medications/i);
-    fireEvent.change(searchInput, { target: { value: 'Antibiotic' } });
-    expect(screen.queryByText(/Coartem/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Amoxicillin/i)).toBeInTheDocument();
-  });
-
-  it('shows all drugs again when search is cleared', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    });
-    const searchInput = screen.getByPlaceholderText(/search medications/i);
-    fireEvent.change(searchInput, { target: { value: 'Coartem' } });
-    expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Paracetamol/i)).not.toBeInTheDocument();
-    fireEvent.change(searchInput, { target: { value: '' } });
-    expect(screen.getByText(/Coartem/i)).toBeInTheDocument();
-    expect(screen.getByText(/Paracetamol/i)).toBeInTheDocument();
-  });
-
-  it('renders bottom navigation', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: /patients/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /scan/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /profile/i })).toBeInTheDocument();
-  });
-
-  it('navigates back to /app when back button is clicked', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <DrugDatabase />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: /back/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/app');
-  });
+import { useAppStore } from '../store/useAppStore';
+import { resetSensitiveSession } from '../services/session';
+import { encounter } from './clinicalFixtures';
+const mocks=vi.hoisted(()=>({check:vi.fn(),search:vi.fn(),uid:'user-a'}));
+vi.mock('../contexts/AuthContext',()=>({useAuth:()=>({user:{uid:mocks.uid,canUseClinicalTools:true}})}));
+vi.mock('../services/medgemma',()=>({checkDrugInteractions:mocks.check,searchMedicationInfo:mocks.search}));
+const show=()=>render(<MemoryRouter><TranslationProvider><DrugDatabase/></TranslationProvider></MemoryRouter>);
+describe('Patient-specific medication evidence',()=>{
+  beforeEach(()=>{vi.clearAllMocks();localStorage.clear();mocks.uid='user-a';resetSensitiveSession();useAppStore.setState({activeEncounter:encounter});mocks.check.mockResolvedValue({status:'not_assessed',result:'No reviewed evidence is available for this combination.',evidence:[]});});
+  it('checks the explicitly confirmed list independent of search text',async()=>{show();fireEvent.change(screen.getByLabelText('Medication / active ingredient'),{target:{value:'Unselected search drug'}});fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Review selected interactions'}));await screen.findByText('Not assessed — insufficient reviewed evidence');expect(mocks.check).toHaveBeenCalledWith(['Medicine Alpha','Medicine Beta'],'en','enc-1',expect.any(AbortSignal));expect(screen.queryByText('No interactions')).not.toBeInTheDocument();});
+  it('invalidates list confirmation and evidence when selection changes',async()=>{show();fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Review selected interactions'}));await screen.findByText('Not assessed — insufficient reviewed evidence');fireEvent.click(screen.getByRole('button',{name:'Remove Medicine Beta'}));expect(screen.getByRole('checkbox')).not.toBeChecked();expect(screen.getByRole('button',{name:'Review selected interactions'})).toBeDisabled();expect(screen.queryByText('Not assessed — insufficient reviewed evidence')).not.toBeInTheDocument();});
+  it('requires a selected patient encounter',()=>{useAppStore.setState({activeEncounter:null});show();expect(screen.getByRole('button',{name:'Review selected interactions'})).toBeDisabled();expect(screen.getByText(/Select a patient encounter before checking/)).toBeVisible();});
+  it('does not display an old-account evidence response after switching account',async()=>{let resolve!:(v:{status:string;result:string;evidence:never[]})=>void;mocks.check.mockReturnValue(new Promise(r=>{resolve=r;}));const view=show();fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Review selected interactions'}));mocks.uid='user-b';useAppStore.setState({activeEncounter:null});view.rerender(<MemoryRouter><TranslationProvider><DrugDatabase/></TranslationProvider></MemoryRouter>);resolve({status:'not_assessed',result:'PRIVATE OLD RESULT',evidence:[]});await waitFor(()=>expect(screen.getByText(/Select a patient encounter/)).toBeVisible());expect(screen.queryByText('PRIVATE OLD RESULT')).not.toBeInTheDocument();});
 });

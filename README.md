@@ -1,163 +1,45 @@
-# CamDiag - AI-Assisted Clinical Decision Support for Cameroon
+# CamDiag
 
-CamDiag is an AI-assisted clinical decision-support application designed for Cameroon's healthcare system. It uses a Firebase Functions backend to provide medical document review, possible findings for clinician review, drug interaction checking, and clinical decision support.
+CamDiag is an investigational, clinician-assisted document review app for Cameroon. Its current proposed clinical scope is text-bearing medical documents supplied as JPEG, PNG, or WebP pages. A verified clinician reviews the original image, corrects OCR text, then reviews and signs any AI-generated possible findings. The app is not validated for autonomous diagnosis, prescribing, X-ray interpretation, RDT/test-strip interpretation, or body-image interpretation.
 
-## Features
+The working-tree implementation is **not deployed or approved for clinical production use**. The existing live API returned HTTP 500 during the 2026-09-23 read-only check. See the [release assurance register](docs/release-assurance-register.md) and [implementation and rollout guide](docs/implementation-and-rollout.md) before any release.
 
-- **AI Medical Document Review** - Scan lab results, X-rays, and RDT tests using the device camera
-- **Drug Database** - Browse medications available in Cameroon, including traditional remedies (contri-medicine)
-- **Drug Interaction Checking** - Automatic contraindication detection across recommended medications
-- **Bilingual Support** - Full English/French interface
-- **Nearby Facilities** - Find clinics, hospitals, pharmacies, and telehealth providers
-- **Patient Records** - Track diagnostic history
-- **Medical Feedback** - Gamified questionnaire for community health data
-- **Blog & News** - Health-related content for Cameroon
-- **Offline Awareness** - Detects and displays connection status
+## What is implemented
 
-## Tech Stack
+- Firebase Auth and App Check, with server-verified clinician claims and active organization membership. Profile fields cannot grant clinical access.
+- Versioned clinical-processing consent, emergency triage, one current source manifest per encounter, bounded resumable uploads, source integrity checks, OCR correction, durable analysis jobs, saved provenance, and clinician sign-off tied to the current source and transcription.
+- Server-owned Firestore records and Storage upload slots. Private source pages expire after 24 hours and are purged by a scheduled function.
+- Medication reference lookup that fails closed as **not assessed** without approved, current, cited evidence. It does not establish patient-specific medication safety.
+- Saved encounters, referral status, print/save-PDF reporting, account export, and a human-reviewed deletion-request workflow.
+- A fixed synthetic demo, English/French clinical wording with explicit limitations, optional public-page-only analytics, and a service worker that caches only an offline notice.
 
-- **React 19** + **TypeScript**
-- **React Router v7** - URL-based navigation
-- **Zustand** - Global state management
-- **Tailwind CSS 3** - Styling
-- **Framer Motion** - Animations
-- **Firebase Functions** - Server-side Vertex AI / Gemini proxy
-- **Vitest** + **React Testing Library** - Testing
-- **Firebase App Hosting** - Web deployment
+## Architecture
 
-## Project Structure
+The React/TypeScript client uses Firebase Auth and Storage. Firebase Functions owns clinical state transitions and integrates with Document AI and Vertex AI. Firestore and Storage rules block direct client mutation of authoritative clinical records. The browser keeps clinical state in memory and clears it when the signed-in identity or authority changes. Shared contracts live in `functions/src/contracts/clinical.ts`; runtime validation is also performed on API responses.
 
-```
-src/
-├── components/
-│   ├── ui/          # ErrorBoundary, LoadingSpinner, Icons
-│   ├── DiagnosticHub.tsx
-│   ├── Scanner.tsx
-│   ├── AnalysisResults.tsx
-│   ├── NextSteps.tsx
-│   ├── DrugDatabase.tsx
-│   ├── PatientRecords.tsx
-│   ├── Questionnaire.tsx
-│   ├── Blog.tsx
-│   ├── ComingUp.tsx
-│   └── Settings.tsx
-├── contexts/        # AuthContext
-├── hooks/           # useTranslation, useOnlineStatus
-├── i18n/            # en.json, fr.json
-├── services/        # api.ts (local), medgemma.ts (Google AI)
-├── store/           # Zustand useAppStore
-├── types/           # TypeScript type definitions
-├── utils/           # Form validation, input sanitization
-├── test/            # Vitest setup and test files
-├── App.tsx          # Router setup
-└── main.tsx         # Entry point with providers
-```
+## Development
 
-## Getting Started
+Use Node.js 20+ and npm 9+. Install dependencies with `npm install`, copy `.env.example` to `.env`, and configure public Firebase and API values. Provider credentials belong only in the Functions runtime; never place them in `VITE_` variables or browser code. Start the client with `npm run dev`.
 
-### Prerequisites
-- Node.js 20+
-- npm 9+
-
-### Installation
+Useful verification commands:
 
 ```bash
-npm install
-```
-
-### Environment Setup
-
-Copy `.env.example` to `.env` and add the public Firebase, Maps, and backend URL values:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-```
-VITE_API_URL=https://us-central1-<project-id>.cloudfunctions.net/api
-```
-
-Gemini/Vertex credentials are server-only. The browser must never receive a Gemini API key or call Gemini / Vertex directly.
-
-### Development
-
-```bash
-npm run dev
-```
-
-### Build
-
-```bash
+npm run lint
+npm run typecheck
+npm test
+npm test --prefix functions
+npm run test:rules
+npm run test:ops
+npm run test:e2e
+npm run scan:secrets
 npm run build
+npm run build --prefix functions
 ```
 
-### Testing
+The Firestore/Storage rules tests require Java and local Firebase emulator binaries. Browser tests use only synthetic fixtures. On Windows, see the rollout guide for the external-Vite-server workaround to avoid a Playwright teardown hang. None of these checks constitutes clinical validation.
 
-```bash
-npm test           # Run tests once
-npm run test:watch # Watch mode
-npm run test:coverage # With coverage
-npm run test:rules # Firestore security rules tests (requires Java for Firebase emulators)
-```
+## Release
 
-### Linting & Type Check
+The manual deployment workflow in `.github/workflows/deploy.yml` is gated by a protected production environment and approval reference. Before using it, complete the signed clinical, privacy, regulatory, residency, security, and safety approvals; rehearse staging and backup recovery; configure Storage CORS, App Check, IAM, retention, and medication evidence; and resolve the existing API 500. Do not use real patient data for engineering tests.
 
-```bash
-npm run lint       # ESLint
-npm run typecheck  # TypeScript check
-```
-
-## AI Integration
-
-CamDiag integrates with Google Vertex AI through Firebase Functions for:
-
-1. **Medical Document Review** - Upload scan images and receive possible findings for clinician review
-2. **Drug Interaction Checking** - Query medication combinations for potential contraindications
-3. **Medication Information** - Search for detailed medication data including Cameroon availability
-
-The backend calls Vertex AI server-side using the runtime service account and validates structured JSON before returning it to the app. Browser clients call the authenticated backend only.
-
-**Important:** Always include medical disclaimers. CamDiag is a decision support tool, not a replacement for professional medical diagnosis.
-
-## Internationalization
-
-Translation files are in `src/i18n/`:
-- `en.json` - English
-- `fr.json` - French
-
-To add a new language, create a new JSON file and update the `Language` type in `src/types/index.ts`.
-
-## Deployment
-
-The web app is deployed by Firebase App Hosting from the connected GitHub branch using `apphosting.yaml`.
-
-Backend services are deployed separately:
-
-```bash
-firebase deploy --only functions,firestore:rules
-```
-
-Make sure `.firebaserc` is configured with your Firebase project ID and App Hosting has the public web env vars configured.
-
-### Tester Google Sign-In Checklist
-
-Before sharing a public test link, confirm Firebase Console -> Authentication has:
-
-- Sign-in method -> Google enabled
-- Settings -> Authorized domains includes every test URL host users will open, such as `camdiag-c7e78.web.app`, `camdiag-c7e78.firebaseapp.com`, the Firebase App Hosting host, `ndnanalytics.com`, and `www.ndnanalytics.com`
-- Firestore rules deployed so the app can create each signed-in user's profile document
-
-If users see `auth/unauthorized-domain`, add the exact browser hostname from the shared link to Authorized domains and retry sign-in.
-
-## Security
-
-- Content Security Policy headers are configured in `firebase.json`
-- Input sanitization is applied to all user-submitted text
-- AI analysis and drug interaction checks require Firebase Auth and go through backend rate limits/audit logging
-- Unauthenticated users can only access the no-AI demo flow
-- Medical disclaimers are prominently displayed throughout the application
-
-## License
-
-Private - NDN Analytics
+Private software — NDN Analytics.

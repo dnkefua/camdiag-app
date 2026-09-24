@@ -1,5 +1,7 @@
 # Google Play Testing Launch Checklist
 
+This is a draft from an earlier Android build, not authorization to publish the current clinical app. Verify current Play Console requirements and the actual signed bundle before use. The September 2026 working tree is not deployed, the existing live API failed its read-only check, and clinical testing with real patient data requires the approvals and protocol in the [release assurance register](./release-assurance-register.md).
+
 ## Recommended Track
 
 Start with **Internal testing** for CamDiag. Google Play supports internal testing for up to 100 testers and lets a new Android App Bundle become available to testers quickly. Use closed testing after the first QA group confirms install, login, camera, App Check, and AI review flows.
@@ -21,13 +23,13 @@ Start with **Internal testing** for CamDiag. Google Play supports internal testi
 Short description:
 
 ```text
-AI-assisted clinical review and medication safety support for Cameroon healthcare workers.
+Investigational, clinician-assisted medical document review for Cameroon.
 ```
 
 Full description:
 
 ```text
-CamDiag helps healthcare workers review medical documents, lab results, RDTs, prescriptions, and medication safety information in Cameroon-focused workflows.
+CamDiag helps verified healthcare workers review text-bearing medical documents, lab results, and prescriptions in Cameroon-focused workflows. Clinicians check the original document, correct extracted text, and review possible findings before sign-off. X-ray, test-strip, and body-image interpretation are unavailable. Medication references do not establish patient-specific safety.
 
 CamDiag provides possible findings for clinician review. It does not diagnose, prescribe, replace emergency care, or replace licensed clinical judgment.
 
@@ -37,7 +39,7 @@ Testing focus:
 - Emergency triage gate
 - Image quality checks
 - AI-assisted document review
-- Medication safety and interaction workflows
+- Medication reference workflows, including the **not assessed** state when approved evidence is absent
 - Patient record save/review flows
 ```
 

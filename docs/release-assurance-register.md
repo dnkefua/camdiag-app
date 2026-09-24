@@ -1,5 +1,25 @@
 # CamDiag Release Assurance Register
 
+## 2026-09-23 engineering update
+
+The July entries below are historical observations, not proof of the current deployment. The September review found Firebase Hosting serving the existing site, while the deployed clinical API returned HTTP 500 and the App Hosting path returned 5xx. A read-only Cloud Run check found the API revision marked Ready and project billing enabled; that does not explain or resolve the API failure. The new local code has not been deployed. Keep clinical processing unavailable until deployment, readiness checks, and the approvals below are complete.
+
+Current proposed release scope: investigational, clinician-assisted review of text documents supplied as JPEG/PNG/WebP pages. X-ray, RDT/test-strip and body-image interpretation, autonomous diagnosis, prescribing, offline AI, and medication safety clearance are excluded. Medication evidence must be reviewed, versioned, cited and current; otherwise the product returns **not assessed**. The synthetic engineering tests do not establish clinical accuracy.
+
+| 2026-09-23 local gate | Result |
+| --- | --- |
+| Frontend typecheck/build | Passed |
+| Frontend unit tests | 130 passed across 23 files |
+| Backend behavior tests | 35 passed across 4 files |
+| Firestore/Storage emulator assertions | 12 passed; CLI exited successfully in local Windows sandbox |
+| Browser synthetic workflow | 9 passed with an external local Vite server |
+| Hosting/offline/release-smoke tests | 8 passed |
+| Tracked/untracked signing and credential scan | Passed local pattern scan; not a substitute for a full secret scanner |
+| Dependency advisory scan | Blocked by automatic approval review because npm audit discloses package/version metadata; explicit authorization required |
+| Live API readiness | Existing production endpoint failed; no deployment or production data migration performed |
+
+Release controls and migration steps are documented in [implementation and rollout](./implementation-and-rollout.md). The required clinical, privacy, regulatory, residency, security and safety approvals listed below remain unsigned. `CLINICAL_RELEASE_APPROVED=true` and the protected `production` GitHub environment are required by the manual deployment workflow after signed evidence exists. Do not use a green synthetic test run as release authorization.
+
 Status date: 2026-07-15  
 Build: `8915971`  
 Environment: Firebase project `camdiag-c7e78`
@@ -44,4 +64,4 @@ These are governance decisions and cannot be self-certified by software or an AI
 
 ## Release decision
 
-Technical deployment is complete. Clinical production use remains **not approved** until every human approval above is signed. The deployed application must remain an investigational clinician-review tool and must not be represented as validated autonomous diagnosis or prescribing software.
+The July build was technically deployed, but the September implementation in this working tree has **not** been deployed, and the observed live API failure is unresolved. Clinical production use remains **not approved** until the current build passes staging and deployment checks and every human approval above is signed. The application must not be represented as validated autonomous diagnosis or prescribing software.

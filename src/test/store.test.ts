@@ -93,7 +93,7 @@ describe('useAppStore', () => {
     expect(state.contraindications).toHaveLength(1);
     expect(state.analysisLimitations).toContain('The report does not include symptoms.');
     expect(state.analysisDisclaimer).toMatch(/not a diagnosis/i);
-    expect(window.sessionStorage.getItem('camdiag_active_analysis_v1')).toContain('Anaemia pattern');
+    expect(window.sessionStorage.getItem('camdiag_active_analysis_v1')).toBeNull();
     state.resetAnalysis();
     expect(window.sessionStorage.getItem('camdiag_active_analysis_v1')).toBeNull();
   });

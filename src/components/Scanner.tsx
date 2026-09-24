@@ -1,470 +1,707 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
 import { useCamera } from '../hooks/useCamera';
+import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../store/useAppStore';
-import { transcribeMedicalDocument } from '../services/medgemma';
-import { isApiConfigured } from '../services/api';
-import { trackEvent } from '../services/analytics';
+import {
+  createDocument,
+  createEncounter,
+  createJob,
+  getEncounter,
+  loadSourcePage,
+  sha256,
+  transcriptionFromJob,
+  uploadClinicalPage,
+  waitForJob,
+} from '../services/medgemma';
+import { getSensitiveSessionSignal } from '../services/session';
 import { validateImageQuality } from '../utils/imageQuality';
-import { CloseIcon, FlashIcon, CheckIcon, ImageIcon, AlertIcon } from '../components/ui/Icons';
-import type { AnalyzeDocumentType, DocumentPageInput } from '../types';
+import { ACCEPTED_DOCUMENT_TYPES, validateDocumentFiles } from '../utils/documentLimits';
+import { clinicalLanguage, clinicalLanguageNotice, clinicalText } from '../utils/clinicalLanguage';
+import type {
+  ClinicalDocumentType,
+  DocumentManifest,
+  Encounter,
+  PatientContext,
+  UploadPageInput,
+} from '../../functions/src/contracts/clinical';
 
-type Capture = { id: string; dataUrl: string; blob: Blob; fileName: string; mimeType: string };
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/tiff'];
-const MAX_PAGES = 15;
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
+type Capture = {
+  id: string;
+  dataUrl: string;
+  blob: Blob;
+  fileName: string;
+  mimeType: UploadPageInput['mimeType'];
+};
+const readBlob = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read the selected image.'));
+    reader.readAsDataURL(blob);
+  });
+const list = (value: string) =>
+  value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 const Scanner = () => {
   const navigate = useNavigate();
-  const { t, language } = useTranslation();
-  const {
-    resetAnalysis,
-    setAnalyzing,
-    setAnalysisError,
-    setTranscription,
-    setPendingPages,
-    setPendingDocumentType,
-    isAnalyzing,
-  } = useAppStore();
+  const [searchParams] = useSearchParams();
+  const resumeId = searchParams.get('resume');
+  const { language, t } = useTranslation();
+  const { user } = useAuth();
   const camera = useCamera();
-
-  const [scanMode, setScanMode] = useState<'document' | 'body'>('document');
-  const [showError, setShowError] = useState(false);
-  const [flashOverlay, setFlashOverlay] = useState(false);
+  const store = useAppStore();
   const [captures, setCaptures] = useState<Capture[]>([]);
-  const [documentType, setDocumentType] = useState<AnalyzeDocumentType>('medical_document');
-  const [processingStage, setProcessingStage] = useState<string | null>(null);
-  const [showTriage, setShowTriage] = useState(false);
-  const [qualityError, setQualityError] = useState<string | null>(null);
+  const [documentType, setDocumentType] = useState<ClinicalDocumentType>('lab_result');
+  const [patientId, setPatientId] = useState(store.activeEncounter?.patientId ?? '');
+  const [ageRange, setAgeRange] = useState('');
+  const [sex, setSex] = useState<PatientContext['sexAtBirth']>('unknown');
+  const [pregnancy, setPregnancy] = useState<PatientContext['pregnancyStatus']>('unknown');
+  const [symptoms, setSymptoms] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [medications, setMedications] = useState('');
+  const [triage, setTriage] = useState<'unchecked' | 'no_red_flags' | 'emergency'>('unchecked');
+  const [progress, setProgress] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [hydrating, setHydrating] = useState(Boolean(resumeId));
+  const [cameraShown, setCameraShown] = useState(false);
+  const [resume, setResume] = useState<Encounter | null>(null);
+  const manifest = useRef<DocumentManifest | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const version = useRef(0);
+  const tr = (en: string, fr: string) => clinicalText(language, en, fr);
 
-    useEffect(() => {
-      camera.start().catch(error => console.error('Camera start error:', error));
-      trackEvent('scanner_open');
-      return () => camera.stop();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-  const handleCapture = async () => {
-    if (scanMode === 'body') {
-      setShowError(true);
-      setTimeout(() => setShowError(false), 3000);
-      return;
-    }
-    if (!camera.isReady) return;
-
-    setFlashOverlay(true);
-    const shot = await camera.capture();
-    setTimeout(() => setFlashOverlay(false), 180);
-
-    if (shot) {
-      setCaptures((prev) => [...prev, { ...shot, id: crypto.randomUUID(), fileName: `camera-page-${prev.length + 1}.jpg`, mimeType: 'image/jpeg' }]);
-      setQualityError(null);
-      trackEvent('scanner_capture', { count: captures.length + 1 });
-    }
-  };
-
-  const completeScan = async (hasEmergencySigns: boolean) => {
-    if (captures.length === 0 || isAnalyzing || processingStage) return;
-
-    if (hasEmergencySigns) {
-      resetAnalysis();
-      setAnalysisError('Emergency warning signs reported. Do not use AI analysis. Seek urgent medical care now.');
-      setCaptures([]);
-      setShowTriage(false);
+  useEffect(() => {
+    version.current += 1;
+    const signal = getSensitiveSessionSignal();
+    const clear = () => {
+      version.current++;
+      request.current?.abort();
       camera.stop();
-      void navigate('/analysis');
+      setCaptures([]);
+      setResume(null);
+      manifest.current = null;
+      setPatientId('');
+      setAgeRange('');
+      setSymptoms('');
+      setAllergies('');
+      setMedications('');
+      setSex('unknown');
+      setPregnancy('unknown');
+      setTriage('unchecked');
+      setBusy(false);
+      setProgress('');
+      setError('Clinical session ended. Sign in again before processing.');
+    };
+    signal.addEventListener('abort', clear, { once: true });
+    return () => {
+      version.current += 1;
+      signal.removeEventListener('abort', clear);
+      request.current?.abort();
+      camera.stop();
+    };
+    // Camera hook callbacks vary; cleanup is keyed to identity only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!resumeId || !user?.uid) {
+      setHydrating(false);
       return;
     }
-
-    for (const capture of captures.filter((item) => item.mimeType.startsWith('image/'))) {
-      try {
-        const quality = await validateImageQuality(capture.dataUrl);
-        if (!quality.ok) {
-          setQualityError(`${capture.fileName}: ${quality.issues.join(' ')}`);
-          setShowTriage(false);
-          trackEvent('scanner_quality_blocked', { score: quality.score, issues: quality.issues.length });
+    const controller = new AbortController();
+    request.current = controller;
+    setHydrating(true);
+    setError(null);
+    getEncounter(resumeId, controller.signal)
+      .then((detail) => {
+        if (controller.signal.aborted) return;
+        const encounter = detail.encounter;
+        if (encounter.latestAnalysisId) {
+          store.setActiveEncounter(encounter);
+          void navigate('/analysis');
           return;
         }
-      } catch (err) {
-        setQualityError(err instanceof Error ? err.message : 'Could not inspect image quality.');
-        setShowTriage(false);
-        return;
-      }
-    }
+        if (detail.jobs.some((j) => j.status === 'queued' || j.status === 'running')) {
+          void navigate('/patients');
+          return;
+        }
+        setResume(encounter);
+        store.setActiveEncounter(encounter);
+        setPatientId(encounter.patientId);
+        setDocumentType(encounter.documentType);
+        setTriage(encounter.triage);
+        const context = encounter.patientContext;
+        setAgeRange(context.ageRange ?? '');
+        setSex(context.sexAtBirth ?? 'unknown');
+        setPregnancy(context.pregnancyStatus ?? 'unknown');
+        setSymptoms(context.symptoms?.join(', ') ?? '');
+        setAllergies(context.allergies?.join(', ') ?? '');
+        setMedications(context.currentMedications?.join(', ') ?? '');
+        manifest.current =
+          detail.documents.find(
+            (document) => new Date(document.expiresAt).getTime() > Date.now()
+          ) ?? null;
+        setCaptures([]);
+      })
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted)
+          setError(e instanceof Error ? e.message : 'The saved encounter could not be restored.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHydrating(false);
+      });
+    return () => controller.abort();
+    // Store methods are stable; this hydration must only rerun for identity or URL changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeId, user?.uid]);
 
-    if (isApiConfigured()) {
-      resetAnalysis();
-      setAnalyzing(true);
-      let ocrCompleted = false;
-      try {
-        setProcessingStage('Extracting document text and handwriting...');
-        const pages: DocumentPageInput[] = captures.map((capture) => ({ id: capture.id, fileName: capture.fileName, mimeType: capture.mimeType, contentBase64: capture.dataUrl }));
-        const result = await transcribeMedicalDocument(pages, language);
-        setTranscription(result);
-        setPendingPages(pages);
-        setPendingDocumentType(documentType);
-        ocrCompleted = true;
-        trackEvent('scanner_ocr_success', { pages: pages.length, requiresReview: result.requiresReview });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Analysis failed. Using local data instead.';
-        setAnalysisError(message);
-        trackEvent('scanner_analysis_error', { message });
-      } finally {
-        setAnalyzing(false);
-        setProcessingStage(null);
-      }
-      if (!ocrCompleted) { setShowTriage(false); return; }
-    } else {
-      setAnalysisError('The secure OCR backend is not configured. Your document was not uploaded.');
-      setShowTriage(false);
+  const addFiles = async (files: File[]) => {
+    if (manifest.current && captures.length + files.length > manifest.current.pages.length) {
+      setError(
+        'Reselect the original source pages in the same order. Start a new encounter for different documents.'
+      );
       return;
     }
-
-     setCaptures([]);
-     setQualityError(null);
-     setShowTriage(false);
-     camera.stop();
-     void navigate('/transcription-review');
+    const invalid = validateDocumentFiles(
+      captures.map((c) => c.blob),
+      files
+    );
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    const generation = version.current;
+    try {
+      const added = await Promise.all(
+        files.map(async (file) => ({
+          id: crypto.randomUUID(),
+          dataUrl: await readBlob(file),
+          blob: file,
+          fileName: file.name,
+          mimeType: file.type as Capture['mimeType'],
+        }))
+      );
+      if (version.current !== generation) return;
+      setCaptures((previous) => {
+        const raced = validateDocumentFiles(
+          previous.map((c) => c.blob),
+          files
+        );
+        if (raced) {
+          setError(raced);
+          return previous;
+        }
+        return [...previous, ...added];
+      });
+      setError(null);
+    } catch {
+      if (version.current === generation)
+        setError('The image could not be read. Please choose it again.');
+    }
+  };
+  const capture = async () => {
+    const generation = version.current;
+    const shot = await camera.capture();
+    if (shot && version.current === generation)
+      await addFiles([
+        new File([shot.blob], `camera-page-${captures.length + 1}.jpg`, { type: 'image/jpeg' }),
+      ]);
   };
 
-  const handleDone = async () => {
-    if (captures.length === 0) return;
-    setShowTriage(true);
+  const process = async () => {
+    if (
+      busy ||
+      hydrating ||
+      (resumeId && !resume) ||
+      !patientId.trim() ||
+      triage === 'unchecked' ||
+      !user?.canUseClinicalTools
+    )
+      return;
+    const controller = new AbortController();
+    request.current = controller;
+    const generation = version.current;
+    const current = () => !controller.signal.aborted && version.current === generation;
+    setBusy(true);
+    setError(null);
+    try {
+      if (triage !== 'emergency') {
+        const bounds = validateDocumentFiles(
+          [],
+          captures.map((c) => ({ size: c.blob.size, type: c.mimeType }))
+        );
+        if (bounds || !captures.length)
+          throw new Error(bounds ?? 'Select at least one source page.');
+        setProgress(tr('Checking image quality…', 'Vérification de la qualité…'));
+        for (const c of captures) {
+          const quality = await validateImageQuality(c.dataUrl);
+          if (!quality.ok) throw new Error(`${c.fileName}: ${quality.issues.join(' ')}`);
+        }
+      }
+      if (!current()) return;
+      const encounter =
+        resume ??
+        (await createEncounter(
+          {
+            patientId: patientId.trim(),
+            documentType,
+            language: clinicalLanguage(language),
+            patientContext: {
+              ageRange: ageRange || undefined,
+              sexAtBirth: sex,
+              pregnancyStatus: pregnancy,
+              symptoms: list(symptoms),
+              allergies: list(allergies),
+              currentMedications: list(medications),
+            },
+            triage,
+          },
+          controller.signal
+        ));
+      if (!current()) return;
+      setResume(encounter);
+      store.setActiveEncounter(encounter);
+      store.resetAnalysis();
+      if (encounter.triage === 'emergency') {
+        setError(
+          tr(
+            'Emergency warning signs recorded. Stop this workflow and arrange urgent clinical care. No AI processing will run.',
+            'Signes d’urgence enregistrés. Arrêtez ce parcours et organisez des soins urgents. Aucun traitement IA ne sera lancé.'
+          )
+        );
+        return;
+      }
+      setProgress(tr('Preparing private source upload…', 'Préparation du transfert privé…'));
+      const pages: UploadPageInput[] = await Promise.all(
+        captures.map(async (c) => ({
+          id: c.id,
+          fileName: c.fileName,
+          mimeType: c.mimeType,
+          sizeBytes: c.blob.size,
+          sha256: await sha256(c.blob),
+        }))
+      );
+      if (!current()) return;
+      if (!manifest.current) {
+        const existing = await getEncounter(encounter.id, controller.signal);
+        manifest.current =
+          existing.documents.find(
+            (d) =>
+              d.pages.length === pages.length &&
+              d.pages.every((p, i) => p.sha256 === pages[i]?.sha256) &&
+              new Date(d.expiresAt).getTime() > Date.now()
+          ) ?? (await createDocument(encounter.id, pages, controller.signal));
+      }
+      const source = manifest.current;
+      if (source.pages.length !== captures.length)
+        throw new Error(
+          `Reselect all ${source.pages.length} original pages in their original order.`
+        );
+      for (let i = 0; i < captures.length; i++) {
+        const selected = captures[i];
+        const page = source.pages[i];
+        if (!selected || !page || page.sha256 !== pages[i]?.sha256)
+          throw new Error('Selected sources changed. Start a new encounter.');
+        let uploaded = false;
+        try {
+          const existing = await loadSourcePage(page.storagePath);
+          uploaded =
+            existing.size === selected.blob.size && (await sha256(existing)) === page.sha256;
+          if (!uploaded)
+            throw new Error(
+              'Existing source differs from the saved manifest. Start a new encounter.'
+            );
+        } catch (e) {
+          if (e instanceof Error && e.message.startsWith('Existing source differs')) throw e;
+          if (!current()) return;
+        }
+        if (uploaded) continue;
+        await uploadClinicalPage(page.storagePath, selected.blob, controller.signal, (percent) => {
+          if (current())
+            setProgress(
+              `${tr('Uploading page', 'Transfert page')} ${i + 1}/${captures.length}: ${percent}%`
+            );
+        });
+      }
+      if (!current()) return;
+      store.setPendingPages(
+        captures.map((c, i) => ({
+          id: source.pages[i]!.id,
+          fileName: c.fileName,
+          mimeType: c.mimeType,
+          contentBase64: c.dataUrl,
+        }))
+      );
+      store.setPendingDocumentType(encounter.documentType);
+      const existingJobs = await getEncounter(encounter.id, controller.signal);
+      const prior = existingJobs.jobs.find(
+        (job) => job.kind === 'ocr' && job.documentId === source.id && job.status !== 'failed'
+      );
+      const initial =
+        prior ??
+        (await createJob(
+          {
+            encounterId: encounter.id,
+            documentId: source.id,
+            kind: 'ocr',
+            idempotencyKey: `ocr-${source.id}-${existingJobs.jobs.filter((job) => job.kind === 'ocr' && job.documentId === source.id).length}`,
+          },
+          controller.signal
+        ));
+      const job = await waitForJob(initial, controller.signal, (j) => {
+        if (current()) {
+          store.setActiveJob(j);
+          setProgress(`${tr('Text extraction', 'Extraction du texte')}: ${j.status}`);
+        }
+      });
+      if (!current()) return;
+      store.setTranscription(transcriptionFromJob(job));
+      camera.stop();
+      void navigate('/transcription-review');
+    } catch (e) {
+      if (current())
+        setError(e instanceof Error ? e.message : 'Document processing did not complete.');
+    } finally {
+      if (current()) {
+        setBusy(false);
+        setProgress('');
+      }
+    }
   };
-
-  const handleGalleryUpload = async (file: File) => {
-    if (!ACCEPTED_TYPES.includes(file.type)) throw new Error(`${file.name}: unsupported file type.`);
-    if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name}: file is larger than 10 MB.`);
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-    setCaptures((prev) => [...prev, { id: crypto.randomUUID(), dataUrl, blob: file, fileName: file.name, mimeType: file.type }]);
-    setQualityError(null);
-    trackEvent('scanner_gallery_upload');
+  const stop = () => {
+    request.current?.abort();
+    setBusy(false);
+    setProgress('');
+    setError(
+      tr(
+        'Stopped waiting. Uploaded sources and queued jobs remain saved; reopen the encounter from records. Incomplete uploads can be retried with the same files.',
+        'Attente arrêtée. Les sources transférées et les tâches restent enregistrées ; rouvrez la consultation depuis les dossiers.'
+      )
+    );
   };
 
   return (
-    <div className="bg-cameroon-night screen-safe w-full overflow-hidden flex flex-col text-white font-sans">
-      {flashOverlay && (
-        <div className="fixed inset-0 bg-white z-[100] transition-opacity duration-150 pointer-events-none" />
-      )}
-
-      <AnimatePresence>
-        {isAnalyzing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] glass-dark flex flex-col items-center justify-center gap-6"
-          >
-            <div className="relative w-20 h-20">
-              <motion.div
-                className="absolute inset-0 border-2 border-cameroon-yellow/30 border-t-cameroon-yellow rounded-full"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-              />
-              <motion.div
-                className="absolute inset-2 border-2 border-cameroon-red/30 border-b-cameroon-red rounded-full"
-                animate={{ rotate: -360 }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-              />
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold">{t.analyzing}</p>
-              <p className="text-xs text-cameroon-yellow mt-1 tracking-widest">{processingStage || 'Secure document processing'}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showTriage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[250] bg-black/80 backdrop-blur-md flex items-center justify-center p-5"
-          >
-            <motion.section
-              initial={{ scale: 0.96, y: 12 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.96, y: 12 }}
-              className="w-full max-w-sm rounded-2xl bg-white text-slate-900 p-5 shadow-2xl border border-red-200"
-            >
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-red-100 p-2 text-red-600">
-                  <AlertIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black text-red-700">Emergency check</h2>
-                  <p className="mt-2 text-sm font-medium leading-relaxed text-slate-700">
-                    Is the patient having severe breathing trouble, chest pain, heavy bleeding, seizure, confusion,
-                    unconsciousness, severe allergic reaction, or another emergency warning sign?
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 grid gap-3">
-                <button
-                  type="button"
-                  onClick={() => void completeScan(true)}
-                  disabled={isAnalyzing || Boolean(processingStage)}
-                  className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white active:scale-[0.98] disabled:opacity-50"
-                >
-                  Yes, seek urgent care
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void completeScan(false)}
-                  disabled={isAnalyzing || Boolean(processingStage)}
-                  className="w-full rounded-xl bg-cameroon-green px-4 py-3 text-sm font-black text-white active:scale-[0.98] disabled:opacity-50"
-                >
-                  {isAnalyzing || processingStage ? 'Processing document...' : 'No emergency signs'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowTriage(false)}
-                  className="w-full rounded-xl bg-slate-100 px-4 py-3 text-xs font-bold text-slate-600 active:scale-[0.98]"
-                >
-                  Review scan first
-                </button>
-              </div>
-            </motion.section>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Live camera stream */}
-      <video
-        ref={camera.videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="absolute inset-0 w-full h-full object-cover"
-      />
-
-      {/* Permission / device error */}
-      {camera.error && (
-        <div className="absolute inset-0 z-50 bg-cameroon-night/95 flex items-center justify-center p-6">
-          <div className="max-w-sm text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-cameroon-red/20 border-2 border-cameroon-red/40 flex items-center justify-center">
-              <AlertIcon className="w-8 h-8 text-cameroon-red" />
-            </div>
-            <h3 className="text-xl font-black">Camera unavailable</h3>
-            <p className="text-sm text-white/70">{camera.error}</p>
-            <div className="flex gap-3 justify-center pt-2">
-              <button
-                onClick={() => camera.start()}
-                className="px-5 py-2.5 rounded-full bg-cameroon-yellow text-cameroon-night font-bold text-sm"
-              >
-                Retry
-              </button>
-              <button
-                onClick={() => navigate('/app')}
-                className="px-5 py-2.5 rounded-full bg-white/10 text-white font-bold text-sm border border-white/20"
-              >
-                Back to hub
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {qualityError && (
-        <div className="absolute left-4 right-4 top-24 z-50 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-xl">
-          <div className="flex items-start gap-3">
-            <AlertIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-            <div>
-              <p className="text-sm font-black">Retake image</p>
-              <p className="mt-1 text-xs font-semibold leading-relaxed">{qualityError}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {captures.length > 0 && (
-        <aside className="absolute left-4 right-4 top-36 z-40 rounded-2xl bg-black/75 p-3 backdrop-blur-md" aria-label="Selected document pages">
-          <div className="mb-2 flex items-center justify-between text-xs font-bold"><span>{captures.length} page{captures.length === 1 ? '' : 's'} selected</span><button type="button" onClick={() => setCaptures([])} className="text-cameroon-yellow">Clear</button></div>
-          <div className="flex gap-2 overflow-x-auto">
-            {captures.map((capture, index) => <button type="button" key={capture.id} onClick={() => setCaptures((items) => items.filter((item) => item.id !== capture.id))} className="min-w-20 rounded-lg bg-white/10 p-2 text-left text-[10px]" aria-label={`Remove ${capture.fileName}`}><span className="block font-black">Page {index + 1}</span><span className="block truncate text-white/60">{capture.fileName}</span></button>)}
-          </div>
-        </aside>
-      )}
-
-      <label className="absolute left-4 top-24 z-40 rounded-xl bg-black/70 px-3 py-2 text-[10px] font-bold backdrop-blur-md">
-        Document type
-        <select value={documentType} onChange={(event) => setDocumentType(event.target.value as AnalyzeDocumentType)} className="ml-2 rounded-lg bg-white px-2 py-1 text-slate-900" aria-label="Document type">
-          <option value="medical_document">General medical document</option>
-          <option value="prescription">Prescription</option>
-          <option value="lab_result">Lab result</option>
-          <option value="rdt">Rapid diagnostic test</option>
-          <option value="xray">X-ray</option>
-          <option value="other">Other</option>
-        </select>
-      </label>
-
-      {/* Starting state */}
-      {camera.isStarting && !camera.error && (
-        <div className="absolute inset-0 z-30 bg-cameroon-night/70 flex items-center justify-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            className="w-10 h-10 border-2 border-cameroon-yellow/30 border-t-cameroon-yellow rounded-full"
-          />
-        </div>
-      )}
-
-      <header className="relative z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
-         <button
-           onClick={async () => {
-             camera.stop();
-             void navigate('/app');
-           }}
-           aria-label={t.close_scanner}
-           className="p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/15 active:scale-90 transition-transform"
-         >
-          <CloseIcon />
+    <div className="screen-safe bg-slate-50 text-slate-900 overflow-y-auto">
+      <header className="safe-area-top flex items-center justify-between border-b bg-white p-4">
+        <h1 className="text-xl font-black text-cameroon-green">{t.camdiag_scan}</h1>
+        <button type="button" onClick={() => navigate('/app')} className="rounded border px-3 py-2">
+          {tr('Back to hub', 'Retour')}
         </button>
-        <div className="text-center">
-          <h1 className="text-sm font-black tracking-widest uppercase">{t.camdiag_scan}</h1>
-          <p className="text-[10px] text-cameroon-yellow/80 font-medium tracking-wider">{t.lab_test}</p>
-        </div>
-        {camera.hasFlashSupport ? (
-          <button
-            onClick={() => camera.toggleFlash()}
-            aria-label="Toggle flash"
-            className={`p-2 rounded-full backdrop-blur-md border transition-all ${
-              camera.flashOn
-                ? 'bg-cameroon-yellow text-cameroon-night border-cameroon-yellow shadow-sunset-glow'
-                : 'bg-black/30 border-white/15'
-            }`}
-          >
-            <FlashIcon className="h-6 w-6" />
-          </button>
-        ) : (
-          <button
-            onClick={() => camera.toggleFacing()}
-            aria-label="Switch camera"
-            className="p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/15"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-        )}
       </header>
-
-      <main aria-labelledby="scanner-heading" className="relative flex-grow overflow-hidden flex items-center justify-center">
-        <h2 id="scanner-heading" className="sr-only">{t.scan}</h2>
-
-        {/* Vignette darkening outside the guide-box */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
-        </div>
-
-        {showError && (
-          <motion.div
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="absolute top-6 left-0 right-0 z-50 flex justify-center px-6"
-          >
-            <div className="bg-cameroon-red/95 text-white px-6 py-4 rounded-2xl shadow-red-glow backdrop-blur-md border border-cameroon-red-light text-center max-w-sm">
-              <AlertIcon className="h-8 w-8 mx-auto mb-2" />
-              <p className="font-black text-lg">{t.invalid_subject}</p>
-              <p className="font-medium text-sm mt-1 text-red-50">{t.invalid_subject_desc}</p>
-            </div>
-          </motion.div>
+      <main className="mx-auto max-w-3xl space-y-5 p-4 pb-12">
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
+          {clinicalLanguageNotice(language)}
+        </p>
+        {hydrating && (
+          <p role="status">
+            {tr('Restoring saved encounter…', 'Restauration de la consultation…')}
+          </p>
         )}
-
-        <div className="absolute top-20 left-0 right-0 mx-auto w-full flex justify-center z-10 px-4">
-          <button
-            onClick={() => setScanMode((prev) => (prev === 'document' ? 'body' : 'document'))}
-            className={`min-w-[160px] min-h-11 px-4 py-2 rounded-full text-sm font-black border backdrop-blur-md transition-all ${
-              scanMode === 'document'
-                ? 'bg-black/40 border-cameroon-yellow/40 text-white'
-                : 'bg-cameroon-red/85 border-cameroon-red-light text-white'
-            }`}
-          >
-            Mode: {scanMode === 'document' ? `📸 ${t.mode_document}` : `👤 ${t.mode_body}`}
-          </button>
-        </div>
-
-        <div className="guide-box relative w-4/5 aspect-[3/4] max-w-sm transition-all duration-300">
-          <div className="corner corner-tl"></div>
-          <div className="corner corner-tr"></div>
-          <div className="corner corner-bl"></div>
-          <div className="corner corner-br"></div>
-          {camera.isReady && <div className="scan-line"></div>}
-        </div>
-
-        <div className="absolute bottom-10 left-0 right-0 flex justify-center z-10">
-          <div className="flex items-center gap-2 bg-cameroon-green/85 px-5 py-2 rounded-full backdrop-blur-md shadow-cameroon-glow">
-            <motion.div
-              className="w-2 h-2 rounded-full bg-cameroon-yellow"
-              animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-              transition={{ duration: 1.6, repeat: Infinity }}
+        {!user?.canUseClinicalTools && (
+          <p role="alert">
+            {tr('Verified clinician access is required.', 'Un accès clinicien vérifié est requis.')}
+          </p>
+        )}
+        <section className="rounded-2xl border bg-white p-4 space-y-3">
+          <h2 className="font-black">{tr('Patient and encounter', 'Patient et consultation')}</h2>
+          {resume && (
+            <p role="status" className="text-sm">
+              {tr('Saved encounter', 'Consultation enregistrée')}: {resume.id}
+            </p>
+          )}
+          <label className="block text-sm font-bold">
+            {tr(
+              'Patient reference (clinic ID; avoid full names)',
+              'Référence patient (identifiant de clinique)'
+            )}
+            <input
+              disabled={Boolean(resume) || busy}
+              value={patientId}
+              onChange={(e) => setPatientId(e.target.value)}
+              maxLength={100}
+              className="mt-1 w-full rounded border p-2"
             />
-            <span className="text-xs font-bold tracking-wide">{t.positioning}</span>
-          </div>
-        </div>
-      </main>
-
-      <footer className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-6 px-6 sm:px-8 flex items-center justify-between safe-area-bottom">
-        <label aria-label="Open gallery" className="flex flex-col items-center gap-1 group cursor-pointer">
-          <div className="p-3 rounded-full bg-white/10 group-active:bg-white/20 transition-colors border border-white/15">
-            <ImageIcon />
-          </div>
-          <span className="text-[10px] text-white/60 font-bold uppercase tracking-wider">{t.gallery}</span>
-           <input
-             type="file"
-             accept="image/jpeg,image/png,image/webp,image/tiff,application/pdf,.pdf,.tif,.tiff"
-             multiple
-             className="hidden"
-             onChange={async (e) => {
-               const files = Array.from(e.target.files ?? []);
-               if (captures.length + files.length > MAX_PAGES) { setQualityError(`A maximum of ${MAX_PAGES} pages can be processed at once.`); e.target.value = ''; return; }
-               if (captures.reduce((sum, item) => sum + item.blob.size, 0) + files.reduce((sum, file) => sum + file.size, 0) > MAX_TOTAL_BYTES) { setQualityError('The combined document is larger than 24 MB. Split it into smaller uploads.'); e.target.value = ''; return; }
-               try { for (const file of files) await handleGalleryUpload(file); } catch (error) { setQualityError(error instanceof Error ? error.message : 'Could not add document.'); }
-               e.target.value = '';
-             }}
-           />
-        </label>
-
-        <button
-          onClick={handleCapture}
-          aria-label={t.scan}
-          disabled={!camera.isReady}
-          className="relative flex items-center justify-center disabled:opacity-50"
-        >
-          <div className="absolute inset-0 rounded-full bg-cameroon-yellow/30 animate-ping" />
-          <div className="w-20 h-20 rounded-full border-4 border-cameroon-yellow/50 flex items-center justify-center p-1">
-            <div className="w-full h-full bg-gradient-to-br from-white to-cameroon-yellow-light rounded-full active:scale-90 transition-transform duration-75 shadow-lg" />
-          </div>
-        </button>
-
-        {captures.length > 0 ? (
-          <motion.button
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={handleDone}
-            className="flex flex-col items-center gap-1 group text-cameroon-yellow"
+          </label>
+          <button type="button" onClick={() => navigate('/patients')} className="text-sm underline">
+            {tr(
+              'Select or reopen an existing patient encounter',
+              'Choisir ou rouvrir une consultation'
+            )}
+          </button>
+          <label className="block text-sm font-bold">
+            {tr('Document type', 'Type de document')}
+            <select
+              disabled={Boolean(resume) || busy}
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value as ClinicalDocumentType)}
+              className="ml-3 rounded border p-2"
+            >
+              <option value="lab_result">{tr('Lab result', 'Résultat de laboratoire')}</option>
+              <option value="prescription">
+                {tr('Prescription document', 'Document d’ordonnance')}
+              </option>
+              <option value="medical_document">
+                {tr('Medical text document', 'Document médical textuel')}
+              </option>
+              <option value="xray" disabled>
+                X-ray — unavailable
+              </option>
+              <option value="rdt" disabled>
+                RDT image — unavailable
+              </option>
+            </select>
+          </label>
+          <p className="text-xs text-slate-600">
+            {tr(
+              'X-ray, test-strip and body-image interpretation are unavailable. This workflow reviews document text only.',
+              'L’interprétation de radiographies, bandelettes et photos corporelles est indisponible. Ce parcours examine uniquement le texte des documents.'
+            )}
+          </p>
+          <fieldset disabled={busy || Boolean(resume)} className="grid gap-3 sm:grid-cols-2">
+            <legend className="mb-2 text-sm font-bold">
+              {tr(
+                'Patient context (unknown if not supplied)',
+                'Contexte patient (inconnu si non renseigné)'
+              )}
+            </legend>
+            <label>
+              {tr('Age / age range', 'Âge / tranche d’âge')}
+              <input
+                value={ageRange}
+                onChange={(e) => setAgeRange(e.target.value)}
+                maxLength={100}
+                className="w-full rounded border p-2"
+              />
+            </label>
+            <label>
+              {tr('Sex at birth', 'Sexe à la naissance')}
+              <select
+                value={sex}
+                onChange={(e) => setSex(e.target.value as PatientContext['sexAtBirth'])}
+                className="w-full rounded border p-2"
+              >
+                <option value="unknown">{tr('Unknown', 'Inconnu')}</option>
+                <option value="female">{tr('Female', 'Féminin')}</option>
+                <option value="male">{tr('Male', 'Masculin')}</option>
+              </select>
+            </label>
+            <label>
+              {tr('Pregnancy status', 'Grossesse')}
+              <select
+                value={pregnancy}
+                onChange={(e) => setPregnancy(e.target.value as PatientContext['pregnancyStatus'])}
+                className="w-full rounded border p-2"
+              >
+                <option value="unknown">{tr('Unknown', 'Inconnue')}</option>
+                <option value="pregnant">{tr('Pregnant', 'Enceinte')}</option>
+                <option value="not_pregnant">{tr('Not pregnant', 'Non enceinte')}</option>
+              </select>
+            </label>
+            <label>
+              {tr('Symptoms (comma separated)', 'Symptômes (séparés par virgules)')}
+              <input
+                value={symptoms}
+                onChange={(e) => setSymptoms(e.target.value)}
+                maxLength={1500}
+                className="w-full rounded border p-2"
+              />
+            </label>
+            <label>
+              {tr('Allergies (comma separated)', 'Allergies (séparées par virgules)')}
+              <input
+                value={allergies}
+                onChange={(e) => setAllergies(e.target.value)}
+                maxLength={1500}
+                className="w-full rounded border p-2"
+              />
+            </label>
+            <label>
+              {tr(
+                'Current medicines (comma separated)',
+                'Médicaments actuels (séparés par virgules)'
+              )}
+              <input
+                value={medications}
+                onChange={(e) => setMedications(e.target.value)}
+                maxLength={1500}
+                className="w-full rounded border p-2"
+              />
+            </label>
+          </fieldset>
+        </section>
+        <section className="space-y-3 rounded-2xl border bg-white p-4">
+          <h2 className="font-black">{tr('Source pages', 'Pages sources')}</h2>
+          <label className="block rounded-xl bg-cameroon-green p-3 text-center font-bold text-white cursor-pointer">
+            {tr('Upload document images', 'Importer les images du document')}
+            <input
+              aria-label="Upload document images"
+              type="file"
+              accept={ACCEPTED_DOCUMENT_TYPES.join(',')}
+              multiple
+              disabled={
+                busy ||
+                hydrating ||
+                Boolean(manifest.current && captures.length >= manifest.current.pages.length)
+              }
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = '';
+                void addFiles(files);
+              }}
+              className="mt-2 block w-full text-sm"
+            />
+          </label>
+          {manifest.current && (
+            <p className="text-xs">
+              {tr('Saved source order', 'Ordre des sources enregistrées')}:{' '}
+              {manifest.current.pages.map((p) => p.fileName).join(' → ')}.{' '}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setCaptures([])}
+                className="underline"
+              >
+                {tr('Reselect the same pages', 'Sélectionner à nouveau les mêmes pages')}
+              </button>
+            </p>
+          )}
+          <p className="text-xs">
+            {tr(
+              'JPEG, PNG, WebP; at most 15 pages, 6 MiB per page, 24 MiB total. PDF/TIFF are not yet supported. Upload works without camera access.',
+              'JPEG, PNG, WebP ; 15 pages maximum, 6 Mio par page, 24 Mio au total. PDF/TIFF non pris en charge. Import possible sans caméra.'
+            )}
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setCameraShown(true);
+              void camera.start();
+            }}
+            className="rounded border px-4 py-2"
           >
-            <div className="p-3 rounded-full bg-cameroon-green border border-cameroon-yellow/40 shadow-cameroon-glow">
-              <CheckIcon className="h-6 w-6 text-cameroon-yellow" />
+            {tr('Use camera', 'Utiliser la caméra')}
+          </button>
+          {cameraShown && (
+            <div className="space-y-2">
+              <video
+                ref={camera.videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="max-h-80 w-full rounded-xl bg-black"
+              />
+              {camera.error && (
+                <p role="status" className="text-sm text-amber-800">
+                  {tr(
+                    'Camera unavailable. You can still upload images above.',
+                    'Caméra indisponible. Vous pouvez importer des images ci-dessus.'
+                  )}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={!camera.isReady || busy}
+                onClick={() => void capture()}
+                className="rounded bg-cameroon-green px-4 py-2 text-white disabled:opacity-50"
+              >
+                {tr('Capture page', 'Capturer une page')}
+              </button>
             </div>
-            <span className="text-[10px] font-black tracking-wider">{t.done} ({captures.length})</span>
-          </motion.button>
-        ) : (
-          <div className="w-12" />
+          )}
+          <ul className="flex gap-3 overflow-x-auto">
+            {captures.map((c, i) => (
+              <li key={c.id} className="w-32 shrink-0 rounded border p-2">
+                <img
+                  src={c.dataUrl}
+                  alt={`Source page ${i + 1}`}
+                  className="h-24 w-full object-contain"
+                />
+                <p className="truncate text-xs">{c.fileName}</p>
+                <button
+                  type="button"
+                  disabled={busy || Boolean(manifest.current)}
+                  onClick={() => setCaptures((items) => items.filter((item) => item.id !== c.id))}
+                  className="text-xs underline"
+                >
+                  {tr('Remove', 'Retirer')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+          <h2 className="font-black text-red-900">
+            {tr('Emergency check', 'Vérification d’urgence')}
+          </h2>
+          <p className="text-sm">
+            {tr(
+              'Severe breathing trouble, chest pain, heavy bleeding, seizure, confusion, unconsciousness, severe allergic reaction or any other emergency warning sign?',
+              'Difficulté respiratoire sévère, douleur thoracique, hémorragie, convulsion, confusion, inconscience, réaction allergique sévère ou autre signe d’urgence ?'
+            )}
+          </p>
+          <select
+            aria-label="Emergency check"
+            disabled={busy || Boolean(resume)}
+            value={triage}
+            onChange={(e) => setTriage(e.target.value as typeof triage)}
+            className="w-full rounded border p-3"
+          >
+            <option value="unchecked">
+              {tr('Select after clinical assessment', 'Choisir après évaluation clinique')}
+            </option>
+            <option value="emergency">
+              {tr('Emergency signs — urgent care', 'Signes d’urgence — soins urgents')}
+            </option>
+            <option value="no_red_flags">
+              {tr('No emergency signs reported', 'Aucun signe d’urgence signalé')}
+            </option>
+          </select>
+        </section>
+        {error && (
+          <p
+            role="alert"
+            className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900"
+          >
+            {error}
+          </p>
         )}
-      </footer>
+        {progress && (
+          <p role="status" aria-live="polite" className="rounded bg-blue-50 p-3 font-bold">
+            {progress}
+          </p>
+        )}
+        {busy ? (
+          <button type="button" onClick={stop} className="w-full rounded border p-3">
+            {tr('Cancel upload / stop waiting', 'Annuler le transfert / arrêter l’attente')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={
+              hydrating ||
+              Boolean(resumeId && !resume) ||
+              !user?.canUseClinicalTools ||
+              !patientId.trim() ||
+              triage === 'unchecked' ||
+              (!captures.length && triage !== 'emergency')
+            }
+            onClick={() => void process()}
+            className="w-full rounded-xl bg-cameroon-green p-4 font-black text-white disabled:opacity-40"
+          >
+            {triage === 'emergency'
+              ? tr('Record emergency — no AI', 'Enregistrer l’urgence — sans IA')
+              : tr('Save sources and extract text', 'Enregistrer les sources et extraire le texte')}
+          </button>
+        )}
+      </main>
     </div>
   );
 };
-
 export default Scanner;

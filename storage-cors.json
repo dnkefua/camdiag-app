@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://camdiag-c7e78.web.app", "https://camdiag-c7e78.firebaseapp.com"],
+    "method": ["GET", "HEAD", "PUT", "POST"],
+    "responseHeader": ["Content-Type", "Content-Length", "ETag", "x-goog-resumable", "x-goog-meta-*"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -44,15 +44,15 @@ const MISSING_KEY_ERROR = 'Google Maps API key missing. Set VITE_GOOGLE_MAPS_API
  * Loads the Google Maps JS API on demand. Returns `ready` once
  * `window.google.maps` is callable. Components mount their map after.
  */
-export const useGoogleMaps = (): UseGoogleMapsResult => {
+export const useGoogleMaps = (enabled = true): UseGoogleMapsResult => {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const [ready, setReady] = useState<boolean>(Boolean(window?.google?.maps));
   const [error, setError] = useState<string | null>(apiKey ? null : MISSING_KEY_ERROR);
 
   useEffect(() => {
-    if (ready || !apiKey) return;
+    if (!enabled || ready || !apiKey) return;
     loadScript(apiKey).then(() => setReady(true)).catch((err: Error) => setError(err.message));
-  }, [apiKey, ready]);
+  }, [apiKey, ready, enabled]);
 
   return { ready, error };
 };

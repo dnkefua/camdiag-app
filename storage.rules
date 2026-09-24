@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function clinician(org, uid) {
+      return request.auth != null && request.auth.uid == uid
+        && request.auth.token.get('verifiedClinician', false) == true
+        && request.auth.token.get('clinicalRole', '') in ['doctor','nurse']
+        && request.auth.token.get('organizationId','') == org
+        && firestore.get(/databases/(default)/documents/clinical_memberships/$(uid)).data.active == true
+        && firestore.get(/databases/(default)/documents/clinical_memberships/$(uid)).data.organizationId == org
+        && firestore.get(/databases/(default)/documents/clinical_memberships/$(uid)).data.clinicalRole == request.auth.token.clinicalRole;
+    }
+    match /organizations/{org}/users/{uid}/encounters/{encounter}/documents/{document}/pages/{page} {
+      function slot() { return firestore.get(/databases/(default)/documents/uploads/$(document + '_' + page)).data; }
+      function validSlot() {
+        return firestore.exists(/databases/(default)/documents/uploads/$(document + '_' + page))
+          && slot().ownerUid == uid && slot().organizationId == org
+          && slot().encounterId == encounter && slot().documentId == document
+          && request.time < timestamp.value(slot().expiresAtMs);
+      }
+      allow read: if clinician(org,uid) && validSlot();
+      allow create: if resource == null && clinician(org,uid) && validSlot()
+        && firestore.get(/databases/(default)/documents/clinical_memberships/$(uid)).data.clinicalProcessing == true
+        && request.resource.size == slot().sizeBytes && request.resource.size <= 6 * 1024 * 1024
+        && request.resource.contentType == slot().mimeType
+        && request.resource.contentType in ['image/jpeg','image/png','image/webp'];
+      allow update, delete: if false;
+    }
+  }
+}

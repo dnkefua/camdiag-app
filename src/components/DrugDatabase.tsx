@@ -1,216 +1,268 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../contexts/AuthContext';
 import { useAppStore } from '../store/useAppStore';
-import { isApiConfigured } from '../services/api';
-import { searchMedicationInfo, checkDrugInteractions } from '../services/medgemma';
-import { getDrugs } from '../services/firestore';
-import type { FirestoreDrug } from '../services/firestore';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { BackIcon, SearchIcon, HomeIcon, UsersIcon, CameraIcon, UserIcon, AlertIcon } from '../components/ui/Icons';
+import { checkDrugInteractions, searchMedicationInfo } from '../services/medgemma';
+import { clinicalLanguageNotice, clinicalText } from '../utils/clinicalLanguage';
+import { getSensitiveSessionSignal } from '../services/session';
+import type { MedicationAssessment } from '../../functions/src/contracts/clinical';
+
+const MAX_MEDICATIONS = 10;
 
 const DrugDatabase = () => {
   const navigate = useNavigate();
-  const { t, language } = useTranslation();
-  const { drugDatabase, setDrugDatabase } = useAppStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [aiResult, setAiResult] = useState<string | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [interactionCheck, setInteractionCheck] = useState<string | null>(null);
-  const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
-  const apiReady = isApiConfigured();
-
-  useEffect(() => {
-    setIsLoading(true);
-    setLoadError(null);
-    getDrugs()
-      .then((drugs) => {
-        const mapped = drugs.map((d: FirestoreDrug) => ({
-          name: d.name,
-          type: d.type,
-          dosage: d.dosage,
-          availability: d.availability,
-          description: d.description,
-        }));
-        setDrugDatabase(mapped);
-      })
-      .catch((err) => {
-        setLoadError(err instanceof Error ? err.message : 'Failed to load medications');
-      })
-      .finally(() => setIsLoading(false));
-  }, [setDrugDatabase]);
-
-  const filteredDrugs = drugDatabase.filter(drug =>
-    drug.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    drug.type.toLowerCase().includes(searchQuery.toLowerCase())
+  const { language } = useTranslation();
+  const { user } = useAuth();
+  const { activeEncounter } = useAppStore();
+  const sourceListTooLarge = (activeEncounter?.patientContext.currentMedications?.length ?? 0) > MAX_MEDICATIONS;
+  const [query, setQuery] = useState('');
+  const [medicines, setMedicines] = useState<string[]>(
+    activeEncounter?.patientContext.currentMedications ?? []
   );
-
-  const handleAiSearch = async () => {
-    if (!searchQuery.trim() || !apiReady) return;
-    setIsSearching(true);
-    setAiResult(null);
+  const [assessment, setAssessment] = useState<MedicationAssessment | null>(null);
+  const [searchResult, setSearchResult] = useState<MedicationAssessment | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [verifiedList, setVerifiedList] = useState(false);
+  const request = useRef<AbortController | null>(null);
+  const version = useRef(0);
+  const tr = (en: string, fr: string) => clinicalText(language, en, fr);
+  useEffect(() => {
+    version.current++;
+    request.current?.abort();
+    request.current = new AbortController();
+    const controller = request.current;
+    const session = getSensitiveSessionSignal();
+    const clear = () => {
+      version.current++;
+      request.current?.abort();
+      setMedicines([]);
+      setAssessment(null);
+      setSearchResult(null);
+      setQuery('');
+      setBusy(false);
+      setVerifiedList(false);
+    };
+    session.addEventListener('abort', clear, { once: true });
+    setMedicines(activeEncounter?.patientContext.currentMedications ?? []);
+    setAssessment(null);
+    setSearchResult(null);
+    setError(null);
+    setQuery('');
+    setVerifiedList(false);
+    setBusy(false);
+    return () => {
+      controller.abort();
+      session.removeEventListener('abort', clear);
+    };
+  }, [user?.uid, activeEncounter?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const add = () => {
+    const value = query.trim();
+    if (
+      !value ||
+      medicines.some((m) => m.toLowerCase() === value.toLowerCase()) ||
+      medicines.length >= MAX_MEDICATIONS
+    )
+      return;
+    setMedicines((old) => [...old, value]);
+    setQuery('');
+    setAssessment(null);
+    setVerifiedList(false);
+  };
+  const run = async (kind: 'search' | 'interactions') => {
+    if (busy || !user?.canUseClinicalTools || !request.current) return;
+    if (kind === 'interactions' && (!activeEncounter || !verifiedList || sourceListTooLarge || medicines.length < 2 || medicines.length > MAX_MEDICATIONS))
+      return;
+    const signal = request.current.signal;
+    const generation = version.current;
+    setBusy(true);
+    setError(null);
+    if (kind === 'interactions') setAssessment(null);
+    else setSearchResult(null);
     try {
-      const result = await searchMedicationInfo(searchQuery, language);
-      setAiResult(result);
-    } catch {
-      setAiResult('Failed to get AI response. Please try again.');
+      const result =
+        kind === 'interactions'
+          ? await checkDrugInteractions(medicines, language, activeEncounter!.id, signal)
+          : await searchMedicationInfo(query.trim(), language, signal);
+      if (signal.aborted || generation !== version.current) return;
+      if (kind === 'interactions') setAssessment(result);
+      else setSearchResult(result);
+    } catch (e) {
+      if (!signal.aborted && generation === version.current)
+        setError(e instanceof Error ? e.message : 'Medication safety is not assessed.');
     } finally {
-      setIsSearching(false);
+      if (!signal.aborted && generation === version.current) setBusy(false);
     }
   };
-
-  const handleCheckAllInteractions = async () => {
-    if (!apiReady) return;
-    const allDrugs = filteredDrugs.map(d => d.name);
-    setIsCheckingInteractions(true);
-    setInteractionCheck(null);
-    try {
-      const result = await checkDrugInteractions(allDrugs, language);
-      setInteractionCheck(result);
-    } catch {
-      setInteractionCheck('Failed to check interactions. Please try again.');
-    } finally {
-      setIsCheckingInteractions(false);
-    }
-  };
-
+  const evidence = (result: MedicationAssessment) => (
+    <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+      <h2 className="font-black">
+        {result.status === 'not_assessed'
+          ? tr(
+              'Not assessed — insufficient reviewed evidence',
+              'Non évalué — données revues insuffisantes'
+            )
+          : tr(
+              'Reviewed evidence available — clinical interpretation required',
+              'Données revues disponibles — interprétation clinique requise'
+            )}
+      </h2>
+      <p className="whitespace-pre-wrap text-sm">{result.result}</p>
+      {result.evidence.map((e) => (
+        <article key={e.id} className="rounded border bg-white p-3 text-sm">
+          <p>{e.text}</p>
+          <p className="mt-2 font-bold">{e.citation}</p>
+          <p className="text-xs">
+            Version: {e.version} · {tr('Reviewed', 'Revu')}: {e.reviewedAt} · ID: {e.id}
+          </p>
+        </article>
+      ))}
+    </section>
+  );
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans screen-safe flex flex-col pb-24">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button onClick={() => navigate('/app')} aria-label="Back" className="text-slate-600 p-1">
-          <BackIcon />
+    <div className="screen-safe overflow-y-auto bg-slate-50 text-slate-900">
+      <header className="safe-area-top flex justify-between gap-3 border-b bg-white p-4">
+        <h1 className="text-xl font-black text-cameroon-green">
+          {tr('Patient medication review', 'Revue des médicaments du patient')}
+        </h1>
+        <button onClick={() => navigate('/app')} className="rounded border p-2">
+          {tr('Home', 'Accueil')}
         </button>
-        <h1 className="text-xl font-bold text-cameroon-green">{t.drugs}</h1>
-        {apiReady && (
-          <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold ml-auto">Google Cloud AI</span>
-        )}
       </header>
-
-      <main aria-labelledby="drugs-heading" className="p-4 sm:p-5 space-y-6">
-        <h2 id="drugs-heading" className="sr-only">{t.drugs}</h2>
-        <div className="relative">
-          <input
-            type="text"
-            placeholder={t.search}
-            aria-label="Search medications"
-            className="w-full bg-white border border-slate-200 rounded-2xl min-h-12 py-3 pl-12 pr-20 shadow-sm focus:ring-2 focus:ring-medical-green outline-none transition-all"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
-          />
-          <SearchIcon className="absolute left-4 top-3.5 text-slate-400" />
-          {apiReady && (
-            <button
-              onClick={handleAiSearch}
-              disabled={isSearching || !searchQuery.trim()}
-              className="absolute right-2 top-2 bg-medical-green text-white text-xs font-bold px-3 py-1.5 rounded-xl disabled:opacity-40 transition-all"
-            >
-              {isSearching ? '...' : 'AI'}
+      <main className="mx-auto max-w-3xl space-y-4 p-4 pb-12">
+        <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+          {clinicalLanguageNotice(language)}
+        </p>
+        <p className="text-sm">
+          {tr(
+            'Absence of an interaction warning does not establish safety. Allergy, dose, pregnancy and organ-function suitability require clinical assessment. Remedy evidence may be incomplete.',
+            'L’absence d’alerte n’établit pas la sécurité. Allergies, doses, grossesse et fonctions organiques nécessitent une évaluation clinique. Les données sur les remèdes peuvent être incomplètes.'
+          )}
+        </p>
+        {activeEncounter ? (
+          <section className="rounded-xl border bg-white p-4">
+            <h2 className="font-black">
+              {activeEncounter.patientId} · {activeEncounter.id}
+            </h2>
+            <p className="text-sm">
+              {tr('Allergies', 'Allergies')}:{' '}
+              {activeEncounter.patientContext.allergies?.join(', ') ||
+                tr('Not supplied', 'Non renseignées')}
+            </p>
+            <p className="text-sm">
+              {tr('Pregnancy', 'Grossesse')}:{' '}
+              {activeEncounter.patientContext.pregnancyStatus ?? 'unknown'} · {tr('Age', 'Âge')}:{' '}
+              {activeEncounter.patientContext.ageRange ?? tr('Unknown', 'Inconnu')}
+            </p>
+          </section>
+        ) : (
+          <p className="rounded bg-amber-50 p-3">
+            {tr(
+              'Select a patient encounter before checking interactions.',
+              'Sélectionnez une consultation avant de vérifier les interactions.'
+            )}{' '}
+            <button className="underline" onClick={() => navigate('/patients')}>
+              {tr('Open records', 'Ouvrir les dossiers')}
             </button>
-          )}
-        </div>
-
-        {aiResult && (
-          <div className="bg-purple-50 border border-purple-200 p-5 rounded-2xl space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black bg-purple-200 text-purple-800 px-2 py-0.5 rounded uppercase tracking-widest">AI Analysis</span>
-            </div>
-            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{aiResult}</p>
-            <button onClick={() => setAiResult(null)} className="text-xs text-purple-600 font-bold mt-2">Dismiss</button>
-          </div>
+          </p>
         )}
-
-        {apiReady && (
+        <label className="block font-bold">
+          {tr('Medication / active ingredient', 'Médicament / substance active')}
+          <input
+            aria-label="Medication / active ingredient"
+            disabled={busy}
+            value={query}
+            maxLength={120}
+            onChange={(e) => setQuery(e.target.value)}
+            className="mt-2 w-full rounded border p-3"
+          />
+        </label>
+        <div className="flex flex-wrap gap-3">
           <button
-            onClick={handleCheckAllInteractions}
-            disabled={isCheckingInteractions}
-            className="w-full bg-red-50 border border-red-200 text-red-700 font-bold text-sm py-3 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
+            disabled={busy || !query.trim() || !activeEncounter || medicines.length >= MAX_MEDICATIONS}
+            onClick={add}
+            className="rounded bg-cameroon-green p-3 font-bold text-white disabled:opacity-40"
           >
-            <AlertIcon className="h-4 w-4" />
-            {isCheckingInteractions ? 'Checking...' : 'Check All Drug Interactions (AI)'}
+            {tr('Add to selected patient list', 'Ajouter à la liste du patient')}
           </button>
-        )}
-
-        {interactionCheck && (
-          <div className="bg-red-50 border border-red-200 p-5 rounded-2xl space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black bg-red-200 text-red-800 px-2 py-0.5 rounded uppercase tracking-widest">AI Interaction Report</span>
-            </div>
-            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{interactionCheck}</p>
-            <button onClick={() => setInteractionCheck(null)} className="text-xs text-red-600 font-bold mt-2">Dismiss</button>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {isLoading && (
-            <LoadingSpinner size="md" message="Loading medications..." />
-          )}
-          {loadError && !isLoading && (
-            <div className="bg-red-50 border border-red-200 p-4 rounded-2xl text-center">
-              <p className="text-sm text-red-600 font-medium">{loadError}</p>
-              <button
-                onClick={() => {
-                  setIsLoading(true);
-                  setLoadError(null);
-                  getDrugs()
-                    .then((drugs) => {
-                      const mapped = drugs.map((d: FirestoreDrug) => ({
-                        name: d.name,
-                        type: d.type,
-                        dosage: d.dosage,
-                        availability: d.availability,
-                        description: d.description,
-                      }));
-                      setDrugDatabase(mapped);
-                    })
-                    .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load medications'))
-                    .finally(() => setIsLoading(false));
-                }}
-                className="mt-2 text-xs font-bold text-red-700 underline"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-          {!isLoading && !loadError && filteredDrugs.length === 0 && (
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
-              <p className="text-sm text-slate-500 font-medium">No medications found. Try a different search term.</p>
-            </div>
-          )}
-          {!isLoading && filteredDrugs.map((drug, idx) => (
-            <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-              <div className="flex justify-between items-start">
-                <h3 className="font-bold text-slate-800">{drug.name}</h3>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${drug.type === 'Natural' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                  {drug.type}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 font-medium italic">{drug.dosage} &bull; {t.cameroon_avail}: {drug.availability}</p>
-              <p className="text-sm text-slate-600 leading-relaxed">{drug.description}</p>
-            </div>
-          ))}
+          <button
+            disabled={busy || !query.trim()}
+            onClick={() => void run('search')}
+            className="rounded border p-3 disabled:opacity-40"
+          >
+            {tr('Find reviewed reference', 'Chercher une référence revue')}
+          </button>
         </div>
+        <section className="rounded-xl border bg-white p-4 space-y-3">
+          <h2 className="font-black">
+            {tr('Selected medicines', 'Médicaments sélectionnés')} ({medicines.length}/{MAX_MEDICATIONS})
+          </h2>
+          <p className="text-xs">
+            {tr(
+              'This explicit list is independent of search results. Confirm generic ingredients and spelling; combination products must be reviewed for all ingredients. Changes here do not rewrite the original encounter context.',
+              'Cette liste est indépendante des recherches. Confirmez les substances et leur orthographe ; vérifiez tous les composants des associations. Les modifications ne réécrivent pas le contexte initial.'
+            )}
+          </p>
+          <ul>
+            {medicines.map((m) => (
+              <li key={m} className="flex items-center justify-between gap-3 border-b py-2">
+                <span>{m}</span>
+                <button
+                  disabled={busy}
+                  aria-label={`Remove ${m}`}
+                  onClick={() => {
+                    setMedicines((old) => old.filter((v) => v !== m));
+                    setAssessment(null);
+                    setVerifiedList(false);
+                  }}
+                  className="text-sm underline"
+                >
+                  {tr('Remove', 'Retirer')}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {sourceListTooLarge && (
+            <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+              {tr(
+                'More than 10 medicines need a pharmacist-led full-list review. A smaller subset could miss interactions, so this checker will not assess a partial list.',
+                'Plus de 10 médicaments exigent une revue de la liste complète par un pharmacien. Un sous-ensemble pourrait manquer des interactions ; cet outil ne l’évaluera pas.'
+              )}
+            </p>
+          )}
+          <label className="flex gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={verifiedList}
+              disabled={busy || sourceListTooLarge || medicines.length < 2 || medicines.length > MAX_MEDICATIONS}
+              onChange={(e) => setVerifiedList(e.target.checked)}
+            />
+            {tr(
+              'I confirmed this patient’s intended medicine list and active ingredients. Missing context remains unknown.',
+              'J’ai confirmé la liste de ce patient et les substances actives. Les informations manquantes restent inconnues.'
+            )}
+          </label>
+          <button
+            disabled={busy || !activeEncounter || !verifiedList || sourceListTooLarge || medicines.length < 2 || medicines.length > MAX_MEDICATIONS}
+            onClick={() => void run('interactions')}
+            className="w-full rounded bg-cameroon-green p-3 font-bold text-white disabled:opacity-40"
+          >
+            {tr('Review selected interactions', 'Examiner les interactions sélectionnées')}
+          </button>
+        </section>
+        {busy && (
+          <p role="status">{tr('Retrieving reviewed evidence…', 'Recherche de données revues…')}</p>
+        )}
+        {error && (
+          <p role="alert" className="rounded bg-red-50 p-3 text-red-900">
+            {error}
+          </p>
+        )}
+        {assessment && evidence(assessment)}
+        {searchResult && evidence(searchResult)}
       </main>
-
-      <nav aria-label="Main navigation" className="glass-effect border-t border-slate-200 fixed bottom-0 left-0 right-0 px-2 sm:px-6 py-3 grid grid-cols-4 gap-1 mobile-bottom-nav z-20">
-        <button onClick={() => navigate('/app')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
-          <HomeIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.home}</span>
-        </button>
-        <button onClick={() => navigate('/patients')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
-          <UsersIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.patients}</span>
-        </button>
-        <button onClick={() => navigate('/scanner')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
-          <div className="bg-slate-200 text-slate-600 p-1 rounded-lg"><CameraIcon /></div>
-          <span className="max-w-full truncate text-[10px] font-medium">{t.scan}</span>
-        </button>
-        <button onClick={() => navigate('/settings')} className="min-w-0 flex flex-col items-center gap-1 text-slate-400">
-          <UserIcon /><span className="max-w-full truncate text-[10px] font-medium">{t.profile}</span>
-        </button>
-      </nav>
     </div>
   );
 };
-
 export default DrugDatabase;

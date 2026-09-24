@@ -77,4 +77,32 @@ describe('Landing', () => {
     expect(emailInput).toHaveValue('doctor@camdiag.cm');
     expect(document.activeElement).toBe(emailInput);
   });
+
+  it('opens the sign-in dialog from the demo query link', () => {
+    render(<MemoryRouter initialEntries={['/?login=1']}><Landing /></MemoryRouter>);
+    expect(screen.getByRole('dialog', { name: /welcome back/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /close sign-in/i })).toHaveFocus();
+  });
+
+  it('traps focus, closes on Escape and restores the opener', () => {
+    render(<MemoryRouter><Landing /></MemoryRouter>);
+    const opener = screen.getAllByRole('button', { name: /log in/i })[0]!;
+    opener.focus(); fireEvent.click(opener);
+    const close = screen.getByRole('button', { name: /close sign-in/i });
+    const last = screen.getByRole('button', { name: /continue without account/i });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+
+  it('does not advertise unsupported clinical claims or endorsements', () => {
+    render(<MemoryRouter><Landing /></MemoryRouter>);
+    expect(screen.queryByText(/medical-grade|offline fallback|trusted across|Artemisia Tea|Coartem recommended/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/clinical output is in English or French/i)).toBeInTheDocument();
+  });
 });

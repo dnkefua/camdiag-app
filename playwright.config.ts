@@ -17,9 +17,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'node e2e/start-dev-server.cjs',
+  webServer: process.env.CAMDIAG_E2E_EXTERNAL_SERVER === 'true' ? undefined : {
+    command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5175',
     url: 'http://localhost:5175',
     reuseExistingServer: false,
+    env: {
+      VITE_E2E_AUTH_BYPASS: 'true',
+      VITE_API_URL: 'http://localhost:5175/__test_api',
+      VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: '',
+      CAMDIAG_E2E: 'true',
+    },
   },
 });

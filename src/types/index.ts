@@ -1,4 +1,5 @@
 export type Language = 'en' | 'fr' | 'pcm';
+export type { Encounter as ClinicalEncounter, ClinicalJob, ClinicalAnalysis, DocumentManifest, MedicationAssessment, EncounterDetail } from '../../functions/src/contracts/clinical';
 
 export type ScreenRoute =
   | '/'
@@ -14,7 +15,7 @@ export type ScreenRoute =
   | '/blog'
   | '/coming-up';
 
-export type AnalyzeDocumentType = 'lab_result' | 'xray' | 'rdt' | 'prescription' | 'medical_document' | 'other';
+export type AnalyzeDocumentType = 'lab_result' | 'prescription' | 'medical_document';
 export type FindingLikelihood = 'low' | 'moderate' | 'high' | 'uncertain';
 export type AnalysisUrgency = 'emergency' | 'same_day' | 'routine' | 'unknown';
 
@@ -96,6 +97,9 @@ export interface User {
 
 export interface AppUser extends User {
   uid: string;
+  canUseClinicalTools?: boolean;
+  organizationId?: string;
+  clinicalRole?: 'doctor' | 'nurse';
   role: string;
   createdAt: number;
   photoUrl?: string;
@@ -133,6 +137,9 @@ export interface OcrToken {
 }
 
 export interface OcrPage {
+  sourcePageId?: string;
+  sourceId?: string;
+  sourcePageNumber?: number;
   pageNumber: number;
   text: string;
   confidence: number;

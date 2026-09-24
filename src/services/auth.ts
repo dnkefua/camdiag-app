@@ -2,7 +2,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   GoogleAuthProvider,
@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { bindSensitiveSession, resetSensitiveSession } from './session';
 
 export interface AppUser {
   id: string;
@@ -21,6 +22,9 @@ export interface AppUser {
   initials: string;
   role: 'patient' | 'doctor' | 'nurse' | 'admin';
   createdAt: unknown;
+  canUseClinicalTools: boolean;
+  organizationId?: string;
+  clinicalRole?: 'doctor' | 'nurse';
   photoUrl?: string;
   about?: string;
   symptoms?: string;
@@ -47,11 +51,11 @@ const createUserProfile = (firebaseUser: User, override?: Partial<AppUser>): App
     email: override?.email ?? firebaseUser.email ?? '',
     name,
     initials: override?.initials ?? name.substring(0, 2).toUpperCase(),
-    role: override?.role ?? 'patient',
+    role: 'patient',
+    canUseClinicalTools: false,
     createdAt: override?.createdAt ?? serverTimestamp(),
     ...(photoUrl ? { photoUrl } : {}),
     about: override?.about ?? '',
-    symptoms: override?.symptoms ?? '',
     notificationPrefs: override?.notificationPrefs ?? {
       scanResults: true,
       medicationAlerts: true,
@@ -62,9 +66,13 @@ const createUserProfile = (firebaseUser: User, override?: Partial<AppUser>): App
 
 const saveUserProfile = async (profile: AppUser): Promise<void> => {
   try {
-    await setDoc(doc(db, 'users', profile.uid), profile, { merge: true });
-  } catch (err) {
-    console.error('[CamDiag] Failed to save user profile:', err);
+    const { id, uid, email, name, initials, createdAt, photoUrl, about, notificationPrefs } = profile;
+    await setDoc(doc(db, 'users', profile.uid), {
+      id, uid, email, name, initials, createdAt, about, notificationPrefs,
+      ...(photoUrl ? { photoUrl } : {}),
+    }, { merge: true });
+  } catch {
+    console.warn('[CamDiag] Profile could not be saved.');
   }
 };
 
@@ -93,12 +101,25 @@ export const registerWithEmail = async (email: string, password: string, name: s
 };
 
 export const logout = async (): Promise<void> => {
+  bindSensitiveSession(null);
   await signOut(auth);
 };
 
 export const getUserProfile = async (firebaseUser: User): Promise<AppUser> => {
   const docRef = doc(db, 'users', firebaseUser.uid);
   const fallbackProfile = createUserProfile(firebaseUser);
+  // Roles stored in editable profile documents never confer authority.
+  const token = await firebaseUser.getIdTokenResult();
+  const role = token.claims.clinicalRole;
+  const organizationId = token.claims.organizationId;
+  const canUseClinicalTools = token.claims.verifiedClinician === true
+    && (role === 'doctor' || role === 'nurse')
+    && typeof organizationId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(organizationId);
+  const authority = {
+    canUseClinicalTools,
+    role: canUseClinicalTools ? role : 'patient',
+    ...(canUseClinicalTools ? { clinicalRole: role, organizationId } : {}),
+  } as Pick<AppUser, 'canUseClinicalTools' | 'role' | 'clinicalRole' | 'organizationId'>;
 
   try {
     const docSnap = await getDoc(docRef);
@@ -107,34 +128,53 @@ export const getUserProfile = async (firebaseUser: User): Promise<AppUser> => {
       const data = docSnap.data() as Partial<AppUser>;
       return {
         ...fallbackProfile,
-        ...data,
-        id: data.id || firebaseUser.uid,
-        uid: data.uid || firebaseUser.uid,
+        name: typeof data.name === 'string' ? data.name.slice(0, 120) : fallbackProfile.name,
+        initials: typeof data.initials === 'string' ? data.initials.slice(0, 4) : fallbackProfile.initials,
+        about: typeof data.about === 'string' ? data.about.slice(0, 1000) : '',
+        notificationPrefs: data.notificationPrefs ?? fallbackProfile.notificationPrefs,
+        createdAt: data.createdAt ?? fallbackProfile.createdAt,
+        ...authority,
       };
     }
 
     await saveUserProfile(fallbackProfile);
-  } catch (err) {
-    console.error('[CamDiag] Failed to load user profile:', err);
+  } catch {
+    console.warn('[CamDiag] Profile could not be loaded.');
   }
 
-  return fallbackProfile;
+  return { ...fallbackProfile, ...authority };
 };
 
-export const onAuthChange = (callback: (user: AppUser | null) => void) => {
-  return onAuthStateChanged(auth, async (firebaseUser) => {
+export const onAuthChange = (callback: (user: AppUser | null) => void, onIdentityChange?: () => void) => {
+  let generation = 0;
+  let lastUid: string | null | undefined;
+  let lastAuthority = '';
+  const unsubscribe = onIdTokenChanged(auth, (firebaseUser) => {
+    const requestGeneration = ++generation;
+    const uid = firebaseUser?.uid ?? null;
+    if (uid !== lastUid) {
+      bindSensitiveSession(uid);
+      lastUid = uid;
+      onIdentityChange?.();
+    }
     if (firebaseUser) {
-      try {
-        const appUser = await getUserProfile(firebaseUser);
+      void getUserProfile(firebaseUser).then((appUser) => {
+        if (requestGeneration !== generation) return;
+        const authority = `${appUser.canUseClinicalTools}:${appUser.organizationId ?? ''}:${appUser.clinicalRole ?? ''}`;
+        if (lastAuthority && authority !== lastAuthority) resetSensitiveSession();
+        lastAuthority = authority;
         callback(appUser);
-      } catch (err) {
-        console.error('[CamDiag] Auth profile fallback failed:', err);
+      }).catch(() => {
+        if (requestGeneration !== generation) return;
+        resetSensitiveSession();
         callback(createUserProfile(firebaseUser));
-      }
+      });
     } else {
+      lastAuthority = '';
       callback(null);
     }
   });
+  return () => { generation++; unsubscribe(); };
 };
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;

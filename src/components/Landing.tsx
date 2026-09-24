@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, useScroll, useInView, useMotionValue, useSpring } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../contexts/AuthContext';
+import { useDialogFocus } from '../hooks/useDialogFocus';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 import { CamDiagLogo } from '../components/ui/CamDiagLogo';
 import { ShieldIcon, CameraIcon, ClipBoardIcon, BoltIcon, UsersIcon, MapPinIcon } from '../components/ui/Icons';
 
@@ -100,6 +102,8 @@ const MagneticButton = ({ children, ...rest }: React.ComponentProps<typeof motio
 
 const Landing = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const reducedMotion = usePrefersReducedMotion();
   const { t, language, setLanguage } = useTranslation();
    const { isAuthenticated, login, loginWithGoogle, register, loginWithPhone, confirmPhoneCode } = useAuth();
   const [email, setEmail] = useState('');
@@ -113,7 +117,7 @@ const Landing = () => {
   const [otpError, setOtpError] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<import('firebase/auth').ConfirmationResult | null>(null);
   const [error, setError] = useState('');
-  const [showLogin, setShowLogin] = useState(false);
+  const [showLogin, setShowLogin] = useState(() => new URLSearchParams(location.search).get('login') === '1');
    const heroRef = useRef(null);
    // Simplified animations to avoid scroll position issues
    const heroY = useMotionValue(0);
@@ -136,14 +140,7 @@ const Landing = () => {
       }
     }, [isAuthenticated, navigate]);
 
-    useEffect(() => {
-      if (!showLogin) return undefined;
-      const handleEscape = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') closeModal();
-      };
-      window.addEventListener('keydown', handleEscape);
-      return () => window.removeEventListener('keydown', handleEscape);
-    }, [closeModal, showLogin]);
+    const loginDialogRef = useDialogFocus(showLogin, closeModal);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,12 +198,12 @@ const Landing = () => {
   const features = [
     {
       icon: <CameraIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Analyse par Scanner IA' : language === 'pcm' ? 'AI Scan Check' : 'AI Scan Analysis',
+      title: language === 'fr' ? 'Revue de documents' : 'Document review',
       desc: language === 'fr'
-        ? 'Scannez des résultats de laboratoire, des radiographies et des tests RDT. Recevez une analyse assistée par IA en secondes.'
+        ? 'Vérifiez le texte extrait de documents médicaux avant une revue assistée par IA. Les modalités non validées restent indisponibles.'
         : language === 'pcm'
-        ? 'Scan lab result, X-ray, and RDT test. AI go give you check sharp sharp.'
-        : 'Scan lab results, X-rays, and RDT tests. Get AI-assisted analysis in seconds.',
+        ? 'Check text from medical document before AI review. Clinician must verify every result.'
+        : 'Check extracted medical document text before AI-assisted review. Unvalidated modalities remain unavailable.',
       gradient: 'from-cameroon-green to-cameroon-green-light',
       glow: 'shadow-cameroon-glow',
     },
@@ -214,21 +211,21 @@ const Landing = () => {
       icon: <ClipBoardIcon className="h-8 w-8" />,
       title: language === 'fr' ? 'Base de Données Médicamenteuse' : language === 'pcm' ? 'Drug Database' : 'Drug Database',
       desc: language === 'fr'
-        ? 'Recherchez des médicaments disponibles au Cameroun. Examinez les informations assistées par IA.'
+        ? 'Préparez une liste de médicaments à vérifier avec un professionnel. La disponibilité et les interactions ne sont pas garanties.'
         : language === 'pcm'
-        ? 'Find drugs wey dey for Cameroon. Review AI-assisted interaction information.'
-        : 'Search medications available in Cameroon. Review AI-assisted interaction information.',
+        ? 'List medicine for professional review. App no guarantee medicine safety or stock.'
+        : 'Prepare a medication list for professional review. Availability and interaction coverage are not guaranteed.',
       gradient: 'from-cameroon-red to-cameroon-red-light',
       glow: 'shadow-red-glow',
     },
     {
       icon: <ShieldIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Médecine Traditionnelle' : language === 'pcm' ? 'Local Contri-Medicine' : 'Local Contri-Medicine',
+      title: language === 'fr' ? 'Revue humaine requise' : 'Human review required',
       desc: language === 'fr'
-        ? 'Intègre les remèdes traditionnels du Cameroun avec la médecine moderne pour des soins holistiques.'
+        ? 'Comparez chaque observation au document source. CamDiag ne prescrit ni médicaments ni remèdes traditionnels.'
         : language === 'pcm'
-        ? 'Join Cameroon local medicine with modern medicine for full body care.'
-        : 'Integrates Cameroon traditional remedies with modern medicine for holistic care.',
+        ? 'Compare every finding with source. CamDiag no prescribe medicine or local remedy.'
+        : 'Compare every finding with its source. CamDiag does not prescribe medicines or traditional remedies.',
       gradient: 'from-cameroon-yellow to-cameroon-yellow-deep',
       glow: 'shadow-sunset-glow',
     },
@@ -236,21 +233,21 @@ const Landing = () => {
       icon: <BoltIcon className="h-8 w-8" />,
       title: language === 'fr' ? 'Conçu pour faible débit' : language === 'pcm' ? 'E Manage Small Network' : 'Low-bandwidth aware',
       desc: language === 'fr'
-        ? 'Conçu pour les zones à faible bande passante. Les analyses locales fonctionnent sans internet.'
+        ? 'Une connexion est nécessaire pour la transcription et la revue IA. La démo synthétique permet de découvrir le parcours.'
         : language === 'pcm'
-        ? 'Build am for area where net no plenty. Local check dey work without internet.'
-        : 'Built for low-bandwidth areas. Local analysis works without internet.',
+        ? 'Internet dey required for OCR and AI review. Synthetic demo fit show how e work.'
+        : 'An internet connection is required for OCR and AI review. Explore the workflow using the synthetic demo.',
       gradient: 'from-cameroon-green-deep to-cameroon-green',
       glow: 'shadow-cameroon-glow',
     },
     {
       icon: <UsersIcon className="h-8 w-8" />,
-      title: language === 'fr' ? 'Trilingue EN/FR/Pidgin' : language === 'pcm' ? 'EN / FR / Pidgin' : 'Trilingual EN/FR/Pidgin',
+      title: language === 'fr' ? 'Langues et limites' : 'Languages and limits',
       desc: language === 'fr'
-        ? 'Interface complète en anglais, français et pidgin camerounais.'
+        ? 'Résultats cliniques en anglais ou français. Le mode interface Pidgin utilise l’anglais pour les résultats cliniques.'
         : language === 'pcm'
-        ? 'Full interface for English, French and Cameroon Pidgin.'
-        : 'Full English, French and Cameroon Pidgin interface — built for local healthcare.',
+        ? 'Some interface dey for Pidgin. Clinical result go show for English so clinician fit review am.'
+        : 'Clinical output is in English or French. Pidgin interface mode uses English for clinical output.',
       gradient: 'from-cameroon-yellow to-cameroon-red',
       glow: 'shadow-sunset-glow',
     },
@@ -269,37 +266,38 @@ const Landing = () => {
 
   const stats = [
     { value: 'EN/FR', label: language === 'fr' ? 'Langues prises en charge' : 'Supported languages' },
-    { value: '15', label: language === 'fr' ? 'Pages par document' : 'Pages per document' },
+    { value: 'Pilot', label: language === 'fr' ? 'Évaluation supervisée' : 'Supervised evaluation' },
     { value: 'OCR', label: language === 'fr' ? 'Vérification du texte' : 'Text verification' },
     { value: 'Human', label: language === 'fr' ? 'Validation requise' : 'Review required' },
   ];
 
-  const testimonials = [
+  const reviewSteps = [
     {
-      name: 'Dr. Kamga',
-      role: language === 'fr' ? 'Médecin Généraliste, Yaoundé' : 'General Practitioner, Yaoundé',
+      name: language === 'fr' ? '1. Vérifier la source' : '1. Check the source',
+      role: language === 'fr' ? 'Document et transcription' : 'Document and transcription',
       text: language === 'fr'
-        ? 'CamDiag a transformé ma pratique. Je peux vérifier les interactions médicamenteuses en temps réel pendant les consultations.'
-        : 'CamDiag has transformed my practice. I can verify drug interactions in real-time during consultations.',
+        ? 'Comparez les noms, valeurs et unités extraits au document original. Corrigez le texte avant de poursuivre.'
+        : 'Compare extracted names, values and units with the original document. Correct the text before continuing.',
     },
     {
-      name: 'Dr. Ndi',
-      role: language === 'fr' ? 'Pharmacien, Douala' : 'Pharmacist, Douala',
+      name: language === 'fr' ? '2. Examiner les observations' : '2. Review the findings',
+      role: language === 'fr' ? 'Contexte et limites' : 'Context and limitations',
       text: language === 'fr'
-        ? 'La base de données qui inclut les remèdes traditionnels est exactement ce dont nous avions besoin au Cameroun.'
-        : 'The drug database that includes traditional remedies is exactly what we needed in Cameroon.',
+        ? 'Vérifiez les références au document et les limites. Une observation IA reste une proposition à examiner.'
+        : 'Check source references and limitations. An AI finding remains a suggestion for professional review.',
     },
     {
-      name: 'Marie T.',
-      role: language === 'fr' ? 'Infirmière, Bamenda' : 'Nurse, Bamenda',
+      name: language === 'fr' ? '3. Documenter la revue' : '3. Record the review',
+      role: language === 'fr' ? 'Responsabilité clinique' : 'Clinical accountability',
       text: language === 'fr'
-        ? "Même dans les zones rurales sans internet, l'analyse locale fonctionne parfaitement."
-        : 'Even in rural areas without internet, the local analysis works perfectly. It\'s a game-changer.',
+        ? 'Conservez le statut de revue et les corrections. Une revue terminée ne certifie pas la précision du système.'
+        : 'Keep review status and corrections with the encounter. Completing a review does not certify system accuracy.',
     },
   ];
 
   return (
-    <div className="screen-safe bg-cameroon-night text-white overflow-x-hidden">
+    <div className={`screen-safe bg-cameroon-night text-white overflow-x-hidden ${reducedMotion ? 'camdiag-reduced-motion' : ''}`}>
+      {reducedMotion && <style>{`.camdiag-reduced-motion * { animation: none !important; transition: none !important; transform: none !important; filter: none !important; opacity: 1 !important; scroll-behavior: auto !important; }`}</style>}
       {/* Scroll progress bar */}
       <motion.div
         className="fixed top-0 left-0 right-0 h-[3px] z-[60] origin-left bg-cameroon-flag"
@@ -327,7 +325,7 @@ const Landing = () => {
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
           {[
             { label: language === 'fr' ? 'Fonctionnalités' : 'Features', href: '#features' },
-            { label: language === 'fr' ? 'Témoignages' : 'Testimonials', href: '#testimonials' },
+            { label: language === 'fr' ? 'Parcours de revue' : 'Review workflow', href: '#review-workflow' },
             { label: 'Document AI', href: '#ai' },
           ].map((link) => (
             <motion.a key={link.href} href={link.href} className="hover:text-cameroon-yellow transition-colors" whileHover={{ y: -1 }}>
@@ -402,10 +400,10 @@ const Landing = () => {
             className="text-base sm:text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10 sm:mb-14 leading-relaxed"
           >
             {language === 'fr'
-              ? 'Assistance diagnostique par IA pour les professionnels de santé du Cameroun. Scannez, analysez et traitez — avec ou sans internet.'
+              ? 'Outil expérimental de revue documentaire pour les professionnels autorisés au Cameroun. Connexion internet et vérification clinique requises.'
               : language === 'pcm'
-              ? 'AI diagnosis support for health workers for Cameroon. Scan, check, treat — with or without internet.'
-              : 'AI-assisted clinical review for Cameroon healthcare professionals. Scan documents, review possible findings, and support clinician decisions.'}
+              ? 'Trial document review for authorized health workers. Internet and clinician check dey required.'
+              : 'Investigational document review for authorized Cameroon healthcare professionals. Internet access and clinician verification are required.'}
           </motion.p>
 
           <motion.div
@@ -467,7 +465,7 @@ const Landing = () => {
                         <motion.div className="w-2 h-2 rounded-full bg-cameroon-yellow" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 2, repeat: Infinity }} />
                         <span className="text-xs font-black text-cameroon-yellow uppercase tracking-wider">AI Active</span>
                       </div>
-                      <p className="text-white font-black text-lg">Malaria (P. Falciparum)</p>
+                      <p className="text-white font-black text-lg">Synthetic document review</p>
                       <div className="flex gap-2 mt-2">
                         <span className="bg-cameroon-red/20 text-cameroon-red-light text-[10px] font-black px-2 py-0.5 rounded">Illustrative</span>
                         <span className="bg-cameroon-yellow/20 text-cameroon-yellow text-[10px] font-black px-2 py-0.5 rounded">Low Hematocrit</span>
@@ -494,9 +492,9 @@ const Landing = () => {
                   </div>
                   <div className="space-y-3">
                     {[
-                      { label: 'Prescribed', name: 'Coartem', tag: 'Antimalarial', accent: 'bg-cameroon-green/10 border-cameroon-green/30 text-cameroon-green-light', delay: 1.7 },
-                      { label: 'Contri-medicine', name: 'Artemisia Tea', tag: 'Traditional', accent: 'bg-cameroon-yellow/10 border-cameroon-yellow/30 text-cameroon-yellow', delay: 1.9 },
-                      { label: 'Safety Alert', name: 'Coartem + Quinine conflict', tag: '', accent: 'bg-cameroon-red/15 border-cameroon-red/40 text-cameroon-red-light', delay: 2.1 },
+                      { label: 'Source', name: 'Synthetic sample', tag: 'No patient data', accent: 'bg-cameroon-green/10 border-cameroon-green/30 text-cameroon-green-light', delay: 1.7 },
+                      { label: 'OCR', name: 'Correction required', tag: 'Compare with source', accent: 'bg-cameroon-yellow/10 border-cameroon-yellow/30 text-cameroon-yellow', delay: 1.9 },
+                      { label: 'Status', name: 'Review required', tag: 'Not a diagnosis', accent: 'bg-cameroon-red/15 border-cameroon-red/40 text-cameroon-red-light', delay: 2.1 },
                     ].map((item) => (
                       <motion.div
                         key={item.label}
@@ -529,14 +527,12 @@ const Landing = () => {
       {/* Hospitals marquee */}
       <section className="relative z-10 py-12 border-y border-white/[0.04] overflow-hidden">
         <p className="text-center text-xs text-cameroon-yellow/60 uppercase tracking-[0.25em] font-black mb-8">
-          {language === 'fr' ? 'Utilisé dans les établissements de santé du Cameroun' : language === 'pcm' ? 'Cameroon hospital dem dey use am' : 'Trusted across Cameroon healthcare facilities'}
+          {language === 'fr' ? 'Conçu pour un parcours de revue supervisée' : 'Designed for a supervised review workflow'}
         </p>
         <Marquee speed={35}>
           {[
-            'Yaoundé Central Hospital', 'Hôpital Général de Douala',
-            'Bamenda Regional Hospital', 'Centre Hospitalier Universitaire',
-            'Waspito Telehealth', 'MedPlus Pharmacy',
-            'Green Cross Pharma', 'Hôpital Laquintinie',
+            'Source document', 'OCR correction', 'Evidence references',
+            'Clinician review', 'Documented limitations', 'Review status',
           ].map((name) => (
             <span key={name} className="text-white/25 text-sm font-bold px-6">{name}</span>
           ))}
@@ -572,10 +568,10 @@ const Landing = () => {
           </h2>
           <p className="text-white/40 text-lg mt-6 max-w-xl mx-auto leading-relaxed">
             {language === 'fr'
-              ? 'Des outils de diagnostic conçus pour les réalités du terrain au Cameroun.'
+              ? 'Des outils expérimentaux de revue documentaire pour les réalités du terrain au Cameroun.'
               : language === 'pcm'
               ? 'Clinical review tools wey we build for Cameroon real-life work.'
-              : 'Diagnostic tools designed for the realities of healthcare in Cameroon.'}
+              : 'Investigational document-review tools designed for healthcare workflows in Cameroon.'}
           </p>
         </motion.div>
 
@@ -623,24 +619,24 @@ const Landing = () => {
               Google Cloud AI
             </motion.p>
             <h2 id="ai-heading" className="text-5xl md:text-6xl font-black mb-6 font-display">
-              {language === 'fr' ? 'IA de' : language === 'pcm' ? 'Medical' : 'Medical-Grade'}{' '}
+              {language === 'fr' ? 'Revue' : 'Assisted'}{' '}
               <span className="text-gradient-cameroon">
-                {language === 'fr' ? 'Qualité Médicale' : language === 'pcm' ? 'AI Power' : 'AI Power'}
+                {language === 'fr' ? 'documentaire' : 'document review'}
               </span>
             </h2>
             <p className="text-white/45 text-lg leading-relaxed mb-10">
               {language === 'fr'
-                ? "Intégré avec MedGemma de Google, CamDiag fournit une analyse d'image médicale, une vérification des interactions médicamenteuses et des informations sur les médicaments — le tout par IA."
+                ? 'CamDiag associe transcription OCR et revue assistée par IA. Chaque transcription et observation doit être vérifiée par un professionnel qualifié.'
                 : language === 'pcm'
-                ? "We use Google MedGemma. CamDiag fit check medical picture, drug interaction, and drug info — all with AI."
+                ? 'CamDiag join OCR text with AI review. Qualified clinician must check every text and finding.'
                 : "CamDiag combines document OCR and AI-assisted review. Every transcription and finding requires confirmation by a qualified clinician."}
             </p>
             <StaggerContainer className="space-y-5">
               {[
-                language === 'fr' ? "Analyse d'image médicale en temps réel" : 'Real-time medical image analysis',
-                language === 'fr' ? "Détection d'interactions médicamenteuses" : 'Drug interaction detection',
-                language === 'fr' ? 'Recherche de médicaments adaptée au Cameroun' : 'Cameroon-specific medication search',
-                language === 'fr' ? 'Moteur local de secours hors ligne' : 'Offline fallback local engine',
+                language === 'fr' ? 'Comparaison avec le document original' : 'Comparison with the source document',
+                language === 'fr' ? 'Texte extrait à corriger et confirmer' : 'Extracted text to correct and confirm',
+                language === 'fr' ? 'Observations et limites à vérifier' : 'Findings and limitations to verify',
+                language === 'fr' ? 'Connexion requise pour OCR et IA' : 'Internet required for OCR and AI',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-4">
                   <motion.div
@@ -678,7 +674,7 @@ const Landing = () => {
                     transition={{ delay: 0.5 }}
                   >
                      <p className="text-[10px] text-white/25 mb-2 uppercase tracking-widest">Prompt</p>
-                      <p className="text-sm text-white/55 font-mono">Analyze this malaria RDT scan&#46;&#46;&#46;</p>
+                      <p className="text-sm text-white/55 font-mono">Review this synthetic document transcription&#46;&#46;&#46;</p>
                   </motion.div>
                   <motion.div className="flex justify-center" animate={{ y: [0, 4, 0] }} transition={{ duration: 2, repeat: Infinity }}>
                     <svg className="w-7 h-7 text-cameroon-yellow/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
@@ -694,8 +690,8 @@ const Landing = () => {
                     <div className="space-y-3">
                       {[
                         { badge: 'Demo', tone: 'bg-cameroon-green/20 text-cameroon-green-light', text: 'Possible finding for clinician review' },
-                        { badge: 'RX', tone: 'bg-cameroon-yellow/20 text-cameroon-yellow', text: 'Coartem recommended' },
-                        { badge: '!', tone: 'bg-cameroon-red/25 text-cameroon-red-light', text: 'Coartem + Quinine conflict' },
+                        { badge: 'OCR', tone: 'bg-cameroon-yellow/20 text-cameroon-yellow', text: 'Verify values and units against the source' },
+                        { badge: '!', tone: 'bg-cameroon-red/25 text-cameroon-red-light', text: 'No prescribing or safety guarantee' },
                       ].map((item, i) => (
                         <motion.div
                           key={item.text}
@@ -724,19 +720,19 @@ const Landing = () => {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" aria-labelledby="testimonials-heading" className="relative z-10 px-6 md:px-12 py-28 border-t border-white/[0.04]">
+      <section id="review-workflow" aria-labelledby="workflow-heading" className="relative z-10 px-6 md:px-12 py-28 border-t border-white/[0.04]">
         <div className="max-w-6xl mx-auto">
           <motion.div {...useAppearOnScroll()} className="text-center mb-20">
             <p className="text-sm font-black text-cameroon-yellow uppercase tracking-[0.25em] mb-5">
-              {language === 'fr' ? 'Témoignages' : language === 'pcm' ? 'Wetin Doctor Dem Talk' : 'Testimonials'}
+              {language === 'fr' ? 'Parcours de revue' : 'Review workflow'}
             </p>
-            <h2 id="testimonials-heading" className="text-5xl md:text-6xl font-black font-display">
+            <h2 id="workflow-heading" className="text-5xl md:text-6xl font-black font-display">
               {language === 'fr' ? 'Conçu avec les cliniciens en tête' : language === 'pcm' ? 'Built for Health Worker' : 'Designed for clinician review'}
             </h2>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {testimonials.map((item, i) => (
+            {reviewSteps.map((item, i) => (
               <motion.div
                 key={item.name}
                 initial={{ opacity: 0, y: 60, filter: 'blur(8px)' }}
@@ -758,7 +754,7 @@ const Landing = () => {
                     <p className="text-xs text-white/35">{item.role}</p>
                   </div>
                 </div>
-                 <p className="text-sm text-white/55 leading-relaxed italic">&quot;{item.text}&quot;</p>
+                 <p className="text-sm text-white/70 leading-relaxed">{item.text}</p>
               </motion.div>
             ))}
           </div>
@@ -798,9 +794,9 @@ const Landing = () => {
               </motion.h2>
               <p className="text-white/45 text-lg mb-10">
                 {language === 'fr'
-                  ? 'Rejoignez des milliers de professionnels de santé qui utilisent CamDiag au Cameroun.'
+                  ? 'Évaluez CamDiag comme outil expérimental de revue documentaire supervisée au Cameroun.'
                   : language === 'pcm'
-                  ? 'Join plenty health workers wey dey use CamDiag for Cameroon.'
+                  ? 'Try CamDiag for supervised document review for Cameroon.'
                   : 'Evaluate CamDiag as an AI-assisted clinical document review tool for Cameroon.'}
               </p>
               <MagneticButton
@@ -844,6 +840,12 @@ const Landing = () => {
           onClick={closeModal}
         >
           <motion.div
+            ref={loginDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="login-dialog-title"
+            aria-describedby="login-dialog-description"
+            tabIndex={-1}
             initial={{ scale: 0.9, y: 30, opacity: 0, filter: 'blur(10px)' }}
             animate={{ scale: 1, y: 0, opacity: 1, filter: 'blur(0px)' }}
             exit={{ scale: 0.9, y: 30, opacity: 0 }}
@@ -852,13 +854,13 @@ const Landing = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <CamDiagLogo size={42} animated />
-              <motion.button onClick={closeModal} className="text-white/40 hover:text-white transition-colors" whileHover={{ rotate: 90 }} transition={{ duration: 0.2 }}>
+              <CamDiagLogo size={42} />
+              <motion.button type="button" aria-label={language === 'fr' ? 'Fermer la connexion' : 'Close sign-in'} onClick={closeModal} className="text-white/70 hover:text-white transition-colors p-2" whileHover={{ rotate: 90 }} transition={{ duration: 0.2 }}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </motion.button>
             </div>
-            <h2 className="text-2xl font-black mt-3">{authTab === 'register' ? (language === 'fr' ? 'Créer un compte' : 'Create Account') : t.welcome_back}</h2>
-            <p className="text-white/40 text-sm mb-6">{authTab === 'register' ? (language === 'fr' ? 'Rejoignez CamDiag pour accéder au diagnostic IA' : 'Join CamDiag to access AI diagnostics') : t.login_subtitle}</p>
+            <h2 id="login-dialog-title" className="text-2xl font-black mt-3">{authTab === 'register' ? (language === 'fr' ? 'Créer un compte' : 'Create Account') : t.welcome_back}</h2>
+            <p id="login-dialog-description" className="text-white/70 text-sm mb-6">{language === 'fr' ? 'Un compte ne donne pas automatiquement accès aux outils cliniques. Une autorisation professionnelle est requise.' : 'Creating an account does not automatically grant clinical access. Professional authorization is required.'}</p>
 
             {error && (
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-cameroon-red/10 border border-cameroon-red/30 text-cameroon-red-light text-sm rounded-xl px-4 py-2 mb-4">

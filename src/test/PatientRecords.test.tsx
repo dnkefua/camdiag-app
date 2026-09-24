@@ -1,124 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TranslationProvider } from '../hooks/useTranslation';
 import PatientRecords from '../components/PatientRecords';
-
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  },
-}));
-
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>();
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-// Mock auth context
-vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { uid: 'test-uid' }, isAuthenticated: true, isLoading: false }),
-}));
-
-// Mock Firestore service
-const mockRecords = [
-  { id: 'P001', userId: 'test-uid', date: 'Mar 10, 2026', diagnosis: 'Dermatitis', status: 'Positive', result: 'Positive', category: 'Skin', bodyPart: 'Arm' },
-];
-vi.mock('../services/firestore', () => ({
-  getPatientRecords: vi.fn(() => Promise.resolve(mockRecords)),
-}));
-
-// Reactive store mock
-let storeRecords: typeof mockRecords = [];
-const setPatientRecords = (records: typeof mockRecords) => { storeRecords = records; };
-
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: vi.fn(() => ({
-    patientRecords: storeRecords,
-    setPatientRecords,
-  })),
-}));
-
-const renderWithProviders = (ui: React.ReactElement) => {
-  return render(<MemoryRouter>{ui}</MemoryRouter>);
-};
-
-describe('PatientRecords', () => {
-  beforeEach(() => {
-    mockNavigate.mockClear();
-    storeRecords = [];
-  });
-
-  it('renders page heading', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <PatientRecords />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getAllByRole('heading')[0]).toBeInTheDocument();
-    });
-  });
-
-  it('renders back button', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <PatientRecords />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
-    });
-  });
-
-  it('navigates to /app when back is clicked', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <PatientRecords />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: /back/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/app');
-  });
-
-  it('renders active user count', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <PatientRecords />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByText('Your saved records')).toBeInTheDocument();
-    });
-  });
-
-  it('renders history section with records', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <PatientRecords />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getByText('Dermatitis')).toBeInTheDocument();
-    });
-  });
-
-  it('renders bottom navigation buttons', async () => {
-    renderWithProviders(
-      <TranslationProvider>
-        <PatientRecords />
-      </TranslationProvider>
-    );
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /home/i })).toHaveLength(1);
-    });
-    expect(screen.getAllByRole('button', { name: /patients/i })).toHaveLength(1);
-  });
+import { useAppStore } from '../store/useAppStore';
+import { resetSensitiveSession } from '../services/session';
+import { analyzedDetail, detail, encounter } from './clinicalFixtures';
+const mocks=vi.hoisted(()=>({list:vi.fn(),get:vi.fn(),navigate:vi.fn(),uid:'user-a'}));
+vi.mock('react-router-dom',async(original)=>({...await original<typeof import('react-router-dom')>(),useNavigate:()=>mocks.navigate}));
+vi.mock('../contexts/AuthContext',()=>({useAuth:()=>({user:{uid:mocks.uid,canUseClinicalTools:true}})}));
+vi.mock('../services/medgemma',()=>({listEncounters:mocks.list,getEncounter:mocks.get,loadSourcePage:vi.fn(),waitForJob:vi.fn(),analysisFromJob:vi.fn(),transcriptionFromJob:vi.fn()}));
+const show=()=>render(<MemoryRouter><TranslationProvider><PatientRecords/></TranslationProvider></MemoryRouter>);
+describe('Patient encounter records',()=>{
+  beforeEach(()=>{vi.clearAllMocks();localStorage.clear();mocks.uid='user-a';resetSensitiveSession();mocks.list.mockResolvedValue({items:[encounter],nextCursor:null});mocks.get.mockResolvedValue(detail);});
+  it('lists patient reference and distinct clinical/referral states',async()=>{show();expect(await screen.findByText(encounter.patientId)).toBeVisible();expect(screen.getByText('lab_result · draft')).toBeVisible();expect(screen.getByText('Referral: none')).toBeVisible();});
+  it('opens a server-saved report using its patient encounter',async()=>{mocks.get.mockResolvedValue(analyzedDetail);show();fireEvent.click(await screen.findByRole('button',{name:'Open / resume encounter'}));await waitFor(()=>expect(mocks.navigate).toHaveBeenCalledWith('/analysis'));expect(useAppStore.getState().activeEncounter?.patientId).toBe(encounter.patientId);expect(useAppStore.getState().possibleFindings[0]?.name).toBe('Synthetic document finding');});
+  it('routes an incomplete upload to the existing encounter recovery URL',async()=>{show();fireEvent.click(await screen.findByRole('button',{name:'Open / resume encounter'}));await waitFor(()=>expect(mocks.navigate).toHaveBeenCalledWith('/scanner?resume=enc-1'));});
+  it('rejects late old-account records even when the new account fetch fails',async()=>{let resolve!:(v:{items:typeof encounter[];nextCursor:null})=>void;mocks.list.mockReturnValueOnce(new Promise(r=>{resolve=r;}));const view=show();mocks.uid='user-b';mocks.list.mockRejectedValue(new Error('New-account load failed'));view.rerender(<MemoryRouter><TranslationProvider><PatientRecords/></TranslationProvider></MemoryRouter>);resolve({items:[encounter],nextCursor:null});await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('New-account load failed'));expect(screen.queryByText(encounter.patientId)).not.toBeInTheDocument();});
 });

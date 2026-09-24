@@ -1,98 +1,56 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { trackEvent } from '../services/analytics';
 import { AlertIcon, BackIcon, CameraIcon, CheckIcon } from './ui/Icons';
 
+const SOURCE_TEXT = 'SYNTHETIC SAMPLE — NOT A PATIENT\nSample ID: DEMO-001\nReported value: 12.5\nUnit: demo units\nReference range: not supplied';
+const OCR_TEXT = SOURCE_TEXT.replace('12.5', '125');
+
 const DemoScanner = () => {
   const navigate = useNavigate();
   const { language } = useTranslation();
-
-  const copy = {
-    title: language === 'fr' ? 'Demo CamDiag' : language === 'pcm' ? 'CamDiag Demo' : 'CamDiag Demo',
-    subtitle: language === 'fr'
-      ? 'Parcours de demonstration sans IA et sans donnees medicales.'
-      : language === 'pcm'
-      ? 'Demo flow only. No AI call, no medical data upload.'
-      : 'Demo flow only. No AI call and no medical data upload.',
-    scan: language === 'fr' ? 'Simuler un scan' : language === 'pcm' ? 'Try Demo Scan' : 'Try Demo Scan',
-    result: language === 'fr'
-      ? 'Exemple: document medical detecte. Connectez-vous pour une analyse securisee.'
-      : language === 'pcm'
-      ? 'Sample: medical document found. Sign in for secure analysis.'
-      : 'Sample: medical document detected. Sign in for secure analysis.',
-    signIn: language === 'fr' ? 'Se connecter pour analyser' : language === 'pcm' ? 'Sign in for AI' : 'Sign in for AI analysis',
-  };
-
-  const handleDemo = () => {
-    trackEvent('demo_scan_preview');
-  };
-
+  const fr = language === 'fr';
+  const [step, setStep] = useState(0);
+  const [text, setText] = useState(OCR_TEXT);
+  const [confirmed, setConfirmed] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
+  const corrected = text.trim() === SOURCE_TEXT;
+  const labels = fr ? ['Source', 'Correction OCR', 'Observations', 'Revue'] : ['Source', 'OCR correction', 'Findings', 'Review'];
   return (
     <div className="screen-safe bg-cameroon-night text-white flex flex-col">
       <header className="px-5 py-4 flex items-center gap-3 border-b border-white/10">
-        <button
-          type="button"
-          aria-label="Back"
-          onClick={() => navigate('/')}
-          className="p-2 rounded-full bg-white/10 text-white"
-        >
-          <BackIcon />
-        </button>
-        <div>
-          <h1 className="text-xl font-black">{copy.title}</h1>
-          <p className="text-xs text-cameroon-yellow/80 font-semibold">{copy.subtitle}</p>
-        </div>
+        <button type="button" aria-label={fr ? 'Retour' : 'Back'} onClick={() => navigate('/')} className="p-2 rounded-full bg-white/10"><BackIcon /></button>
+        <div><h1 className="text-xl font-black">CamDiag Demo</h1><p className="text-sm text-cameroon-yellow">{fr ? 'Exemple entièrement synthétique • aucun appel IA ni téléversement' : 'Entirely synthetic sample • no AI call or upload'}</p></div>
       </header>
-
-      <main className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center gap-6 sm:gap-8">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm aspect-[3/4] rounded-[2rem] border-2 border-cameroon-yellow/40 bg-gradient-to-br from-slate-900 to-cameroon-green-deep shadow-premium relative overflow-hidden"
-        >
-          <div className="absolute inset-6 border border-white/20 rounded-2xl" />
-          <div className="absolute inset-x-10 top-20 h-20 rounded-xl bg-white/10 border border-white/15" />
-          <div className="absolute inset-x-10 top-48 space-y-3">
-            <div className="h-3 rounded bg-white/25" />
-            <div className="h-3 rounded bg-white/15 w-4/5" />
-            <div className="h-3 rounded bg-white/15 w-2/3" />
-          </div>
-          <motion.div
-            className="absolute left-8 right-8 h-1 bg-cameroon-yellow shadow-sunset-glow"
-            animate={{ top: ['18%', '78%', '18%'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <div className="absolute bottom-8 left-8 right-8 flex items-center gap-3 rounded-2xl bg-black/30 border border-white/10 p-4">
-            <CheckIcon className="w-6 h-6 text-cameroon-yellow" />
-            <p className="text-sm font-bold">{copy.result}</p>
-          </div>
-        </motion.div>
-
-        <div className="w-full max-w-sm space-y-3">
-          <button
-            type="button"
-            onClick={handleDemo}
-            className="w-full bg-cameroon-yellow text-cameroon-night font-black py-4 rounded-2xl shadow-sunset-glow flex items-center justify-center gap-2"
-          >
-            <CameraIcon className="w-5 h-5" />
-            {copy.scan}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="w-full bg-white/10 text-white font-bold py-4 rounded-2xl border border-white/15"
-          >
-            {copy.signIn}
-          </button>
-          <p className="text-xs text-white/50 leading-relaxed flex gap-2">
-            <AlertIcon className="w-4 h-4 shrink-0 text-cameroon-yellow" />
-            {copy.subtitle}
-          </p>
-        </div>
+      <main className="flex-1 w-full max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
+        <ol aria-label={fr ? 'Étapes de démonstration' : 'Demo steps'} className="grid grid-cols-4 gap-2">{labels.map((label, index) => <li key={label} aria-current={index === step ? 'step' : undefined} className={`rounded-xl p-2 text-xs font-bold text-center border ${index === step ? 'bg-cameroon-yellow text-cameroon-night border-cameroon-yellow' : 'border-white/20 text-white/70'}`}>{index + 1}. {label}</li>)}</ol>
+        <section className="rounded-3xl border border-cameroon-yellow/30 bg-gradient-to-br from-slate-900 to-cameroon-green-deep p-5 sm:p-8 shadow-premium space-y-5">
+          <h2 className="text-xl font-black" tabIndex={-1}>{labels[step]}</h2>
+          {step <= 1 && <><p className="text-sm text-white/80">{fr ? 'Comparez la source et la transcription. Une erreur décimale a été insérée volontairement.' : 'Compare the source and transcription. A decimal error has been inserted deliberately.'}</p><pre aria-label={fr ? 'Document source synthétique' : 'Synthetic source document'} className="bg-white text-slate-900 rounded-xl p-4 whitespace-pre-wrap text-sm font-mono">{SOURCE_TEXT}</pre></>}
+          {step === 0 && <button type="button" onClick={() => { setStep(1); trackEvent('demo_scan_preview'); }} className="w-full bg-cameroon-yellow text-cameroon-night font-black py-4 rounded-2xl flex items-center justify-center gap-2"><CameraIcon className="h-5 w-5" />{fr ? 'Simuler un scan' : 'Try Demo Scan'}</button>}
+          {step === 1 && <>
+            <label className="block text-sm font-bold">{fr ? 'Corrigez la transcription OCR' : 'Correct the OCR transcription'}<textarea value={text} onChange={(event) => { setText(event.target.value); setConfirmed(false); }} rows={6} className="mt-2 w-full rounded-xl p-4 bg-white text-slate-900 font-mono text-sm" /></label>
+            <p className="text-sm text-cameroon-yellow">{fr ? 'Remplacez 125 par 12.5 pour correspondre à la source. Les unités et la plage de référence doivent aussi être vérifiées.' : 'Change 125 to 12.5 to match the source. Units and the reference range also need checking.'}</p>
+            <label className="flex gap-3 text-sm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="h-5 w-5 shrink-0" />{fr ? 'J’ai comparé la transcription au document synthétique.' : 'I compared the transcription with the synthetic source.'}</label>
+            <button type="button" disabled={!corrected || !confirmed} onClick={() => setStep(2)} className="w-full bg-cameroon-yellow text-cameroon-night font-black py-4 rounded-2xl disabled:opacity-40">{fr ? 'Afficher les observations exemples' : 'Show sample findings'}</button>
+          </>}
+          {step === 2 && <>
+            <p className="rounded-xl bg-cameroon-yellow/10 border border-cameroon-yellow/30 p-4 font-bold">{fr ? 'Revue requise — exemple fixe, non généré par une IA' : 'Review required — fixed example, not generated by AI'}</p>
+            <ul className="list-disc pl-5 space-y-3 text-sm"><li>{fr ? 'La valeur transcrite a été corrigée : 125 → 12.5.' : 'The transcribed value was corrected: 125 → 12.5.'}</li><li>{fr ? 'La plage de référence manque. La signification clinique n’est pas évaluée.' : 'The reference range is missing. Clinical significance is not assessed.'}</li><li>{fr ? 'Aucun diagnostic, prescription ou résultat de sécurité médicamenteuse n’est fourni.' : 'No diagnosis, prescription or medication-safety conclusion is provided.'}</li></ul>
+            <button type="button" onClick={() => setStep(3)} className="w-full bg-cameroon-yellow text-cameroon-night font-black py-4 rounded-2xl">{fr ? 'Passer à la revue' : 'Continue to review'}</button>
+          </>}
+          {step === 3 && <>
+            <p className="text-sm">{fr ? 'Dans un dossier réel, un professionnel autorisé vérifie la source, le contexte et les limites avant d’enregistrer sa revue.' : 'In a real encounter, an authorized professional checks the source, context and limitations before recording their review.'}</p>
+            <label className="flex gap-3 text-sm"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} className="h-5 w-5 shrink-0" />{fr ? 'J’ai parcouru cet exemple synthétique et ses limites.' : 'I reviewed this synthetic example and its limitations.'}</label>
+            {reviewed && <div role="status" className="rounded-xl bg-cameroon-green p-4 flex gap-3"><CheckIcon className="h-6 w-6 shrink-0" /><p>{fr ? 'Démo revue. Rien n’a été enregistré dans un dossier patient. Ceci n’est pas une validation clinique.' : 'Demo reviewed. Nothing was saved to a patient record. This is not clinical validation.'}</p></div>}
+            <button type="button" onClick={() => { setStep(0); setText(OCR_TEXT); setConfirmed(false); setReviewed(false); }} className="w-full rounded-xl py-3 border border-white/30 font-bold">{fr ? 'Recommencer la démo' : 'Restart demo'}</button>
+          </>}
+        </section>
+        <button type="button" onClick={() => navigate('/?login=1')} className="w-full bg-white/10 text-white font-bold py-4 rounded-2xl border border-white/20">{fr ? 'Se connecter pour demander un accès clinique' : 'Sign in to request clinical access'}</button>
+        <p className="text-sm text-white/70 flex gap-2"><AlertIcon className="w-5 h-5 shrink-0 text-cameroon-yellow" />{fr ? 'CamDiag est expérimental. Les résultats cliniques sont en anglais ou français ; le mode Pidgin utilise l’anglais. Les outils réels nécessitent internet, autorisation et consentement.' : 'CamDiag is investigational. Clinical output is English or French; Pidgin mode uses English. Real tools require internet, authorization and consent.'}</p>
       </main>
     </div>
   );
 };
-
 export default DemoScanner;

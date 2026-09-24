@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { MedicalDisclaimer } from './components/ui/MedicalDisclaimer';
 import { reportEnvWarnings } from './utils/env';
 import { trackEvent } from './services/analytics';
+import { PRIVACY_CHANGED_EVENT } from './services/privacy';
 import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
@@ -25,7 +26,9 @@ const ComingUp = lazy(() => import('./components/ComingUp'));
 const NotFound = lazy(() => import('./components/NotFound'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  const clinicalRoute = ['/scanner', '/transcription-review', '/analysis', '/next-steps', '/drugs', '/patients'].includes(location.pathname);
 
   if (isLoading) {
     return (
@@ -36,8 +39,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/?login=1" replace />;
   }
+
+  if (clinicalRoute && !user?.canUseClinicalTools) return (
+    <main className="mx-auto max-w-lg p-8 space-y-4">
+      <h1 className="text-2xl font-bold">Clinical access requires verification</h1>
+      <p>Your organization must verify your clinician credentials before you can process patient documents. Changing a profile does not grant access.</p>
+      <Link to="/settings" className="block underline">View account status</Link>
+      <Link to="/demo" className="block underline">Explore the synthetic demo</Link>
+    </main>
+  );
 
   return <>{children}</>;
 };
@@ -45,8 +57,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const RouteAnalytics = () => {
   const location = useLocation();
   useEffect(() => {
+    window.dispatchEvent(new Event(PRIVACY_CHANGED_EVENT));
     trackEvent('page_view', { path: location.pathname });
-  }, [location.pathname]);
+  }, [location.pathname, location.search, location.hash]);
   return null;
 };
 
@@ -58,7 +71,7 @@ const App = () => {
   return (
     <div className="min-h-screen">
       <RouteAnalytics />
-      <MedicalDisclaimer />
+      <MedicalDisclaimer>
       <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-cameroon-ivory"><LoadingSpinner size="lg" message="Loading..." /></div>}>
         <AnimatePresence mode="wait">
           <Routes>
@@ -79,6 +92,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </Suspense>
+      </MedicalDisclaimer>
     </div>
   );
 };

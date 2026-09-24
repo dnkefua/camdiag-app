@@ -29,6 +29,8 @@ export interface UseCameraResult {
 export const useCamera = (): UseCameraResult => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const requestGeneration = useRef(0);
   const [isReady, setIsReady] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,18 +39,20 @@ export const useCamera = (): UseCameraResult => {
   const [hasFlashSupport, setHasFlashSupport] = useState(false);
 
   const stop = useCallback(() => {
-    setStream((current) => {
-      current?.getTracks().forEach((track) => track.stop());
-      return null;
-    });
+    requestGeneration.current++;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setStream(null);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setIsReady(false);
+    setIsStarting(false);
     setFlashOn(false);
   }, []);
 
    const startWithFacing = useCallback(async (mode: CameraFacing) => {
+     const generation = ++requestGeneration.current;
      setIsStarting(true);
      setError(null);
      try {
@@ -63,19 +67,24 @@ export const useCamera = (): UseCameraResult => {
          },
          audio: false,
        });
-      setStream((prev) => {
-        prev?.getTracks().forEach((t) => t.stop());
-        return next;
-      });
+      if (generation !== requestGeneration.current) {
+        next.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = next;
+      setStream(next);
       if (videoRef.current) {
         videoRef.current.srcObject = next;
         await videoRef.current.play().catch(() => undefined);
       }
+      if (generation !== requestGeneration.current) return;
       const track = next.getVideoTracks()[0];
       const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean };
       setHasFlashSupport(Boolean(caps.torch));
       setIsReady(true);
     } catch (err) {
+      if (generation !== requestGeneration.current) return;
       const name = (err as DOMException)?.name;
       const message =
         name === 'NotAllowedError' ? 'Camera permission was denied. Please enable camera access in your browser settings.'
@@ -85,7 +94,7 @@ export const useCamera = (): UseCameraResult => {
       setError(message);
       setIsReady(false);
     } finally {
-      setIsStarting(false);
+      if (generation === requestGeneration.current) setIsStarting(false);
     }
   }, []);
 

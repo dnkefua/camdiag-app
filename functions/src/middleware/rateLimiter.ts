@@ -8,6 +8,7 @@ interface RateLimitConfig {
 
 interface RateLimiterOptions {
   failOpen?: boolean;
+  key?: string;
 }
 
 let firestore: Firestore | null = null;
@@ -18,7 +19,7 @@ const getDb = (): Firestore => {
 };
 
 export const rateLimiter = (config: RateLimitConfig, options: RateLimiterOptions = {}) => {
-  const failOpen = options.failOpen ?? true;
+  const failOpen = options.failOpen ?? false;
 
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const uid = req.uid;
@@ -27,7 +28,7 @@ export const rateLimiter = (config: RateLimitConfig, options: RateLimiterOptions
       return;
     }
 
-    const route = req.path;
+    const route = options.key ?? req.route?.path ?? req.path;
     const windowStart = Date.now() - config.windowMs;
 
     try {
@@ -39,7 +40,7 @@ export const rateLimiter = (config: RateLimitConfig, options: RateLimiterOptions
 
         if (!doc.exists) {
           transaction.set(rateLimitRef, {
-            [route]: [{ count: 1, windowStart }],
+            [route]: [{ count: 1, windowStart: Date.now() }],
             updatedAt: now,
           });
           return { allowed: true, remaining: config.max - 1 };
@@ -75,8 +76,8 @@ export const rateLimiter = (config: RateLimitConfig, options: RateLimiterOptions
 
       res.setHeader('X-RateLimit-Remaining', result.remaining);
       next();
-    } catch (err) {
-      console.error('[CamDiag] Rate limit check failed:', err);
+    } catch {
+      console.error(JSON.stringify({ event: 'rate_limit_unavailable' }));
       res.setHeader('X-RateLimit-Status', 'unavailable');
 
       if (!failOpen) {

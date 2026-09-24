@@ -1,68 +1,17 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CamDiag Privacy Policy</title>
-    <style>
-      body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; color: #10231f; background: #fffaf0; }
-      main { max-width: 840px; margin: 0 auto; padding: 40px 20px; }
-      h1, h2 { color: #007a5e; line-height: 1.2; }
-      .notice { background: #fff3cd; border: 1px solid #f4d35e; border-radius: 8px; padding: 16px; }
-      a { color: #007a5e; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>CamDiag Privacy Policy</h1>
-      <p><strong>Effective date:</strong> May 13, 2026</p>
-      <p class="notice">
-        CamDiag is an AI-assisted clinical decision-support tool for healthcare workers. It does not diagnose,
-        prescribe, or replace clinician judgment. Emergency warning signs require immediate care.
-      </p>
-
-      <h2>Information We Process</h2>
-      <p>
-        CamDiag may process account information, medical document images, AI-assisted review outputs, medication
-        safety queries, app usage events, and security audit records needed to provide and protect the service.
-      </p>
-
-      <h2>How We Use Information</h2>
-      <p>
-        We use information to authenticate users, provide clinical document review, support medication safety checks,
-        enforce rate limits, detect abuse, improve reliability, and maintain audit logs for safety and security.
-      </p>
-
-      <h2>Medical Data</h2>
-      <p>
-        Users should upload only information necessary for clinical review. AI-assisted outputs must be reviewed by
-        qualified healthcare professionals before any clinical decision.
-      </p>
-
-      <h2>Sharing</h2>
-      <p>
-        We do not sell personal or health data. Data may be processed by service providers used to run the app,
-        including Firebase, Google Cloud, and Google AI services, under applicable platform terms and security controls.
-      </p>
-
-      <h2>Retention and Deletion</h2>
-      <p>
-        Patient records and scan records are scoped to the signed-in user. Users may request deletion of account data
-        or operational records by contacting NDN Analytics.
-      </p>
-
-      <h2>Security</h2>
-      <p>
-        CamDiag uses Firebase Authentication, Firestore security rules, backend-only AI access, App Check wiring,
-        CORS restrictions, and audit/rate-limit controls to protect the service.
-      </p>
-
-      <h2>Contact</h2>
-      <p>
-        NDN Analytics<br />
-        Website: <a href="https://www.ndnanalytics.com">https://www.ndnanalytics.com</a><br />
-        Support: <a href="mailto:support@ndnanalytics.com">support@ndnanalytics.com</a>
-      </p>
-    </main>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CamDiag — Privacy / Confidentialité</title><style>body{font:16px/1.65 system-ui;margin:0;color:#172b26;background:#fffaf0}main{max-width:850px;margin:auto;padding:32px 20px}h1,h2{color:#007a5e;line-height:1.25}.notice{border:1px solid #d4a313;background:#fff3cd;padding:16px;border-radius:12px}a{color:#00634c}section{margin-top:40px}li{margin-bottom:8px}</style></head>
+<body><main><nav aria-label="Languages"><a href="#english">English</a> · <a href="#francais" lang="fr">Français</a> · <a href="/">CamDiag</a></nav>
+<section id="english" lang="en"><h1>Privacy and data handling</h1><p>Updated 22 September 2026 · NDN Analytics · Clinical consent version: clinical-consent-v3</p>
+<p class="notice">CamDiag is an investigational document-review tool. Clinical production approval is not claimed. Use only information you are authorized to process. The public synthetic demo does not upload documents or call an AI service.</p>
+<h2>Essential clinical processing</h2><p>When an authorized professional uses clinical tools, CamDiag processes account identity, organization and role claims, patient references, encounter context, source documents, corrected transcriptions, review outputs and clinician review events. Firebase and Google Cloud services, including document processing and AI services, support this workflow. Send only the information necessary for the requested review.</p><p>Consent to this processing is recorded against the signed-in account on the server. Essential processing includes delivering the requested service, keeping the encounter record, security audit metadata and abuse/rate-limit controls. It is separate from optional usage analytics. An operator's acknowledgement does not replace the care provider's responsibility to establish authority to process the patient's information.</p>
+<h2>Optional analytics</h2><p>Usage analytics are off by default and can be enabled or disabled in Settings. Clinical document content, medication text, patient references and provider error text must not be included in usage events. Declining analytics does not prevent clinical access. The browser stores the optional preference; the server also records the choice with consent. Clinical access separately requires professional authorization.</p>
+<h2>Storage and retention</h2><p>Source uploads have expiry metadata intended to support limited retention. Expiry metadata alone is not proof that an object has been deleted: deployed cleanup and storage policies must enforce it. Encounter records, transcription versions, analyses and reviews remain stored unless an approved retention or deletion process removes them. Withdrawing consent does not automatically erase them.</p><p>Exact production retention periods for security logs, backups and provider-side processing have not all been confirmed. No universal immediate-deletion period or data-residency guarantee is made here. These periods, cross-border processing arrangements and deletion verification require responsible review before clinical production use. Contact NDN Analytics for the deployment-specific schedule.</p><p>Clinical state in the browser is cleared on sign-out or account change. Any downloaded export is a separate sensitive copy under your control. Use a private device and store exports securely.</p>
+<h2>Your controls</h2><ul><li>Settings → Security lets you withdraw clinical consent. New clinical processing is blocked until you provide the current consent again.</li><li>Account export downloads a JSON copy of the profile, consent and encounter data available through the account export service. It is not an export of provider logs or backups. A recent sign-in is required.</li><li>A deletion request is queued for human review. Submitting it is not confirmation that data has been deleted. Review must cover applicable records, source objects, operational copies and any retention obligations. A recent sign-in is required.</li><li>Public pages and the synthetic demo remain available without clinical processing consent.</li></ul>
+<h2>Questions and requests</h2><p>Contact NDN Analytics at <a href="mailto:support@ndnanalytics.com">support@ndnanalytics.com</a> or through <a href="https://www.ndnanalytics.com">ndnanalytics.com</a>. Include your request reference where available; do not email medical documents unless a secure process has been agreed.</p></section>
+<section id="francais" lang="fr"><h1>Confidentialité et traitement des données</h1><p>Mise à jour : 22 septembre 2026 · NDN Analytics · Version du consentement clinique : clinical-consent-v3</p>
+<p class="notice">CamDiag est un outil expérimental de revue documentaire. Aucune approbation de production clinique n’est revendiquée. Utilisez uniquement les informations que vous êtes autorisé à traiter. La démo publique synthétique ne téléverse aucun document et n’appelle aucun service IA.</p>
+<h2>Traitement clinique essentiel</h2><p>Pour les outils cliniques, CamDiag traite l’identité du compte, l’organisation et le rôle vérifiés, les références patient, le contexte de consultation, les documents sources, les transcriptions corrigées, les résultats et les événements de revue. Firebase et Google Cloud, dont les services documentaires et IA, assurent ce traitement. Ne transmettez que les données nécessaires à la revue demandée.</p><p>Le consentement est associé au compte connecté et enregistré sur le serveur. Il couvre le service demandé, la conservation du dossier, les métadonnées de sécurité et la prévention des abus. Il est distinct des statistiques d’utilisation facultatives. L’accord de l’opérateur ne remplace pas la responsabilité du prestataire de soins de disposer d’une autorisation de traitement des données patient.</p>
+<h2>Statistiques facultatives</h2><p>Les statistiques sont désactivées par défaut et modifiables dans Paramètres. Les événements ne doivent pas contenir de documents cliniques, textes médicamenteux, références patient ni messages d’erreur des prestataires. Le refus n’empêche pas l’accès clinique. Le navigateur conserve la préférence et le serveur l’enregistre avec le consentement. Une autorisation professionnelle reste nécessaire.</p>
+<h2>Conservation</h2><p>Les fichiers sources portent des métadonnées d’expiration destinées à limiter leur conservation. Ces métadonnées ne prouvent pas une suppression : les règles de stockage et le nettoyage déployés doivent l’exécuter. Les consultations, transcriptions, analyses et revues restent conservées jusqu’à leur suppression par un processus approuvé. Retirer le consentement ne les efface pas automatiquement.</p><p>Les durées exactes de conservation en production des journaux, sauvegardes et traitements des prestataires ne sont pas toutes confirmées. Aucune garantie générale de suppression immédiate ou de résidence des données n’est donnée. Ces durées, les transferts internationaux et la vérification des suppressions doivent être examinés avant la production clinique. Demandez à NDN Analytics le calendrier propre au déploiement.</p><p>L’état clinique du navigateur est effacé à la déconnexion ou au changement de compte. Un export téléchargé reste une copie sensible sous votre contrôle. Utilisez un appareil privé et protégez les exports.</p>
+<h2>Vos contrôles</h2><ul><li>Paramètres → Sécurité permet de retirer le consentement. Les nouveaux traitements cliniques sont bloqués jusqu’à un nouvel accord à la version en vigueur.</li><li>L’export JSON comprend le profil, le consentement et les dossiers disponibles via le service d’export du compte, pas les journaux des prestataires ni les sauvegardes. Une connexion récente est requise.</li><li>Une demande de suppression attend une revue humaine. Son envoi ne confirme aucune suppression. La revue doit couvrir les dossiers, objets sources, copies opérationnelles et obligations de conservation. Une connexion récente est requise.</li><li>Les pages publiques et la démo synthétique restent accessibles sans consentement clinique.</li></ul>
+<h2>Contact</h2><p>Contactez NDN Analytics : <a href="mailto:support@ndnanalytics.com">support@ndnanalytics.com</a> ou <a href="https://www.ndnanalytics.com">ndnanalytics.com</a>. Indiquez la référence de votre demande si disponible ; n’envoyez pas de documents médicaux par courriel sans procédure sécurisée convenue.</p></section></main></body></html>

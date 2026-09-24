@@ -1,8 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, browserSessionPersistence, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
+import { getStorage } from 'firebase/storage';
+import type { Analytics } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken, type AppCheck } from 'firebase/app-check';
+import { getAnalyticsConsent, isAnalyticsPageAllowed, PRIVACY_CHANGED_EVENT, ANALYTICS_KEY } from '../services/privacy';
 
 const required = (key: string) => {
   const value = import.meta.env[key];
@@ -30,8 +32,9 @@ const getFirebaseConfig = (): Record<string, string> => {
 const firebaseConfig = getFirebaseConfig();
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+export const auth = initializeAuth(app, { persistence: browserSessionPersistence, popupRedirectResolver: browserPopupRedirectResolver });
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 let appCheckInstance: AppCheck | null = null;
 
@@ -59,8 +62,7 @@ export const getAppCheckToken = async (): Promise<string | null> => {
   try {
     const token = await getToken(appCheck, false);
     return token.token;
-  } catch (err) {
-    console.error('[CamDiag] App Check token retrieval failed:', err);
+  } catch {
     return null;
   }
 };
@@ -69,23 +71,36 @@ let analyticsInstance: Analytics | null = null;
 let analyticsPromise: Promise<Analytics | null> | null = null;
 
 export const getAnalyticsInstance = (): Promise<Analytics | null> => {
+  if (!getAnalyticsConsent() || !isAnalyticsPageAllowed()) return Promise.resolve(null);
   if (analyticsInstance) return Promise.resolve(analyticsInstance);
   if (analyticsPromise) return analyticsPromise;
-  analyticsPromise = isSupported().then((supported) => {
-    if (!supported) return null;
-    analyticsInstance = getAnalytics(app);
+  analyticsPromise = import('firebase/analytics').then(async ({ isSupported, initializeAnalytics, setAnalyticsCollectionEnabled }) => {
+    if (!await isSupported() || !getAnalyticsConsent() || !isAnalyticsPageAllowed()) return null;
+    // Disable automatic page views: clinical routes and URLs must not enter analytics.
+    analyticsInstance = initializeAnalytics(app, { config: { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false } });
+    setAnalyticsCollectionEnabled(analyticsInstance, true);
     return analyticsInstance;
-  }).catch((err) => {
-    console.error('[CamDiag] Analytics initialization failed:', err);
+  }).catch(() => {
     return null;
+  }).then((instance) => {
+    if (!instance) analyticsPromise = null;
+    return instance;
   });
   return analyticsPromise;
 };
 
-// Eagerly warm analytics for production (browser-only)
 if (typeof window !== 'undefined') {
-  initializeCamDiagAppCheck();
-  void getAnalyticsInstance();
+  const syncAnalyticsCollection = () => {
+    if (analyticsInstance) {
+      void import('firebase/analytics').then(({ setAnalyticsCollectionEnabled }) => {
+        if (analyticsInstance) setAnalyticsCollectionEnabled(analyticsInstance, getAnalyticsConsent() && isAnalyticsPageAllowed());
+      });
+    }
+  };
+  window.addEventListener(PRIVACY_CHANGED_EVENT, syncAnalyticsCollection);
+  window.addEventListener('storage', (event) => {
+    if (event.key === ANALYTICS_KEY || event.key === null) syncAnalyticsCollection();
+  });
 }
 
 export default app;

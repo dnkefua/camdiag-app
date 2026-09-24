@@ -4,6 +4,9 @@ import { motion } from 'framer-motion';
 import { useTranslation } from '../hooks/useTranslation';
 import { useGoogleMaps } from '../hooks/useGoogleMaps';
 import { useAppStore } from '../store/useAppStore';
+import { updateReferral } from '../services/medgemma';
+import type { ClinicalEncounter } from '../types';
+import { clinicalText } from '../utils/clinicalLanguage';
 import { FacilityMap, type MappedFacility } from './ui/FacilityMap';
 import { BackIcon, HomeIcon, PlusIcon, UsersIcon, MapPinIcon, WarningIcon, RemedyIcon } from './ui/Icons';
 
@@ -42,28 +45,33 @@ const distanceInKm = (from: { lat: number; lng: number }, to: { lat: number; lng
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 };
 
-const mapsSearchUrl = (tab: CareTab): string => {
+const mapsSearchUrl = (tab: CareTab, location = ''): string => {
   const label = tab === 'clinics' ? 'medical clinics' : tab;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${label} near me`)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${label} ${location.trim() || 'near me'}`)}`;
 };
 
 const NextSteps = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const tx = (en: string, fr: string) => clinicalText(language, en, fr);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<CareTab>(
     CARE_TABS.includes(initialTab as CareTab) ? initialTab as CareTab : 'clinics',
   );
   const [showMap, setShowMap] = useState(false);
+  const [manualLocation, setManualLocation] = useState('');
+  const [referralNotes, setReferralNotes] = useState('');
+  const [referralMessage, setReferralMessage] = useState('');
+  const [savingReferral, setSavingReferral] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('idle');
   const [locationError, setLocationError] = useState<string | null>(null);
   const [facilityResults, setFacilityResults] = useState<Record<CareTab, FacilityRecord[]>>(EMPTY_RESULTS);
   const [searching, setSearching] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
-  const { ready: mapsReady, error: mapsError } = useGoogleMaps();
-  const { possibleFindings, selectedFinding, analysisUrgency } = useAppStore();
+  const { ready: mapsReady, error: mapsError } = useGoogleMaps(showMap || userLocation !== null);
+  const { possibleFindings, selectedFinding, analysisUrgency, activeEncounter, setActiveEncounter } = useAppStore();
   const selectedReport = possibleFindings[selectedFinding] ?? possibleFindings[0];
 
   const requestLocation = useCallback(() => {
@@ -90,10 +98,17 @@ const NextSteps = () => {
     );
   }, []);
 
-  useEffect(() => {
-    const timer = window.setTimeout(requestLocation, 0);
-    return () => window.clearTimeout(timer);
-  }, [requestLocation]);
+  const saveReferral = async (status: ClinicalEncounter['referralStatus']) => {
+    if (!activeEncounter || savingReferral) return;
+    setSavingReferral(true); setReferralMessage('');
+    try {
+      const saved = await updateReferral(activeEncounter.id, status, referralNotes);
+      setActiveEncounter(saved);
+      setReferralMessage(tx('Referral status saved.', 'Statut d’orientation enregistré.'));
+    } catch {
+      setReferralMessage(tx('Status was not saved. Check your connection and try again.', 'Statut non enregistré. Vérifiez la connexion et réessayez.'));
+    } finally { setSavingReferral(false); }
+  };
 
   useEffect(() => {
     if (!mapsReady || !userLocation) return;
@@ -197,6 +212,15 @@ const NextSteps = () => {
           </section>
 
           <section className="space-y-3">
+            {activeEncounter && <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <h3 className="font-bold">{tx('Referral follow-up', 'Suivi de l’orientation')}</h3>
+              <p>{tx('Current status', 'Statut actuel')}: {activeEncounter.referralStatus}</p>
+              <label className="block text-sm">{tx('Referral notes (no names or contact details)', 'Notes d’orientation (sans nom ni coordonnées)')}
+                <textarea value={referralNotes} maxLength={1000} onChange={(event) => setReferralNotes(event.target.value)} className="mt-1 block w-full rounded border p-2" />
+              </label>
+              <div className="flex flex-wrap gap-2">{(['recommended', 'arranged', 'completed', 'declined'] as const).map((status) => <button key={status} type="button" disabled={savingReferral} onClick={() => void saveReferral(status)} className="rounded border px-3 py-2 text-sm capitalize disabled:opacity-50">{tx(status, {recommended: 'Recommandée', arranged: 'Organisée', completed: 'Terminée', declined: 'Refusée'}[status])}</button>)}</div>
+              {referralMessage && <p role="status">{referralMessage}</p>}
+            </div>}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-black text-slate-900">Nearby care</h3>
@@ -214,6 +238,11 @@ const NextSteps = () => {
                 {locationStatus === 'requesting' ? 'Locating...' : 'Use my location'}
               </button>
             </div>
+
+            <label className="block text-sm font-semibold">{tx('Town or area (optional)', 'Ville ou quartier (facultatif)')}
+              <input value={manualLocation} maxLength={100} onChange={(event) => setManualLocation(event.target.value)} placeholder={tx('Enter a town or district', 'Saisissez une ville ou un quartier')} className="mt-1 block w-full rounded border border-slate-300 p-3" />
+            </label>
+            <p className="text-xs text-slate-600">{tx('Search sends only the town and facility type to Google Maps, not the patient or report. Facility capabilities, opening hours and suitability are not verified. Call ahead to confirm; ratings are not a clinical quality measure.', 'La recherche transmet uniquement la ville et le type d’établissement à Google Maps, pas le patient ni le rapport. Les services, horaires et capacités ne sont pas vérifiés. Appelez pour confirmer ; les notes ne mesurent pas la qualité clinique.')}</p>
 
             {(locationError || mapsError || placesError) && (
               <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-900">
@@ -245,7 +274,7 @@ const NextSteps = () => {
             <section className="space-y-3">
               <FacilityMap facilities={mappedFacilities} userLocation={userLocation} height="min(58dvh, 520px)" />
               <a
-                href={mapsSearchUrl(activeTab)}
+                href={mapsSearchUrl(activeTab, manualLocation)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-black text-white"
@@ -314,7 +343,7 @@ const NextSteps = () => {
               )}
 
               <a
-                href={mapsSearchUrl(activeTab)}
+                href={mapsSearchUrl(activeTab, manualLocation)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-slate-900 bg-white px-4 py-3 text-sm font-black text-slate-900"

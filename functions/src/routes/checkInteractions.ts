@@ -1,47 +1,20 @@
 import { Router } from 'express';
-import { checkDrugInteractions } from '../services/gemini.js';
-import { writeAuditLog } from '../services/audit.js';
+import { getFirestore } from 'firebase-admin/firestore';
+import { z } from 'zod';
 import { verifyAuth } from '../middleware/auth.js';
 import { rateLimiter } from '../middleware/rateLimiter.js';
 import { RATE_LIMIT } from '../config.js';
-import { CheckInteractionsRequestBody } from '../schemas/medgemma.js';
-
+import { medicationEvidence } from '../services/medicationEvidence.js';
+import { identifier, requireOwnership } from '../services/clinicalPolicy.js';
 const router = Router();
-
-router.post('/check-interactions', verifyAuth, rateLimiter(RATE_LIMIT.INTERACTIONS), async (req, res) => {
+router.post('/check-interactions',verifyAuth,rateLimiter(RATE_LIMIT.INTERACTIONS,{failOpen:false}),async(req,res,next) => {
+  const input = z.object({drugs:z.array(z.string().trim().min(1).max(120)).min(2).max(10),language:z.enum(['en','fr']).default('en'),encounterId:identifier}).strict().safeParse(req.body);
+  if(!input.success) {res.status(400).json({code:'INVALID_REQUEST',error:'Choose an encounter and at least two medicines.'});return;}
   try {
-    const parsed = CheckInteractionsRequestBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
-      return;
-    }
-
-    const { drugs, language } = parsed.data;
-    const result = await checkDrugInteractions(drugs, language);
-
-    await writeAuditLog({
-      uid: req.uid!,
-      action: 'check_interactions',
-      request: { drugs, language },
-      responsePreview: result.slice(0, 500),
-      success: true,
-    });
-
-    res.json({ result });
-  } catch (err) {
-    if (req.uid) {
-      await writeAuditLog({
-        uid: req.uid,
-        action: 'check_interactions',
-        request: { drugs: req.body?.drugs, language: req.body?.language },
-        responsePreview: '',
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
-    }
-
-    res.status(500).json({ error: 'Failed to check drug interactions' });
-  }
+    const encounter = (await getFirestore().collection('encounters').doc(input.data.encounterId).get()).data();
+    requireOwnership(encounter,req.uid!,req.clinical!.organizationId);
+    // Evidence supports clinician review, and never supplies a patient safety clearance.
+    res.json(await medicationEvidence(input.data.drugs,'interaction'));
+  } catch(error) {next(error);}
 });
-
 export default router;

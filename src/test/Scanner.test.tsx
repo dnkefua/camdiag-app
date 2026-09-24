@@ -1,109 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TranslationProvider } from '../hooks/useTranslation';
 import Scanner from '../components/Scanner';
-
-vi.mock('framer-motion', async () => {
-  const { createFramerMotionMock } = await vi.importActual<typeof import('./mocks')>('./mocks');
-  return createFramerMotionMock();
-});
-
-vi.mock('../hooks/useCamera', () => ({
-  useCamera: () => ({
-    videoRef: { current: null },
-    stream: null,
-    isReady: true,
-    isStarting: false,
-    error: null,
-    facing: 'environment',
-    hasFlashSupport: true,
-    flashOn: false,
-    start: vi.fn().mockResolvedValue(undefined),
-    stop: vi.fn(),
-    toggleFacing: vi.fn(),
-    toggleFlash: vi.fn(),
-    capture: vi.fn().mockResolvedValue(null),
-  }),
-}));
-
-vi.mock('../services/analytics', () => ({
-  trackEvent: vi.fn(),
-}));
-
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-router-dom')>();
-  return { ...actual, useNavigate: () => mockNavigate };
-});
-
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: vi.fn(() => ({
-    resetAnalysis: vi.fn(),
-    setAnalyzing: vi.fn(),
-    setAnalysisError: vi.fn(),
-    setTranscription: vi.fn(),
-    setPendingPages: vi.fn(),
-    setPendingDocumentType: vi.fn(),
-    isAnalyzing: false,
-  })),
-}));
-
-vi.mock('../services/api', () => ({
-  isApiConfigured: vi.fn(() => false),
-}));
-
-const renderWithProviders = (ui: React.ReactElement) =>
-  render(<MemoryRouter>{ui}</MemoryRouter>);
-
-describe('Scanner', () => {
-  beforeEach(() => mockNavigate.mockClear());
-
-  it('renders scanner heading', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    expect(screen.getByText('CamDiag Scan')).toBeInTheDocument();
-  });
-
-  it('renders close button', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    expect(screen.getByRole('button', { name: /close scanner/i })).toBeInTheDocument();
-  });
-
-  it('navigates to /app when close button is clicked', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /close scanner/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/app');
-  });
-
-  it('renders flash toggle button', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    expect(screen.getByRole('button', { name: /toggle flash/i })).toBeInTheDocument();
-  });
-
-  it('renders mode toggle button', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    expect(screen.getByRole('button', { name: /mode:/i })).toBeInTheDocument();
-  });
-
-  it('shows body mode error when body mode selected and capture clicked', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /mode:/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
-    expect(screen.getByText(/Invalid Subject Detected/i)).toBeInTheDocument();
-  });
-
-  it('renders gallery input', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    // Gallery is now a <label> wrapping a hidden file input
-    expect(screen.getByLabelText(/open gallery/i)).toBeInTheDocument();
-    const input = document.querySelector('input[type="file"]');
-    expect(input).toHaveAttribute('multiple');
-    expect(input).toHaveAttribute('accept', expect.stringContaining('application/pdf'));
-  });
-
-  it('allows the clinician to classify a prescription before OCR', () => {
-    renderWithProviders(<TranslationProvider><Scanner /></TranslationProvider>);
-    expect(screen.getByRole('combobox', { name: /document type/i })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /prescription/i })).toBeInTheDocument();
-  });
+import { resetSensitiveSession } from '../services/session';
+import { detail, encounter, manifest, ocrJob, sourceHash } from './clinicalFixtures';
+const mocks = vi.hoisted(() => ({ navigate: vi.fn(), create: vi.fn(), document: vi.fn(), get: vi.fn(), job: vi.fn(), upload: vi.fn(), source: vi.fn(), wait: vi.fn() }));
+vi.mock('react-router-dom', async (original) => ({ ...await original<typeof import('react-router-dom')>(), useNavigate: () => mocks.navigate }));
+vi.mock('../contexts/AuthContext', () => ({useAuth: () => ({user: {uid:'user-a',canUseClinicalTools:true}})}));
+vi.mock('../hooks/useCamera', () => ({useCamera: () => ({videoRef:{current:null},isReady:false,error:'Permission denied',start:vi.fn(),stop:vi.fn(),capture:vi.fn()})}));
+vi.mock('../utils/imageQuality', () => ({validateImageQuality: vi.fn().mockResolvedValue({ok:true,issues:[]})}));
+vi.mock('../services/medgemma', () => ({createEncounter:mocks.create,createDocument:mocks.document,getEncounter:mocks.get,createJob:mocks.job,loadSourcePage:mocks.source,uploadClinicalPage:mocks.upload,sha256:vi.fn().mockResolvedValue('a'.repeat(64)),waitForJob:mocks.wait,transcriptionFromJob:(job: typeof ocrJob)=>job.result}));
+const show = (path='/scanner') => render(<MemoryRouter initialEntries={[path]}><TranslationProvider><Scanner /></TranslationProvider></MemoryRouter>);
+describe('Scanner clinical boundaries', () => {
+  beforeEach(() => {vi.clearAllMocks();localStorage.clear();resetSensitiveSession();mocks.create.mockResolvedValue(encounter);mocks.document.mockResolvedValue(manifest);mocks.get.mockResolvedValue(detail);mocks.job.mockResolvedValue(ocrJob);mocks.wait.mockResolvedValue(ocrJob);mocks.source.mockRejectedValue(new Error('not found'));mocks.upload.mockResolvedValue(undefined);});
+  it('keeps upload available after camera denial and disables unsupported modalities', () => {show();fireEvent.click(screen.getByRole('button',{name:'Use camera'}));expect(screen.getByLabelText('Upload document images')).toBeEnabled();expect(screen.getByText(/Camera unavailable/)).toBeVisible();expect(screen.getByRole('option',{name:/X-ray/})).toBeDisabled();expect(screen.getByRole('option',{name:/RDT image/})).toBeDisabled();expect(screen.getByLabelText('Upload document images')).not.toHaveAttribute('accept',expect.stringContaining('pdf'));});
+  it('requires patient context and triage before uploading', () => {show();expect(screen.getByRole('button',{name:'Save sources and extract text'})).toBeDisabled();expect(mocks.create).not.toHaveBeenCalled();});
+  it('records emergency triage without any OCR job', async () => {mocks.create.mockResolvedValue({...encounter,triage:'emergency',status:'emergency'});show();fireEvent.change(screen.getByLabelText(/Patient reference/),{target:{value:'SYNTHETIC-P002'}});fireEvent.change(screen.getByLabelText('Emergency check'),{target:{value:'emergency'}});fireEvent.click(screen.getByRole('button',{name:'Record emergency — no AI'}));await screen.findByText(/Emergency warning signs recorded/);expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({patientId:'SYNTHETIC-P002',triage:'emergency'}),expect.any(AbortSignal));expect(mocks.job).not.toHaveBeenCalled();});
+  it('restores immutable encounter context from the recovery URL', async () => {show('/scanner?resume=enc-1');await waitFor(()=>expect(screen.getByLabelText(/Patient reference/)).toHaveValue(encounter.patientId));expect(screen.getByLabelText(/Patient reference/)).toBeDisabled();expect(screen.getByLabelText('Emergency check')).toHaveValue('no_red_flags');expect(mocks.create).not.toHaveBeenCalled();expect(screen.getByText(/Saved source order/)).toHaveTextContent('synthetic.png');});
+  it('resumes the same saved encounter and skips already uploaded matching sources', async () => {mocks.source.mockResolvedValue(new Blob(['test'],{type:'image/png'}));show('/scanner?resume=enc-1');await waitFor(()=>expect(screen.getByLabelText('Emergency check')).toHaveValue('no_red_flags'));fireEvent.change(screen.getByLabelText('Upload document images'),{target:{files:[new File(['test'],'synthetic.png',{type:'image/png'})]}});await screen.findByAltText('Source page 1');fireEvent.click(screen.getByRole('button',{name:'Save sources and extract text'}));await waitFor(()=>expect(mocks.navigate).toHaveBeenCalledWith('/transcription-review'));expect(mocks.create).not.toHaveBeenCalled();expect(mocks.upload).not.toHaveBeenCalled();expect(mocks.job).toHaveBeenCalledWith(expect.objectContaining({encounterId:encounter.id,documentId:manifest.id}),expect.any(AbortSignal));expect(sourceHash).toHaveLength(64);});
+  it('rejects a PDF before any server call', async () => {show();fireEvent.change(screen.getByLabelText('Upload document images'),{target:{files:[new File(['test'],'document.pdf',{type:'application/pdf'})]}});expect(await screen.findByRole('alert')).toHaveTextContent('PDF/TIFF input is not yet supported');expect(mocks.create).not.toHaveBeenCalled();});
 });

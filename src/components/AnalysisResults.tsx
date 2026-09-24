@@ -1,440 +1,379 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAppStore } from '../store/useAppStore';
-import { checkLocalContraindications } from '../services/api';
-import { isApiConfigured } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { addPatientRecord as savePatientRecord } from '../services/firestore';
-import { BackIcon, ArrowRightIcon, DocumentIcon, AlertIcon, DownloadIcon, UserIcon, HomeIcon, MapPinIcon, RemedyIcon } from '../components/ui/Icons';
-
-const URGENCY_CONTENT = {
-  emergency: {
-    title: 'Emergency review recommended',
-    message: 'The report may contain a critical finding. Seek emergency medical assessment now, especially if severe symptoms are present.',
-    className: 'border-red-500 bg-red-50 text-red-800',
-    iconClassName: 'bg-red-600',
-  },
-  same_day: {
-    title: 'Same-day clinical review recommended',
-    message: 'Arrange review by a qualified healthcare professional today and take the original report with you.',
-    className: 'border-amber-400 bg-amber-50 text-amber-900',
-    iconClassName: 'bg-amber-600',
-  },
-  routine: {
-    title: 'Routine clinical follow-up',
-    message: 'Discuss these findings with a qualified healthcare professional who can relate them to symptoms and medical history.',
-    className: 'border-emerald-400 bg-emerald-50 text-emerald-900',
-    iconClassName: 'bg-emerald-700',
-  },
-  unknown: {
-    title: 'Clinical review required',
-    message: 'Urgency could not be established from the report alone. Seek prompt care if symptoms are worsening or severe.',
-    className: 'border-slate-300 bg-white text-slate-800',
-    iconClassName: 'bg-slate-700',
-  },
-} as const;
+import { getEncounter, signClinicalReview } from '../services/medgemma';
+import { getSensitiveSessionSignal } from '../services/session';
+import { clinicalLanguageNotice, clinicalText } from '../utils/clinicalLanguage';
+import type { EncounterDetail, ReviewInput } from '../../functions/src/contracts/clinical';
 
 const AnalysisResults = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    possibleFindings,
-    markers,
-    analysisUrgency,
-    contraindications,
-    analysisLimitations,
-    analysisDisclaimer,
-    selectedFinding,
-    setSelectedFinding,
-    analysisError,
-    setAnalysisError,
-    isAnalyzing,
-    addPatientRecord,
-    setPendingPages,
-    setTranscription,
-  } = useAppStore();
-  const [selectedReportIndex, setSelectedReportIndex] = useState(selectedFinding);
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const safetyRisk = checkLocalContraindications(possibleFindings);
-  const isAiEnabled = isApiConfigured();
-  const selectedReport = possibleFindings[selectedReportIndex];
-  const urgencyContent = URGENCY_CONTENT[analysisUrgency];
-
+  const { language, t } = useTranslation();
+  const { activeEncounter, activeJob, setActiveEncounter, setAnalysisResult } = useAppStore();
+  const [detail, setDetail] = useState<EncounterDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [attested, setAttested] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [disposition, setDisposition] = useState<ReviewInput['disposition']>('accepted');
+  const controller = useRef<AbortController | null>(null);
+  const version = useRef(0);
+  const tr = (en: string, fr: string) => clinicalText(language, en, fr);
   useEffect(() => {
-    setPendingPages([]);
-    setTranscription(null);
-  }, [setPendingPages, setTranscription]);
-
-  const handleSaveToRecords = async () => {
-    if (!selectedReport || !user?.uid || saveState === 'saving') return;
-
-    setSaveState('saving');
-    setSaveError(null);
-
-    const record = {
-      userId: user.uid,
-      date: new Date().toLocaleString(),
-      diagnosis: selectedReport.name,
-      status: selectedReport.likelihood,
-      result: selectedReport.likelihood,
-      category: 'AI Analysis',
-      bodyPart: markers.map((marker) => marker.label).filter(Boolean).slice(0, 3).join(', ') || 'Medical document',
+    const abort = new AbortController();
+    controller.current = abort;
+    version.current++;
+    const session = getSensitiveSessionSignal();
+    const clear = () => {
+      version.current++;
+      abort.abort();
+      setDetail(null);
+      setNotes('');
+      setAttested(false);
+      setBusy(false);
+      setLoading(false);
     };
-
-    try {
-      const id = await savePatientRecord(record);
-      addPatientRecord({
-        id,
-        date: record.date,
-        diagnosis: record.diagnosis,
-        status: record.status,
-        result: record.result,
-        category: record.category,
-        bodyPart: record.bodyPart,
+    session.addEventListener('abort', clear, { once: true });
+    setDetail(null);
+    setError(null);
+    setLoading(true);
+    setAttested(false);
+    setNotes('');
+    if (!activeEncounter || !user?.uid) {
+      setLoading(false);
+      return () => {
+        abort.abort();
+        session.removeEventListener('abort', clear);
+      };
+    }
+    getEncounter(activeEncounter.id, abort.signal)
+      .then((value) => {
+        if (!abort.signal.aborted) setDetail(value);
+      })
+      .catch((e: unknown) => {
+        if (!abort.signal.aborted)
+          setError(e instanceof Error ? e.message : 'Saved report could not be loaded.');
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoading(false);
       });
-      setSaveState('saved');
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save result.');
-      setSaveState('error');
+    return () => {
+      abort.abort();
+      session.removeEventListener('abort', clear);
+    };
+  }, [activeEncounter?.id, user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saved =
+    detail?.analyses.find((a) => a.id === activeJob?.resultId) ??
+    detail?.analyses.find((a) => a.id === detail.encounter.latestAnalysisId) ??
+    detail?.analyses[0];
+  const report = saved?.result;
+  const relatedReviews = detail?.reviews.filter((r) => r.analysisId === saved?.id) ?? [];
+  const review = relatedReviews[0];
+  const sign = async () => {
+    if (!detail || !saved || !attested || busy || !user?.canUseClinicalTools || !controller.current)
+      return;
+    const signal = controller.current.signal;
+    const generation = version.current;
+    setBusy(true);
+    setError(null);
+    try {
+      await signClinicalReview(
+        detail.encounter.id,
+        { analysisId: saved.id, attested: true, disposition, notes },
+        signal
+      );
+      const fresh = await getEncounter(detail.encounter.id, signal);
+      if (signal.aborted || generation !== version.current) return;
+      setDetail(fresh);
+      setActiveEncounter(fresh.encounter);
+      setAnalysisResult(saved.result);
+      setAttested(false);
+    } catch (e) {
+      if (!signal.aborted && generation === version.current)
+        setError(e instanceof Error ? e.message : 'Review was not saved.');
+    } finally {
+      if (!signal.aborted && generation === version.current) setBusy(false);
     }
   };
-
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans h-[100svh] h-[100dvh] flex flex-col overflow-hidden">
-      <a href="#analysis-main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-white focus:text-medical-green focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-xl focus:font-bold">
-        Skip to main content
-      </a>
-      <header className="bg-white border-b border-slate-200 shrink-0 z-10 px-4 py-3 flex items-center justify-between gap-3 shadow-sm safe-area-top">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/scanner')} aria-label="Back" className="text-slate-600 p-1 active:scale-90 transition-transform">
-            <BackIcon />
-          </button>
-          <h1 className="text-xl font-bold text-cameroon-green">{t.analysis_title}</h1>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-medical-green animate-pulse"></span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.ai_active}</span>
-          {isAiEnabled && (
-            <span className="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">Google Cloud AI</span>
-          )}
-        </div>
+    <div className="clinical-report screen-safe overflow-y-auto bg-slate-50 text-slate-900">
+      <style>
+        {
+          '@media print { .print-hidden { display:none!important } html,body,#root,.clinical-report { height:auto!important; overflow:visible!important; background:white!important } .clinical-report section { break-inside:avoid } }'
+        }
+      </style>
+      <header className="print-hidden safe-area-top flex items-center justify-between border-b bg-white p-4">
+        <h1 className="text-xl font-black text-cameroon-green">{t.analysis_title}</h1>
+        <button onClick={() => navigate('/patients')} className="rounded border p-2">
+          {tr('Records', 'Dossiers')}
+        </button>
       </header>
-
-      {isAnalyzing && (
-        <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center gap-6">
-          <div className="w-16 h-16 border-2 border-slate-600 border-t-medical-green rounded-full animate-spin" />
-          <div className="text-center text-white">
-            <p className="text-lg font-bold">{t.analyzing}</p>
-            <p className="text-xs text-slate-400 mt-1">Verified document analysis</p>
-          </div>
-        </div>
-      )}
-
-      {analysisError && (
-        <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <AlertIcon className="h-4 w-4 text-orange-500 shrink-0" />
-            <span className="text-xs text-orange-700 font-medium">{analysisError}</span>
-          </div>
-          <button onClick={() => setAnalysisError(null)} className="text-orange-500 font-bold text-xs ml-4">Dismiss</button>
-        </div>
-      )}
-
-      <main
-        id="analysis-main"
-        aria-labelledby="analysis-heading"
-        className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 pt-4 pb-10 space-y-6 max-w-lg mx-auto w-full"
-      >
-        <h2 id="analysis-heading" className="sr-only">{t.analysis_title}</h2>
-
-        <section className={`border-2 rounded-xl p-4 flex items-start gap-3 shadow-sm ${urgencyContent.className}`}>
-          <div className={`${urgencyContent.iconClassName} text-white p-2 rounded-full shrink-0`}>
-            <AlertIcon />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-black text-sm">{urgencyContent.title}</h3>
-            <p className="text-xs mt-1 font-medium leading-relaxed">{urgencyContent.message}</p>
-          </div>
-        </section>
-
-        <section
-          onClick={() => navigate('/questionnaire')}
-          className="bg-gradient-to-r from-cameroon-green to-medical-green p-4 rounded-3xl text-white shadow-lg cursor-pointer active:scale-[0.98] transition-all flex items-center justify-between group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-xl">
-              <DocumentIcon />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest opacity-80">{t.questionnaire_title}</p>
-              <p className="text-sm font-black">{t.quest_intro}</p>
-            </div>
-          </div>
-          <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-            <ArrowRightIcon />
-          </motion.div>
-        </section>
-
-        {safetyRisk && (
-          <motion.section
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-red-50 border-2 border-red-500 rounded-3xl p-5 flex items-start gap-4 shadow-lg shadow-red-100 relative overflow-hidden"
-          >
-            <div className="bg-red-500 text-white p-2 rounded-full animate-bounce shrink-0 shadow-lg">
-              <AlertIcon />
-            </div>
-            <div>
-              <h3 className="text-red-700 font-black text-sm uppercase tracking-wider">{t.contraindication_detected}</h3>
-              <p className="text-red-600 text-xs font-bold leading-tight mt-1">{safetyRisk.risk}</p>
-              <div className="mt-2 flex items-center gap-1">
-                <span className="text-[10px] font-black text-red-700 uppercase">{t.conflicting_with}</span>
-                <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded-full">{safetyRisk.medications.join(' + ')}</span>
-              </div>
-            </div>
-          </motion.section>
+      <main className="mx-auto max-w-3xl space-y-5 p-4 pb-12">
+        <p className="rounded border border-amber-300 bg-amber-50 p-4 text-sm">
+          {clinicalLanguageNotice(language)}
+        </p>
+        {loading && (
+          <p role="status">{tr('Checking saved report…', 'Vérification du rapport enregistré…')}</p>
         )}
-
-        <section className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.possible_findings}</h3>
-          <p className="text-[10px] text-slate-400 font-medium italic px-1">{t.ai_confidence_not_clinical}</p>
-          <div className="space-y-3">
-            {possibleFindings.length === 0 && !isAnalyzing && (
-              <div className="bg-white p-5 rounded-3xl border border-slate-100 text-center">
-                <p className="text-sm text-slate-500 font-medium">No possible findings to display. Scan an image to get started.</p>
-              </div>
-            )}
-            {possibleFindings.map((finding, idx) => (
-              <button
-                key={finding.name}
-                onClick={() => { setSelectedReportIndex(idx); setSelectedFinding(idx); }}
-                className={`w-full text-left p-5 rounded-3xl border-2 transition-all duration-300 transform ${selectedReportIndex === idx ? 'bg-white border-medical-green shadow-xl shadow-medical-green/10 scale-[1.02]' : 'bg-white border-slate-100 hover:border-slate-200'}`}
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <h4 className={`font-black ${selectedReportIndex === idx ? 'text-medical-green text-lg' : 'text-slate-800'}`}>{finding.name}</h4>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${selectedReportIndex === idx ? 'bg-medical-green text-white' : 'bg-slate-100 text-slate-500'}`}>{finding.likelihood}</span>
-                </div>
-                {selectedReportIndex === idx && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="mt-2 pt-2 border-t border-slate-50"
-                  >
-                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mb-1">{t.clinical_reasoning}</p>
-                    <p className="text-xs text-slate-600 font-medium leading-relaxed italic">{finding.reasoning}</p>
-                  </motion.div>
-                )}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {selectedReport && (
-          <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
-            <div>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Selected report</p>
-              <h3 className="mt-1 text-lg font-black text-slate-900">{selectedReport.name}</h3>
-            </div>
-
-            {selectedReport.observedEvidence.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Evidence from the report</h4>
-                <ul className="space-y-2">
-                  {selectedReport.observedEvidence.map((evidence, index) => (
-                    <li key={`${evidence}-${index}`} className="border-l-4 border-slate-300 pl-3 text-sm leading-relaxed text-slate-700">
-                      {evidence}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">Clinical interpretation</h4>
-              <p className="text-sm text-slate-700 leading-relaxed">{selectedReport.reasoning}</p>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-black text-blue-700 uppercase tracking-wider">Medication options and safety notes</h4>
-              <p className="text-xs leading-relaxed text-slate-500">These are considerations for a licensed clinician or pharmacist, not a prescription. Do not start, stop, or change medication from this report.</p>
-              {selectedReport.medicationSafetyNotes.length > 0 ? (
-                <div className="space-y-2">
-                  {selectedReport.medicationSafetyNotes.map((note, i) => (
-                    <div key={`${note}-${i}`} className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-100 p-3">
-                      <span className="mt-0.5 rounded bg-blue-700 px-2 py-1 text-[10px] font-black text-white">REVIEW</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900">{note}</p>
-                        <p className="mt-1 text-[10px] text-slate-500 font-medium">Confirm diagnosis, allergies, pregnancy status, current medicines, and kidney/liver function as applicable.</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">No medication safety notes returned for this finding.</p>
-              )}
-            </div>
-
-            {selectedReport.traditionalRemedyWarnings.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider">Remedy and self-medication cautions</h4>
-                <div className="space-y-2">
-                  {selectedReport.traditionalRemedyWarnings.map((item, i) => (
-                    <div key={`${item}-${i}`} className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm font-medium text-amber-900">
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedReport.recommendedNextSteps.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider">Recommended next steps</h4>
-                <ol className="space-y-2">
-                  {selectedReport.recommendedNextSteps.map((step, index) => (
-                    <li key={`${step}-${index}`} className="flex items-start gap-3 text-sm leading-relaxed text-slate-700">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-800">{index + 1}</span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-          </section>
-        )}
-
-        {contraindications.length > 0 && (
-          <section className="space-y-3" aria-labelledby="contraindications-heading">
-            <div>
-              <h3 id="contraindications-heading" className="text-sm font-black uppercase tracking-wider text-red-800">Contraindications and interactions</h3>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">Potential safety conflicts from the report and supplied patient context. A clinician or pharmacist must verify them.</p>
-            </div>
-            {contraindications.map((item, index) => (
-              <div key={`${item.risk}-${index}`} className="rounded-xl border border-red-200 bg-red-50 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-red-700 px-2 py-1 text-[10px] font-black uppercase text-white">{item.severity}</span>
-                  <span className="text-xs font-black text-red-900">{item.medications.join(' + ')}</span>
-                </div>
-                <p className="mt-2 text-sm font-medium leading-relaxed text-red-900">{item.risk}</p>
-              </div>
-            ))}
-          </section>
-        )}
-
-        <section className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">{t.clinical_markers}</h3>
-          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:gap-4">
-            {markers.length === 0 && !isAnalyzing && (
-              <div className="col-span-2 bg-white p-5 rounded-3xl border border-slate-100 text-center">
-                <p className="text-sm text-slate-500 font-medium">No clinical markers detected.</p>
-              </div>
-            )}
-            {markers.map((marker) => {
-              const isActive = possibleFindings[selectedReportIndex]?.markers.includes(marker.id);
-              return (
-                  <div key={marker.id}
-                  className={`p-4 rounded-3xl border transition-all duration-500 ${isActive ? 'bg-white border-medical-green shadow-lg scale-105 z-10 ring-4 ring-medical-green/5' : 'bg-slate-50 border-slate-100 opacity-40 grayscale blur-[0.5px]'}`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`h-2 w-2 rounded-full ${marker.color === 'red' ? 'bg-red-500' : 'bg-orange-500'}`} role="img" aria-label={`${marker.status} marker`}></span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{marker.label}</span>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-slate-800">{marker.value}</span>
-                    <span className={`text-[10px] font-bold ${marker.color === 'red' ? 'text-red-500' : 'text-orange-500'}`}>
-                      <span className="sr-only">Status: </span>
-                      {marker.status}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {analysisLimitations.length > 0 && (
-          <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-600">Important limitations</h3>
-            <ul className="mt-3 space-y-2">
-              {analysisLimitations.map((limitation, index) => (
-                <li key={`${limitation}-${index}`} className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                  <span>{limitation}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <div className="pt-2 pb-8 space-y-3">
-          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3">
-            <button className="w-full min-w-0 bg-slate-900 justify-center text-white text-xs font-bold py-3 px-2 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1">
-              <DownloadIcon />
-              <span className="truncate">{t.download_pdf}</span>
-            </button>
-            <button
-              onClick={handleSaveToRecords}
-              disabled={!selectedReport || !user?.uid || saveState === 'saving'}
-              className="w-full min-w-0 bg-medical-blue justify-center text-white text-xs font-bold py-3 px-2 rounded-xl shadow-md active:scale-[0.98] transition-all flex items-center gap-1"
-            >
-              <UserIcon className="h-4 w-4" />
-              <span className="truncate">
-                {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : t.save_to_records}
-              </span>
-            </button>
-          </div>
-          {saveState === 'saved' && (
-            <button
-              type="button"
-              onClick={() => navigate('/patients')}
-              className="w-full text-xs font-bold text-medical-blue underline"
-            >
-              View saved records
-            </button>
-          )}
-          {saveError && (
-            <p className="text-xs font-medium text-red-600 text-center">{saveError}</p>
-          )}
-
-          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3">
-            <button
-              onClick={() => navigate('/next-steps?tab=hospitals')}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-medical-green bg-white px-3 py-3 text-sm font-bold text-medical-green active:bg-medical-green/5"
-            >
-              <MapPinIcon className="h-5 w-5" />
-              Nearby hospitals
-            </button>
-            <button
-              onClick={() => navigate('/next-steps?tab=pharmacies')}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-medical-blue bg-white px-3 py-3 text-sm font-bold text-medical-blue active:bg-blue-50"
-            >
-              <RemedyIcon className="h-5 w-5" />
-              Nearby pharmacies
-            </button>
-          </div>
-
-          <button
-            onClick={() => navigate('/app')}
-            className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl active:bg-slate-200 transition-all flex justify-center items-center gap-2"
-          >
-            <HomeIcon className="h-4 w-4" />
-            {t.return_dashboard}
-          </button>
-        </div>
-
-        <footer className="px-5 pb-10 text-center">
-          <p className="text-[10px] text-slate-400 max-w-[280px] mx-auto leading-relaxed">
-            {analysisDisclaimer || t.disclaimer_text} <span className="text-medical-green font-bold block mt-1">{t.disclaimer_consult}</span>
+        {error && (
+          <p role="alert" className="rounded bg-red-50 p-3 text-red-900">
+            {error}
           </p>
-        </footer>
+        )}
+        {!loading && !report && (
+          <p>
+            {tr(
+              'No authoritative saved analysis is selected. Open an encounter from records.',
+              'Aucune analyse enregistrée n’est sélectionnée. Ouvrez une consultation depuis les dossiers.'
+            )}
+          </p>
+        )}
+        {report && detail && (
+          <>
+            <section className="rounded-xl border bg-white p-4 space-y-2">
+              <h2 className="text-xl font-black">
+                CamDiag · {tr('Document review report', 'Rapport de revue de document')}
+              </h2>
+              <p>
+                {tr('Patient reference', 'Référence patient')}: {detail.encounter.patientId}
+              </p>
+              <p className="break-all text-xs">
+                {tr('Encounter', 'Consultation')}: {detail.encounter.id} ·{' '}
+                {tr('Analysis', 'Analyse')}: {saved.id}
+              </p>
+              <p role="status" className="font-black text-cameroon-green">
+                {tr('Saved on server', 'Enregistré sur le serveur')} ·{' '}
+                {review
+                  ? `${tr('Clinician review', 'Revue clinique')}: ${review.disposition}`
+                  : tr(
+                      'UNREVIEWED — clinician review required',
+                      'NON REVU — revue clinique requise'
+                    )}
+              </p>
+              {review && (
+                <p className="text-xs">
+                  {tr('Reviewer', 'Réviseur')}: {review.reviewerUid} · {review.reviewedAt}
+                </p>
+              )}
+              {review?.notes && <p className="whitespace-pre-wrap">{review.notes}</p>}
+              <p>
+                {tr('Referral status', 'Statut d’orientation')}: {detail.encounter.referralStatus}
+              </p>
+            </section>
+            <section
+              className={`rounded-xl border p-4 ${report.urgency === 'emergency' ? 'border-red-500 bg-red-50' : 'bg-amber-50 border-amber-300'}`}
+            >
+              <h2 className="font-black">
+                {tr('Review urgency', 'Urgence de revue')}: {report.urgency.replace('_', ' ')}
+              </h2>
+              <p className="text-sm">
+                {tr(
+                  'An AI urgency label is not triage clearance. Escalate emergency symptoms through your clinical pathway.',
+                  'Une indication d’urgence IA ne remplace pas le triage. Orientez tout signe d’urgence selon votre procédure clinique.'
+                )}
+              </p>
+            </section>
+            <section className="rounded-xl border bg-white p-4">
+              <h2 className="font-black">
+                {tr('Recorded patient context', 'Contexte patient enregistré')}
+              </h2>
+              <dl className="mt-2 space-y-1 text-sm">
+                <div>
+                  <dt className="inline font-bold">{tr('Age', 'Âge')}: </dt>
+                  <dd className="inline">
+                    {detail.encounter.patientContext.ageRange || tr('Unknown', 'Inconnu')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline font-bold">{tr('Allergies', 'Allergies')}: </dt>
+                  <dd className="inline">
+                    {detail.encounter.patientContext.allergies?.join(', ') ||
+                      tr('Not supplied', 'Non renseignées')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline font-bold">{tr('Medicines', 'Médicaments')}: </dt>
+                  <dd className="inline">
+                    {detail.encounter.patientContext.currentMedications?.join(', ') ||
+                      tr('Not supplied', 'Non renseignés')}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <section className="space-y-3">
+              <h2 className="font-black">{t.possible_findings}</h2>
+              <p className="text-xs">{t.ai_confidence_not_clinical}</p>
+              {report.possibleFindings.length === 0 && (
+                <p>
+                  {tr(
+                    'No possible finding returned. This does not establish a normal result.',
+                    'Aucune hypothèse retournée. Cela n’établit pas un résultat normal.'
+                  )}
+                </p>
+              )}
+              {report.possibleFindings.map((finding, i) => (
+                <article key={i} className="rounded-xl border bg-white p-4 space-y-3">
+                  <h3 className="text-lg font-bold text-cameroon-green">
+                    {finding.name} · {finding.likelihood}
+                  </h3>
+                  <p>{finding.reasoning}</p>
+                  <h4 className="text-sm font-bold">
+                    {tr(
+                      'Evidence stated by the model — verify against sources',
+                      'Éléments cités par le modèle — vérifier les sources'
+                    )}
+                  </h4>
+                  <ul className="list-disc pl-5 text-sm">
+                    {finding.observedEvidence.map((e, j) => (
+                      <li key={j}>{e}</li>
+                    ))}
+                  </ul>
+                  <h4 className="text-sm font-bold">
+                    {tr('Next steps for clinician review', 'Suites à examiner par le clinicien')}
+                  </h4>
+                  <ol className="list-decimal pl-5 text-sm">
+                    {finding.recommendedNextSteps.map((step, j) => (
+                      <li key={j}>{step}</li>
+                    ))}
+                  </ol>
+                </article>
+              ))}
+            </section>
+            <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+              <h2 className="font-black">
+                {tr('Medication safety: not assessed', 'Sécurité médicamenteuse : non évaluée')}
+              </h2>
+              <p className="text-sm">
+                {tr(
+                  'Document interpretation does not establish medication safety. Review the patient’s selected medicines and cited evidence with a clinician or pharmacist. Do not start, stop or change treatment based on AI output.',
+                  'L’interprétation du document n’établit pas la sécurité médicamenteuse. Examinez les médicaments du patient et les sources avec un clinicien ou pharmacien. Ne modifiez pas le traitement sur la base de l’IA.'
+                )}
+              </p>
+              <button className="print-hidden mt-2 underline" onClick={() => navigate('/drugs')}>
+                {tr('Review patient medicines', 'Examiner les médicaments du patient')}
+              </button>
+            </section>
+            <section className="rounded-xl border bg-white p-4">
+              <h2 className="font-black">{t.clinical_markers}</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {report.markers.map((m) => (
+                  <div key={m.id} className="rounded border p-3">
+                    <p className="font-bold">{m.label}</p>
+                    <p>
+                      {m.value} · {m.status}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-xl border bg-white p-4">
+              <h2 className="font-black">
+                {tr('Limitations and provenance', 'Limites et provenance')}
+              </h2>
+              <ul className="list-disc pl-5 text-sm">
+                {report.limitations.map((l, i) => (
+                  <li key={i}>{l}</li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm">{report.disclaimer}</p>
+              <dl className="mt-3 break-all text-xs space-y-1">
+                <div>
+                  Model: {report.provenance.model} · {report.provenance.modelVersion}
+                </div>
+                <div>
+                  Prompt: {report.provenance.promptVersion} · Schema:{' '}
+                  {report.provenance.schemaVersion}
+                </div>
+                <div>{report.provenance.analyzedAt}</div>
+                <div>
+                  Document: {report.provenance.documentId} · Transcription:{' '}
+                  {report.provenance.transcriptionId}
+                </div>
+                {report.provenance.sourceHashes.map((hash, i) => (
+                  <div key={i}>
+                    SHA-256 {i + 1}: {hash}
+                  </div>
+                ))}
+              </dl>
+            </section>
+            <section className="print-hidden rounded-xl border bg-white p-4 space-y-3">
+              <h2 className="font-black">{tr('Clinician sign-off', 'Validation du clinicien')}</h2>
+              <label className="block">
+                {tr('Review disposition', 'Décision de revue')}
+                <select
+                  className="ml-3 rounded border p-2"
+                  value={disposition}
+                  onChange={(e) => setDisposition(e.target.value as ReviewInput['disposition'])}
+                >
+                  <option value="accepted">
+                    {tr('Accepted for clinical record', 'Accepté dans le dossier')}
+                  </option>
+                  <option value="corrected">
+                    {tr('Corrected in review notes', 'Corrigé dans les notes')}
+                  </option>
+                  <option value="rejected">{tr('Rejected', 'Rejeté')}</option>
+                </select>
+              </label>
+              <label className="block">
+                {tr('Review notes / corrections', 'Notes / corrections')}
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  maxLength={4000}
+                  className="mt-1 w-full rounded border p-3"
+                />
+              </label>
+              <label className="flex gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={attested}
+                  onChange={(e) => setAttested(e.target.checked)}
+                />
+                {tr(
+                  'I reviewed the source, patient context, limitations and proposed findings. My review does not certify the AI as a diagnosis.',
+                  'J’ai examiné les sources, le contexte patient, les limites et les hypothèses. Ma revue ne certifie pas l’IA comme diagnostic.'
+                )}
+              </label>
+              <button
+                type="button"
+                disabled={
+                  !attested ||
+                  busy ||
+                  !user?.canUseClinicalTools ||
+                  (disposition !== 'accepted' && !notes.trim())
+                }
+                onClick={() => void sign()}
+                className="rounded bg-cameroon-green p-3 font-bold text-white disabled:opacity-40"
+              >
+                {busy
+                  ? tr('Saving review…', 'Enregistrement…')
+                  : tr('Save attributed review', 'Enregistrer la revue attribuée')}
+              </button>
+            </section>
+            <div className="print-hidden flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded bg-slate-900 p-3 font-bold text-white"
+              >
+                {tr('Print / Save PDF', 'Imprimer / Enregistrer en PDF')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/next-steps')}
+                className="rounded border p-3"
+              >
+                {tr('Referral and follow-up', 'Orientation et suivi')}
+              </button>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
 };
-
 export default AnalysisResults;

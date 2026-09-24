@@ -1,5 +1,6 @@
 import { DOCUMENT_AI_LOCATION, DOCUMENT_AI_PROCESSOR_ID, DOCUMENT_AI_PROCESSOR_VERSION } from '../config.js';
 import type { TranscribeRequestBody } from '../schemas/medgemma.js';
+import { ClinicalError, providerFailure } from './clinicalPolicy.js';
 
 type Vertex = { x?: number; y?: number };
 type Layout = { textAnchor?: { textSegments?: Array<{ startIndex?: string; endIndex?: string }> }; confidence?: number; boundingPoly?: { normalizedVertices?: Vertex[] } };
@@ -10,8 +11,9 @@ type DocumentAiResponse = { document?: { text?: string; pages?: DocumentAiPage[]
 const accessToken = async () => {
   const response = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token', {
     headers: { 'Metadata-Flavor': 'Google' },
+    signal: AbortSignal.timeout(5_000),
   });
-  if (!response.ok) throw new Error(`Could not authorize Document AI (${response.status}).`);
+  if (!response.ok) throw providerFailure(response.status);
   const body = await response.json() as { access_token?: string };
   if (!body.access_token) throw new Error('Document AI authorization returned no token.');
   return body.access_token;
@@ -21,7 +23,7 @@ const anchorText = (text: string, layout?: Layout) => (layout?.textAnchor?.textS
   .map(({ startIndex, endIndex }) => text.slice(Number(startIndex ?? 0), Number(endIndex ?? 0)))
   .join('');
 
-export async function transcribeDocument(request: TranscribeRequestBody) {
+export async function transcribeDocument(request: TranscribeRequestBody, signal?: AbortSignal) {
   const processorId = DOCUMENT_AI_PROCESSOR_ID.value();
   if (!processorId) throw new Error('Document AI OCR is not configured. Set DOCUMENT_AI_PROCESSOR_ID.');
   const location = DOCUMENT_AI_LOCATION.value();
@@ -32,6 +34,7 @@ export async function transcribeDocument(request: TranscribeRequestBody) {
 
   const outputPages: Array<{
     pageNumber: number;
+    sourcePageId: string;
     text: string;
     confidence: number;
     qualityScore?: number;
@@ -43,6 +46,7 @@ export async function transcribeDocument(request: TranscribeRequestBody) {
     const input = request.pages[inputIndex]!;
     const endpoint = `https://${location}-documentai.googleapis.com/v1/projects/${projectId}/locations/${location}/processors/${processorId}/processorVersions/${version}:process`;
     const response = await fetch(endpoint, {
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -58,7 +62,8 @@ export async function transcribeDocument(request: TranscribeRequestBody) {
       }),
     });
     const data = await response.json() as DocumentAiResponse;
-    if (!response.ok || !data.document) throw new Error(data.error?.message || `Document AI returned ${response.status}.`);
+    if (!response.ok) throw providerFailure(response.status);
+    if (!data.document || data.document.pages?.length !== 1) throw new ClinicalError('INVALID_OCR_OUTPUT',502);
     const fullText = data.document.text ?? '';
     for (const page of data.document.pages ?? []) {
       const quality = page.imageQualityScores;
@@ -73,6 +78,7 @@ export async function transcribeDocument(request: TranscribeRequestBody) {
       const confidence = tokens.length ? tokens.reduce((sum, item) => sum + item.confidence, 0) / tokens.length : 0;
       outputPages.push({
         pageNumber,
+        sourcePageId: input.id,
         text: anchorText(fullText, page.layout) || fullText,
         confidence,
         qualityScore: quality?.qualityScore,
@@ -83,6 +89,7 @@ export async function transcribeDocument(request: TranscribeRequestBody) {
     detectedLanguage ??= request.language;
   }
 
-  const requiresReview = outputPages.some((page) => page.confidence < 0.9 || page.tokens.some((token) => token.handwritten || token.confidence < 0.9));
+  if(outputPages.reduce((total,page) => total+page.text.length,0)>60_000 || Buffer.byteLength(JSON.stringify(outputPages))>750_000) throw new ClinicalError('DOCUMENT_TOO_COMPLEX',422,'Split the document into smaller encounters.');
+  const requiresReview = true;
   return { documentId: crypto.randomUUID(), detectedLanguage, processorVersion: version, requiresReview, pages: outputPages };
 }

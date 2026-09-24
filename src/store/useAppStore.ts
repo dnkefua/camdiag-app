@@ -1,153 +1,75 @@
 import { create } from 'zustand';
-import type {
-  PossibleFinding,
-  ClinicalMarker,
-  PatientRecord,
-  Drug,
-  DocumentTranscription,
-  DocumentPageInput,
-  AnalyzeDocumentType,
-  AnalysisUrgency,
-  Contraindication,
-  AnalysisProvenance,
-  MedGemmaAnalysisResponse,
-} from '../types';
+import type { PossibleFinding, ClinicalMarker, PatientRecord, Drug, DocumentTranscription, DocumentPageInput, AnalyzeDocumentType, AnalysisUrgency, Contraindication, AnalysisProvenance, MedGemmaAnalysisResponse } from '../types';
+import type { Encounter, ClinicalJob } from '../../functions/src/contracts/clinical';
 
-const ACTIVE_ANALYSIS_KEY = 'camdiag_active_analysis_v1';
-
-const readActiveAnalysis = (): MedGemmaAnalysisResponse | undefined => {
-  if (typeof window === 'undefined') return undefined;
-
-  try {
-    const raw = window.sessionStorage.getItem(ACTIVE_ANALYSIS_KEY);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as Partial<MedGemmaAnalysisResponse>;
-    if (
-      !['emergency', 'same_day', 'routine', 'unknown'].includes(parsed.urgency ?? '')
-      || !Array.isArray(parsed.possibleFindings)
-      || !Array.isArray(parsed.markers)
-      || !Array.isArray(parsed.contraindications)
-      || !Array.isArray(parsed.limitations)
-      || typeof parsed.disclaimer !== 'string'
-    ) return undefined;
-    return parsed as MedGemmaAnalysisResponse;
-  } catch {
-    return undefined;
-  }
-};
-
-const saveActiveAnalysis = (result: MedGemmaAnalysisResponse): void => {
+// Patient data is memory-only. Durable, authorized recovery comes from the server.
+export const clearLegacyClinicalStorage = (): void => {
   if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.setItem(ACTIVE_ANALYSIS_KEY, JSON.stringify(result));
-  } catch {
-    // The in-memory result remains available when browser storage is unavailable.
-  }
+  try { window.sessionStorage.removeItem('camdiag_active_analysis_v1'); } catch { /* Restricted storage. */ }
+  try { window.localStorage.removeItem('camdiag_active_analysis_v1'); } catch { /* Restricted storage. */ }
 };
 
-const clearActiveAnalysis = (): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.removeItem(ACTIVE_ANALYSIS_KEY);
-  } catch {
-    // Ignore restricted browser storage.
-  }
-};
+const emptyAnalysis = () => ({
+  selectedFinding: 0, isAnalyzing: false, analysisError: null as string | null,
+  analysisUrgency: 'unknown' as AnalysisUrgency, contraindications: [] as Contraindication[],
+  analysisLimitations: [] as string[], analysisDisclaimer: '',
+  analysisProvenance: undefined as AnalysisProvenance | undefined,
+  possibleFindings: [] as PossibleFinding[], markers: [] as ClinicalMarker[],
+});
+const emptySensitiveState = () => ({
+  ...emptyAnalysis(), scanCount: 0, transcription: null as DocumentTranscription | null,
+  pendingPages: [] as DocumentPageInput[], pendingDocumentType: 'medical_document' as AnalyzeDocumentType,
+  patientRecords: [] as PatientRecord[], drugDatabase: [] as Drug[],
+  activeEncounter: null as Encounter | null, activeJob: null as ClinicalJob | null,
+});
 
-const initialAnalysis = readActiveAnalysis();
-
-interface AppState {
-  selectedFinding: number;
-  scanCount: number;
-  isAnalyzing: boolean;
-  analysisError: string | null;
-  analysisUrgency: AnalysisUrgency;
-  contraindications: Contraindication[];
-  analysisLimitations: string[];
-  analysisDisclaimer: string;
-  analysisProvenance?: AnalysisProvenance;
-  possibleFindings: PossibleFinding[];
-  markers: ClinicalMarker[];
-  transcription: DocumentTranscription | null;
-  pendingPages: DocumentPageInput[];
-  pendingDocumentType: AnalyzeDocumentType;
-  patientRecords: PatientRecord[];
-  drugDatabase: Drug[];
+interface AppState extends ReturnType<typeof emptySensitiveState> {
   setSelectedFinding: (idx: number) => void;
   setScanCount: (count: number) => void;
   incrementScanCount: () => void;
   resetScanCount: () => void;
-  setPossibleFindings: (possibleFindings: PossibleFinding[]) => void;
+  setPossibleFindings: (findings: PossibleFinding[]) => void;
   setMarkers: (markers: ClinicalMarker[]) => void;
   setAnalysisResult: (result: MedGemmaAnalysisResponse) => void;
   resetAnalysis: () => void;
-  setTranscription: (transcription: DocumentTranscription | null) => void;
-  setPendingPages: (pages: DocumentPageInput[]) => void;
-  setPendingDocumentType: (documentType: AnalyzeDocumentType) => void;
-  setPatientRecords: (records: PatientRecord[]) => void;
-  addPatientRecord: (record: PatientRecord) => void;
-  setDrugDatabase: (drugs: Drug[]) => void;
-  setAnalyzing: (isAnalyzing: boolean) => void;
-  setAnalysisError: (error: string | null) => void;
+  resetSensitive: () => void;
+  setTranscription: (value: DocumentTranscription | null) => void;
+  setPendingPages: (value: DocumentPageInput[]) => void;
+  setPendingDocumentType: (value: AnalyzeDocumentType) => void;
+  setPatientRecords: (value: PatientRecord[]) => void;
+  addPatientRecord: (value: PatientRecord) => void;
+  setDrugDatabase: (value: Drug[]) => void;
+  setAnalyzing: (value: boolean) => void;
+  setAnalysisError: (value: string | null) => void;
+  setActiveEncounter: (value: Encounter | null) => void;
+  setActiveJob: (value: ClinicalJob | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  selectedFinding: 0,
-  scanCount: 0,
-  isAnalyzing: false,
-  analysisError: null,
-  analysisUrgency: initialAnalysis?.urgency ?? 'unknown',
-  contraindications: initialAnalysis?.contraindications ?? [],
-  analysisLimitations: initialAnalysis?.limitations ?? [],
-  analysisDisclaimer: initialAnalysis?.disclaimer ?? '',
-  analysisProvenance: initialAnalysis?.provenance,
-  possibleFindings: initialAnalysis?.possibleFindings ?? [],
-  markers: initialAnalysis?.markers ?? [],
-  transcription: null,
-  pendingPages: [],
-  pendingDocumentType: 'medical_document',
-  patientRecords: [],
-  drugDatabase: [],
-  setSelectedFinding: (idx) => set({ selectedFinding: idx }),
-  setScanCount: (count) => set({ scanCount: count }),
+  ...emptySensitiveState(),
+  setSelectedFinding: (selectedFinding) => set({ selectedFinding }),
+  setScanCount: (scanCount) => set({ scanCount }),
   incrementScanCount: () => set((s) => ({ scanCount: s.scanCount + 1 })),
   resetScanCount: () => set({ scanCount: 0 }),
   setPossibleFindings: (possibleFindings) => set({ possibleFindings }),
   setMarkers: (markers) => set({ markers }),
   setAnalysisResult: (result) => {
-    saveActiveAnalysis(result);
-    set({
-      possibleFindings: result.possibleFindings,
-      markers: result.markers,
-      analysisUrgency: result.urgency,
-      contraindications: result.contraindications,
-      analysisLimitations: result.limitations,
-      analysisDisclaimer: result.disclaimer,
-      analysisProvenance: result.provenance,
-      analysisError: null,
-      selectedFinding: 0,
-    });
+    clearLegacyClinicalStorage();
+    set({ possibleFindings: result.possibleFindings, markers: result.markers,
+      analysisUrgency: result.urgency, contraindications: result.contraindications,
+      analysisLimitations: result.limitations, analysisDisclaimer: result.disclaimer,
+      analysisProvenance: result.provenance, analysisError: null, selectedFinding: 0 });
   },
-  resetAnalysis: () => {
-    clearActiveAnalysis();
-    set({
-      possibleFindings: [],
-      markers: [],
-      analysisUrgency: 'unknown',
-      contraindications: [],
-      analysisLimitations: [],
-      analysisDisclaimer: '',
-      analysisProvenance: undefined,
-      analysisError: null,
-      selectedFinding: 0,
-    });
-  },
+  resetAnalysis: () => { clearLegacyClinicalStorage(); set(emptyAnalysis()); },
+  resetSensitive: () => { clearLegacyClinicalStorage(); set(emptySensitiveState()); },
   setTranscription: (transcription) => set({ transcription }),
   setPendingPages: (pendingPages) => set({ pendingPages }),
   setPendingDocumentType: (pendingDocumentType) => set({ pendingDocumentType }),
-  setPatientRecords: (records) => set({ patientRecords: records }),
+  setPatientRecords: (patientRecords) => set({ patientRecords }),
   addPatientRecord: (record) => set((s) => ({ patientRecords: [record, ...s.patientRecords] })),
-  setDrugDatabase: (drugs) => set({ drugDatabase: drugs }),
+  setDrugDatabase: (drugDatabase) => set({ drugDatabase }),
   setAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
-  setAnalysisError: (error) => set({ analysisError: error }),
+  setAnalysisError: (analysisError) => set({ analysisError }),
+  setActiveEncounter: (activeEncounter) => set({ activeEncounter }),
+  setActiveJob: (activeJob) => set({ activeJob }),
 }));

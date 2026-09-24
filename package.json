@@ -12,9 +12,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "test:rules": "node tools/run-rule-tests.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:ops": "node --test tests/ops.test.mjs",
+    "scan:secrets": "node tools/secret-scan.mjs",
+    "smoke": "node tools/smoke-check.mjs",
+    "access:clinical": "node tools/clinical-access.mjs"
   },
   "dependencies": {
     "firebase": "^12.12.1",

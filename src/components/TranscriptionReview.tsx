@@ -1,194 +1,275 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { analyzeMedicalImage } from '../services/medgemma';
-import { saveScanResult } from '../services/firestore';
+import { analysisFromJob, confirmTranscription, createJob, waitForJob } from '../services/medgemma';
 import { useAppStore } from '../store/useAppStore';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertIcon, BackIcon, CheckIcon } from './ui/Icons';
+import { clinicalLanguageNotice, clinicalText } from '../utils/clinicalLanguage';
+import { getSensitiveSessionSignal } from '../services/session';
 
 const TranscriptionReview = () => {
   const navigate = useNavigate();
   const { language } = useTranslation();
   const { user } = useAuth();
-  const {
-    transcription,
-    pendingPages,
-    pendingDocumentType,
-    setAnalysisResult,
-    analysisError,
-    setAnalysisError,
-    setAnalyzing,
-  } = useAppStore();
-  const [texts, setTexts] = useState(() => transcription?.pages.map((page) => page.text) ?? []);
+  const store = useAppStore();
+  const { transcription, pendingPages, activeEncounter, activeJob } = store;
+  const [texts, setTexts] = useState(() => transcription?.pages.map((p) => p.text) ?? []);
   const [confirmed, setConfirmed] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const uncertain = useMemo(
-    () => transcription?.pages.flatMap((page) => page.tokens.filter((token) => token.confidence < 0.9 || token.handwritten)).slice(0, 40) ?? [],
-    [transcription],
-  );
-
-  if (!transcription || pendingPages.length === 0) return <Navigate to="/scanner" replace />;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState('');
+  const [highlight, setHighlight] = useState<{ page: number; token: number } | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const version = useRef(0);
+  const tr = (en: string, fr: string) => clinicalText(language, en, fr);
+  useEffect(() => {
+    version.current++;
+    const session = getSensitiveSessionSignal();
+    const clear = () => {
+      version.current++;
+      request.current?.abort();
+      setTexts([]);
+      setConfirmed(false);
+      setBusy(false);
+      setProgress('');
+      setHighlight(null);
+    };
+    session.addEventListener('abort', clear, { once: true });
+    const cancelRequests = () => {
+      version.current++;
+      request.current?.abort();
+    };
+    return () => {
+      cancelRequests();
+      session.removeEventListener('abort', clear);
+    };
+  }, [user?.uid]);
+  if (!transcription || !activeEncounter || !activeJob) return <Navigate to="/scanner" replace />;
 
   const submit = async () => {
-    if (!confirmed || submitting) return;
-    setSubmitting(true);
-    setAnalyzing(true);
-    setAnalysisError(null);
+    if (!confirmed || busy || !user?.canUseClinicalTools || activeJob.kind !== 'ocr') return;
+    const controller = new AbortController();
+    request.current = controller;
+    const generation = version.current;
+    const current = () => !controller.signal.aborted && generation === version.current;
+    setBusy(true);
+    setError(null);
     try {
-      const confirmedTranscription = texts.map((text, index) => `[Page ${index + 1}]\n${text}`).join('\n\n');
-      const result = await analyzeMedicalImage({ confirmedTranscription, documentType: pendingDocumentType, language });
-      setAnalysisResult(result);
+      setProgress(
+        tr(
+          'Saving attributed transcription review…',
+          'Enregistrement de la revue de transcription…'
+        )
+      );
+      const text = texts
+        .map(
+          (value, index) =>
+            `[Source ${transcription.pages[index]?.sourcePageId ?? 'unknown'}, page ${index + 1}]\n${value}`
+        )
+        .join('\n\n');
+      const reviewed = await confirmTranscription(
+        activeEncounter.id,
+        { documentId: transcription.documentId, ocrJobId: activeJob.id, text, reviewed: true },
+        controller.signal
+      );
+      if (!current()) return;
+      const initial = await createJob(
+        {
+          encounterId: activeEncounter.id,
+          documentId: transcription.documentId,
+          kind: 'analysis',
+          transcriptionId: reviewed.id,
+          idempotencyKey: `analysis-${reviewed.id}`,
+        },
+        controller.signal
+      );
+      const job = await waitForJob(initial, controller.signal, (j) => {
+        if (current()) setProgress(`${tr('Interpretation', 'Interprétation')}: ${j.status}`);
+      });
+      if (!current()) return;
+      store.setActiveJob(job);
+      store.setAnalysisResult(analysisFromJob(job));
+      store.setActiveEncounter({
+        ...activeEncounter,
+        status: 'review_required',
+        latestTranscriptionId: reviewed.id,
+        latestAnalysisId: job.resultId,
+      });
       void navigate('/analysis');
-
-      if (user?.uid) {
-        const analyzedAt = result.provenance?.analyzedAt ?? new Date().toISOString();
-        const scanId = `${user.uid}_${transcription.documentId}`
-          .replace(/[^a-zA-Z0-9_-]/g, '_')
-          .slice(0, 500);
-        void saveScanResult(scanId, {
-          userId: user.uid,
-          title: result.possibleFindings[0]?.name ?? 'Clinical interpretation',
-          date: new Date(analyzedAt).toLocaleString(),
-          match: result.urgency === 'same_day'
-            ? 'Same-day review'
-            : result.urgency === 'emergency'
-              ? 'Emergency review'
-              : result.urgency === 'routine'
-                ? 'Routine review'
-                : 'Clinical review',
-          type: pendingDocumentType,
-          aiResponse: JSON.stringify(result),
-        }).catch((error) => {
-          console.error('[CamDiag] Analysis history save failed:', error);
-        });
-      }
-    } catch (error) {
-      setAnalysisError(error instanceof Error ? error.message : 'Clinical analysis failed.');
+    } catch (e) {
+      if (current()) setError(e instanceof Error ? e.message : 'Interpretation failed.');
     } finally {
-      setSubmitting(false);
-      setAnalyzing(false);
+      if (current()) {
+        setBusy(false);
+        setProgress('');
+      }
     }
   };
-
   return (
-    <div className="flex h-[100svh] h-[100dvh] flex-col overflow-hidden bg-slate-50 text-slate-900">
-      <header className="safe-area-top z-20 flex shrink-0 items-center gap-3 border-b bg-white px-3 py-3 shadow-sm sm:px-4">
-        <button
-          type="button"
-          onClick={() => void navigate('/scanner')}
-          aria-label="Back"
-          className="shrink-0 rounded-full p-2 text-slate-800"
-        >
-          <BackIcon />
+    <div className="screen-safe overflow-y-auto bg-slate-50 text-slate-900">
+      <header className="safe-area-top flex items-center gap-3 border-b bg-white p-4">
+        <button type="button" onClick={() => navigate('/patients')} className="rounded border p-2">
+          {tr('Records', 'Dossiers')}
         </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-black leading-tight text-cameroon-green">Verify transcription</h1>
-          <p className="text-xs leading-snug text-slate-500">OCR text must be confirmed before clinical analysis.</p>
-        </div>
+        <h1 className="text-xl font-black text-cameroon-green">
+          {tr('Verify transcription', 'Vérifier la transcription')}
+        </h1>
       </header>
-
-      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-4 sm:px-4">
-        <div className="mx-auto w-full max-w-2xl space-y-4">
-          <section className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                <AlertIcon className="h-6 w-6" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="break-words font-black leading-tight text-amber-900">
-                  {transcription.requiresReview ? 'Manual review required' : 'Review recommended'}
-                </h2>
-                <p className="mt-1 break-words text-sm leading-relaxed text-amber-800">
-                  Check medication names, decimal doses, units, allergies, pregnancy and pediatric instructions against the original
-                  document. Use &quot;unreadable&quot; when text cannot be confirmed.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {uncertain.length > 0 && (
-            <section className="w-full rounded-2xl border bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-black">Handwritten or low-confidence text</h2>
-              <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-                {uncertain.map((token, index) => (
-                  <span
-                    key={`${token.pageNumber}-${index}`}
-                    className="max-w-full break-words rounded-lg bg-red-50 px-2 py-1 text-xs font-bold leading-snug text-red-700"
-                    title={`${Math.round(token.confidence * 100)}% confidence`}
-                  >
-                    P{token.pageNumber}: {token.text || 'unreadable'} ({Math.round(token.confidence * 100)}%)
-                  </span>
-                ))}
-              </div>
-            </section>
+      <main className="mx-auto max-w-6xl space-y-4 p-4 pb-10">
+        <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+          {clinicalLanguageNotice(language)}
+        </p>
+        <p className="text-sm">
+          {tr('Patient', 'Patient')}: {activeEncounter.patientId} ·{' '}
+          {tr('Encounter', 'Consultation')}: {activeEncounter.id}
+        </p>
+        <p className="rounded bg-amber-50 p-4 text-sm">
+          {tr(
+            'Compare every page to its original. Correct medication names, decimals, units and allergy information. Write “unreadable” for anything you cannot verify. Highlighted OCR confidence is not clinical confidence.',
+            'Comparez chaque page à l’original. Corrigez les noms de médicaments, décimales, unités et allergies. Écrivez « illisible » si une information ne peut pas être vérifiée. La confiance OCR n’est pas une confiance clinique.'
           )}
-
-          {transcription.pages.map((page, index) => (
-            <section key={page.pageNumber} className="w-full rounded-2xl border bg-white p-4 shadow-sm">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-black">Page {page.pageNumber}</h2>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
-                    page.confidence < 0.9 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                  }`}
-                >
-                  {Math.round(page.confidence * 100)}% OCR confidence
-                </span>
-              </div>
-              {page.qualityReasons.length > 0 && (
-                <p className="mb-3 break-words text-xs font-bold text-amber-700">Quality: {page.qualityReasons.join(', ')}</p>
-              )}
-              <textarea
-                aria-label={`Verified transcription for page ${page.pageNumber}`}
-                value={texts[index] ?? ''}
-                onChange={(event) => setTexts((current) => current.map((text, textIndex) => (
-                  textIndex === index ? event.target.value : text
-                )))}
-                className="min-h-[18rem] max-h-[60dvh] w-full max-w-full resize-y overflow-y-auto rounded-xl border border-slate-300 p-3 font-mono text-sm leading-relaxed focus:border-cameroon-green focus:outline-none"
-              />
-            </section>
-          ))}
-
-        </div>
-      </main>
-
-      <footer className="safe-area-bottom z-20 shrink-0 border-t border-slate-200 bg-white px-3 py-3 shadow-[0_-6px_18px_rgba(15,23,42,0.08)] sm:px-4">
-        <div className="mx-auto w-full max-w-2xl space-y-2">
-          {analysisError && (
-            <div role="alert" className="max-h-24 overflow-y-auto rounded-lg border border-red-300 bg-red-50 px-3 py-2">
-              <p className="text-xs font-black text-red-900">Interpretation did not complete</p>
-              <p className="mt-0.5 break-words text-xs leading-relaxed text-red-800">{analysisError} Your transcription is still available to retry.</p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg border border-cameroon-green bg-green-50 px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(event) => setConfirmed(event.target.checked)}
-                className="mt-0.5 h-5 w-5 shrink-0"
-              />
-              <span className="min-w-0 break-words text-xs font-bold leading-relaxed text-green-900">
-                I reviewed the transcription and corrected or marked clinically important uncertain text.
-              </span>
-            </label>
-
-            <button
-              type="button"
-              disabled={!confirmed || submitting}
-              onClick={() => void submit()}
-              className="flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-cameroon-green px-5 py-3 text-sm font-black text-white shadow-sm disabled:bg-slate-300 disabled:text-slate-600 sm:w-auto"
+        </p>
+        {transcription.pages.map((page, index) => {
+          const source = pendingPages.find((p) => p.id === page.sourcePageId);
+          const selected = highlight?.page === index ? page.tokens[highlight.token] : undefined;
+          return (
+            <section
+              key={`${page.sourcePageId}-${page.pageNumber}`}
+              className="rounded-2xl border bg-white p-4"
             >
-              <CheckIcon />
-              <span>{submitting ? 'Interpreting report...' : 'Interpret report now'}</span>
-            </button>
-          </div>
-        </div>
-      </footer>
+              <h2 className="mb-3 font-black">
+                {tr('Page', 'Page')} {page.pageNumber} ·{' '}
+                <span className="font-normal text-xs">{source?.fileName ?? page.sourcePageId}</span>
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  {source ? (
+                    <div className="relative">
+                      <img
+                        src={source.contentBase64}
+                        alt={`${tr('Original page', 'Page originale')} ${page.pageNumber}`}
+                        className="w-full"
+                      />
+                      {selected?.boundingBox && (
+                        <svg
+                          viewBox="0 0 1 1"
+                          preserveAspectRatio="none"
+                          className="pointer-events-none absolute inset-0 h-full w-full"
+                          aria-hidden="true"
+                        >
+                          <polygon
+                            points={selected.boundingBox.map((p) => `${p.x},${p.y}`).join(' ')}
+                            fill="rgba(250,204,21,0.35)"
+                            stroke="red"
+                            strokeWidth="0.004"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  ) : (
+                    <p role="alert" className="rounded bg-red-50 p-3 text-red-900">
+                      {tr(
+                        'Original source is unavailable or expired. Retrieve it through your approved clinical process before confirming this text.',
+                        'La source originale est indisponible ou expirée. Récupérez-la via votre procédure clinique avant de confirmer ce texte.'
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold">
+                    {tr('Corrected transcription', 'Transcription corrigée')}
+                    <textarea
+                      aria-label={`Verified transcription for page ${page.pageNumber}`}
+                      disabled={busy}
+                      value={texts[index] ?? ''}
+                      onChange={(e) => {
+                        setTexts((all) =>
+                          all.map((text, i) => (i === index ? e.target.value : text))
+                        );
+                        setConfirmed(false);
+                      }}
+                      className="mt-2 min-h-80 w-full rounded border p-3 font-mono text-sm"
+                    />
+                  </label>
+                  <p className="text-xs">
+                    OCR: {Math.round(page.confidence * 100)}% · {page.qualityReasons.join(', ')}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {page.tokens.map(
+                      (token, tokenIndex) =>
+                        (token.confidence < 0.9 || token.handwritten) && (
+                          <button
+                            type="button"
+                            key={tokenIndex}
+                            onClick={() => setHighlight({ page: index, token: tokenIndex })}
+                            className="rounded border border-amber-300 bg-amber-50 p-2 text-xs"
+                            aria-label={`Highlight ${token.text} on page ${page.pageNumber}`}
+                          >
+                            {token.text || 'unreadable'} ({Math.round(token.confidence * 100)}%)
+                          </button>
+                        )
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })}
+        <label className="flex gap-3 rounded border bg-white p-4">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            disabled={
+              busy ||
+              transcription.pages.some(
+                (page) => !pendingPages.some((source) => source.id === page.sourcePageId)
+              )
+            }
+            onChange={(e) => setConfirmed(e.target.checked)}
+          />
+          <span className="text-sm">
+            {tr(
+              'I compared the text with every source page and corrected or marked uncertain text. This review will be attributed to my account.',
+              'J’ai comparé le texte à chaque source et corrigé ou marqué les passages incertains. Cette revue sera attribuée à mon compte.'
+            )}
+          </span>
+        </label>
+        {error && (
+          <p role="alert" className="rounded bg-red-50 p-3 text-red-900">
+            {error}
+          </p>
+        )}
+        {progress && <p role="status">{progress}</p>}
+        {busy ? (
+          <button
+            type="button"
+            onClick={() => {
+              request.current?.abort();
+              setBusy(false);
+              setProgress('');
+              setError(
+                tr(
+                  'Stopped waiting. Any queued job remains saved. Reopen this encounter from records.',
+                  'Attente arrêtée. Les tâches restent enregistrées. Rouvrez cette consultation depuis les dossiers.'
+                )
+              );
+            }}
+            className="w-full rounded border p-3"
+          >
+            {tr('Stop waiting', 'Arrêter l’attente')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!confirmed || !user?.canUseClinicalTools}
+            onClick={() => void submit()}
+            className="w-full rounded bg-cameroon-green p-4 font-black text-white disabled:opacity-40"
+          >
+            {tr('Save review and interpret report', 'Enregistrer la revue et interpréter')}
+          </button>
+        )}
+      </main>
     </div>
   );
 };
-
 export default TranscriptionReview;

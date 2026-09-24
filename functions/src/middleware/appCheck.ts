@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { getAppCheck } from 'firebase-admin/app-check';
 import { APP_CHECK_ENFORCED } from '../config.js';
 
-const isAppCheckEnforced = () => APP_CHECK_ENFORCED.value().toLowerCase() === 'true';
+const isAppCheckEnforced = () => process.env.FUNCTIONS_EMULATOR !== 'true' || APP_CHECK_ENFORCED.value().toLowerCase() === 'true';
 
 export const verifyAppCheck = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!isAppCheckEnforced()) {
@@ -19,8 +19,8 @@ export const verifyAppCheck = async (req: Request, res: Response, next: NextFunc
   try {
     await getAppCheck().verifyToken(token);
     next();
-  } catch (err) {
-    console.error('[CamDiag] App Check verification failed:', err);
+  } catch {
+    console.warn(JSON.stringify({ event: 'app_check_rejected' }));
     res.status(401).json({ error: 'Invalid App Check token' });
   }
 };

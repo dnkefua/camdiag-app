@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TranslationProvider } from '../hooks/useTranslation';
 import NextSteps from '../components/NextSteps';
+vi.mock('../services/medgemma', () => ({ updateReferral: vi.fn() }));
 
 vi.mock('framer-motion', async () => {
   const { createFramerMotionMock } = await vi.importActual<typeof import('./mocks')>('./mocks');

@@ -33,6 +33,17 @@ android/*.keystore
 android/*.aab
 android/*.apk
 android/*.idsig
+android/**/*.keystore
+android/**/*.jks
+android/**/upload-key-reset-*/
+android/upload-key-reset-*/
+**/*password*.dpapi
+**/*password*.enc
+audit-output/**/emulators/
+audit-output/**/emulator-cache/
+audit-output/emulator-cache/
+audit-output/**/firebase-config/
+audit-output/**/build/
 
 # Local deployment helpers / review notes that should not ship with App Hosting
 DEPLOY.bat

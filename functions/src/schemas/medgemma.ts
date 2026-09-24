@@ -4,11 +4,8 @@ export const BackendLanguage = z.enum(['en', 'fr']);
 
 export const DocumentType = z.enum([
   'lab_result',
-  'xray',
-  'rdt',
   'prescription',
   'medical_document',
-  'other',
 ]);
 
 export const PatientContext = z.object({

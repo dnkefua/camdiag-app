@@ -1,0 +1,64 @@
+name: Approved CamDiag release
+on:
+  workflow_dispatch:
+    inputs:
+      approval_reference:
+        description: Clinical/privacy/security release approval record reference
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: camdiag-production-release
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && vars.CLINICAL_RELEASE_APPROVED == 'true'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+      VITE_GOOGLE_MAPS_API_KEY: ${{ vars.VITE_GOOGLE_MAPS_API_KEY }}
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+      VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ vars.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm ci --prefix functions
+      - run: npm run scan:secrets
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm test --prefix functions
+      - run: npm run test:ops
+      - run: npm run test:rules
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run build
+      - run: npm run build --prefix functions
+      - name: Validate deployment configuration
+        run: node tools/release-preflight.mjs
+      - name: Deploy canonical Firebase Hosting, backend, and data policy
+        run: npx firebase deploy --non-interactive --only hosting,functions,firestore,storage --project "$FIREBASE_PROJECT_ID"
+      - name: Release smoke test
+        run: npm run smoke
+        env:
+          CAMDIAG_WEB_URL: https://camdiag-c7e78.web.app
+          CAMDIAG_API_URL: ${{ vars.VITE_API_URL }}

@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 
 interface LogoProps {
   size?: number;
@@ -22,6 +24,8 @@ export const CamDiagLogo = ({
   showWordmark = false,
   className = '',
 }: LogoProps) => {
+  const [playAnimation, setPlayAnimation] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
   const showFullArtwork = animated && !showWordmark && size >= 96;
 
   return (
@@ -33,10 +37,10 @@ export const CamDiagLogo = ({
         style={{ width: size, height: size }}
         role="img"
         aria-label="CamDiag logo"
-        whileHover={{ scale: 1.04 }}
+        whileHover={reducedMotion ? undefined : { scale: 1.04 }}
         transition={{ type: 'spring', stiffness: 360, damping: 26 }}
       >
-        {animated ? (
+        {animated && playAnimation && !reducedMotion ? (
           <video
             className="camdiag-logo-asset"
             src={LOGO_VIDEO_SRC}
@@ -45,7 +49,7 @@ export const CamDiagLogo = ({
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="none"
             aria-hidden="true"
           />
         ) : (
@@ -53,12 +57,13 @@ export const CamDiagLogo = ({
             className="camdiag-logo-asset"
             src={LOGO_IMAGE_SRC}
             alt=""
-            loading="eager"
+            loading="lazy"
             decoding="async"
             aria-hidden="true"
           />
         )}
       </motion.div>
+      {animated && !reducedMotion && <button type="button" onClick={() => setPlayAnimation((value) => !value)} className="sr-only focus:not-sr-only" aria-label={playAnimation ? 'Stop logo animation' : 'Play logo animation (downloads video)'}>{playAnimation ? 'Stop animation' : 'Play animation'}</button>}
 
       {showWordmark && (
         <div className="flex min-w-0 flex-col leading-none">

@@ -11,7 +11,7 @@ import {
   confirmPhoneCode as firebaseConfirmPhoneCode,
   onAuthChange,
 } from '../services/auth';
-import { useAppStore } from '../store/useAppStore';
+import { bindSensitiveSession } from '../services/session';
 
 interface AuthContextValue {
   user: AppUser | null;
@@ -31,6 +31,7 @@ const E2E_TEST_USER_CREATED_AT = 0;
 const shouldUseE2EAuthBypass = (): boolean => {
   if (!import.meta.env.DEV || import.meta.env.VITE_E2E_AUTH_BYPASS !== 'true') return false;
   if (typeof window === 'undefined') return false;
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) return false;
   return window.localStorage.getItem('camdiag_e2e_auth') === 'true';
 };
 
@@ -63,6 +64,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     name: 'E2E Clinician',
     initials: 'EC',
     role: 'doctor',
+    clinicalRole: 'doctor',
+    canUseClinicalTools: true,
+    organizationId: 'synthetic-e2e',
     createdAt: E2E_TEST_USER_CREATED_AT,
   };
   const [user, setUser] = useState<AppUser | null>(e2eAuthBypass ? testUser : null);
@@ -73,29 +77,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthChange((firebaseUser) => {
       setUser(firebaseUser as unknown as AppUser | null);
       setIsLoading(false);
+    }, () => {
+      setUser(null);
+      setIsLoading(true);
     });
     return unsubscribe;
   }, [e2eAuthBypass]);
 
   const login = async (email: string, password: string) => {
-    const appUser = await loginWithEmail(email, password);
-    setUser(appUser as unknown as AppUser);
+    await loginWithEmail(email, password);
   };
 
   const loginWithGoogle = async () => {
-    const appUser = await firebaseLoginWithGoogle();
-    setUser(appUser as unknown as AppUser);
+    await firebaseLoginWithGoogle();
   };
 
   const register = async (email: string, password: string, name: string) => {
-    const appUser = await registerWithEmail(email, password, name);
-    setUser(appUser as unknown as AppUser);
+    await registerWithEmail(email, password, name);
   };
 
   const logout = async () => {
-    await firebaseLogout();
-    useAppStore.getState().resetAnalysis();
+    bindSensitiveSession(null);
     setUser(null);
+    await firebaseLogout();
   };
 
   const handleLoginWithPhone = async (phoneNumber: string) => {
@@ -103,8 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const handleConfirmPhoneCode = async (confirmationResult: ConfirmationResult, code: string) => {
-    const appUser = await firebaseConfirmPhoneCode(confirmationResult, code);
-    setUser(appUser as unknown as AppUser);
+    await firebaseConfirmPhoneCode(confirmationResult, code);
   };
 
   return (

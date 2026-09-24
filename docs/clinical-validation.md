@@ -1,5 +1,9 @@
 # CamDiag Clinical Validation Plan
 
+## Current restricted engineering scope (2026-09-23)
+
+The intended use and dataset slices below describe a broader historical plan. The implementation now accepts only text documents captured as JPEG, PNG or WebP pages. X-ray, RDT/test-strip and body-image interpretation are disabled until separate modality-specific clinical validation and approvals. The new medication workflow explicitly reports **not assessed** unless approved cited evidence is available; this is not a patient-specific clearance. All remaining clinical acceptance work requires a frozen de-identified dataset, independent licensed reviewers and sign-off in the release assurance register. Synthetic software tests count only as engineering evidence.
+
 ## Intended Use
 
 CamDiag is an AI-assisted clinical decision-support tool for healthcare workers reviewing medical documents, lab results, X-rays, rapid diagnostic tests, prescriptions, and medication safety information in Cameroon-focused workflows.

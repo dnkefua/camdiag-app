@@ -1,4 +1,4 @@
-name: CI/CD
+name: Validate CamDiag
 
 on:
   push:
@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://example.invalid/api' }}
       VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY || 'ci-maps-key' }}
@@ -20,7 +24,6 @@ jobs:
       VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID || '1:000000000000:web:0000000000000000000000' }}
       VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID || 'G-0000000000' }}
       VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY || '' }}
-      HAS_FIREBASE_DEPLOY_CREDS: ${{ secrets.FIREBASE_TOKEN != '' && secrets.FIREBASE_PROJECT_ID != '' }}
     strategy:
       matrix:
         node-version: [22.x]
@@ -43,6 +46,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check signing material and secrets
+        run: npm run scan:secrets
+
+      - name: Install Functions dependencies
+        run: npm ci
+        working-directory: functions
+
       - name: Lint
         run: npm run lint
 
@@ -51,6 +61,13 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Test hosting policy and offline safety
+        run: npm run test:ops
+
+      - name: Test backend behavior
+        run: npm test
+        working-directory: functions
 
       - name: Run Firestore rules tests
         run: npm run test:rules
@@ -64,16 +81,14 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Functions dependencies
-        run: npm ci
-        working-directory: functions
-
       - name: Build Functions
         run: npm run build
         working-directory: functions
 
-      - name: Deploy backend services
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && env.HAS_FIREBASE_DEPLOY_CREDS == 'true'
-        run: npx firebase deploy --only functions,firestore:rules --project ${{ secrets.FIREBASE_PROJECT_ID }}
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Save synthetic E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-e2e-report
+          path: playwright-report
+          retention-days: 7

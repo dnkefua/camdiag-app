@@ -1,7 +1,7 @@
 {
   "name": "CamDiag - Clinical Decision Support",
   "short_name": "CamDiag",
-  "description": "AI-assisted clinical review and medication safety support for Cameroon healthcare workers.",
+  "description": "Investigational clinician-assisted document review. Online processing; not a diagnosis, prescription, or medication safety guarantee.",
   "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
